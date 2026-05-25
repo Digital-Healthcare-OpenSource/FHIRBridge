@@ -20,12 +20,12 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.81.0",
+    "@anthropic-ai/sdk": "^0.98.0",
     "@fhirbridge/types": "workspace:*",
     "csv-parse": "^6.2.1",
     "exceljs": "^4.4.0",
     "fhir-kit-client": "^1.9.2",
-    "openai": "^6.32.0",
+    "openai": "^6.39.0",
     "pdfkit": "^0.18.0",
     "uuid": "^14.0.0"
   },
