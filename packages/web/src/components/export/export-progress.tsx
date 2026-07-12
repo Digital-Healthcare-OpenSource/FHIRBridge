@@ -8,13 +8,14 @@ import { cn } from '../../lib/utils';
 import { usePolling } from '../../hooks/use-polling';
 import { exportApi, type ExportJob } from '../../api/export-api';
 import { POLLING_INTERVAL_MS } from '../../lib/constants';
+import { useTranslation } from '../../i18n/use-translation';
 
 const STEPS = [
-  { key: 'connecting', label: 'Connecting to source' },
-  { key: 'fetching', label: 'Fetching patient data' },
-  { key: 'mapping', label: 'Mapping to FHIR R4' },
-  { key: 'bundling', label: 'Creating bundle' },
-  { key: 'complete', label: 'Complete' },
+  { key: 'connecting', labelKey: 'progress.step_connecting' },
+  { key: 'fetching', labelKey: 'progress.step_fetching' },
+  { key: 'mapping', labelKey: 'progress.step_mapping' },
+  { key: 'bundling', labelKey: 'progress.step_bundling' },
+  { key: 'complete', labelKey: 'progress.step_complete' },
 ] as const;
 
 function progressToStep(progress: number): number {
@@ -32,14 +33,12 @@ interface Props {
 }
 
 export function ExportProgress({ jobId, onComplete, onError }: Props) {
-  const { data: job, error } = usePolling(
-    () => exportApi.getStatus(jobId),
-    {
-      interval: POLLING_INTERVAL_MS,
-      enabled: true,
-      shouldStop: (j) => j.status === 'complete' || j.status === 'error',
-    },
-  );
+  const { t } = useTranslation('common');
+  const { data: job, error } = usePolling(() => exportApi.getStatus(jobId), {
+    interval: POLLING_INTERVAL_MS,
+    enabled: true,
+    shouldStop: (j) => j.status === 'complete' || j.status === 'error',
+  });
 
   useEffect(() => {
     if (!job) return;
@@ -59,10 +58,17 @@ export function ExportProgress({ jobId, onComplete, onError }: Props) {
       {/* Progress bar */}
       <div className="space-y-1.5">
         <div className="flex justify-between text-xs text-gray-500">
-          <span>Progress</span>
+          <span>{t('progress.label')}</span>
           <span>{progress}%</span>
         </div>
-        <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+        <div
+          role="progressbar"
+          aria-label={t('progress.label')}
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700"
+        >
           <div
             className="h-2 rounded-full bg-primary-600 transition-all duration-500"
             style={{ width: `${progress}%` }}
@@ -88,6 +94,7 @@ export function ExportProgress({ jobId, onComplete, onError }: Props) {
                 <Circle className="h-5 w-5 text-gray-300 dark:text-gray-600" aria-hidden />
               )}
               <span
+                aria-live={active ? 'polite' : undefined}
                 className={cn(
                   'text-sm',
                   done
@@ -97,7 +104,7 @@ export function ExportProgress({ jobId, onComplete, onError }: Props) {
                       : 'text-gray-400 dark:text-gray-600',
                 )}
               >
-                {step.label}
+                {t(step.labelKey)}
               </span>
             </li>
           );
@@ -105,8 +112,11 @@ export function ExportProgress({ jobId, onComplete, onError }: Props) {
       </ol>
 
       {job?.status === 'error' && (
-        <p className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
-          {job.error ?? 'An error occurred during export'}
+        <p
+          role="alert"
+          className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400"
+        >
+          {job.error ?? t('progress.error_generic')}
         </p>
       )}
     </div>

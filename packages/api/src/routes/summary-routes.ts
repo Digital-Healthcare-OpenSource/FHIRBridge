@@ -14,6 +14,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Bundle } from '@fhirbridge/types';
 import type { ApiConfig } from '../config.js';
 import { SummaryService, type SummaryRequestOptions } from '../services/summary-service.js';
+import { requireScope } from '../plugins/auth-plugin.js';
 import { postSummaryGenerateSchema, getSummaryDownloadSchema } from '../schemas/summary-schemas.js';
 
 interface SummaryGenerateBody {
@@ -39,7 +40,7 @@ export async function summaryRoutes(
   // POST /api/v1/summary/generate
   fastify.post<{ Body: SummaryGenerateBody }>(
     '/api/v1/summary/generate',
-    { schema: postSummaryGenerateSchema },
+    { schema: postSummaryGenerateSchema, preHandler: requireScope('summary:write') },
     async (request: FastifyRequest<{ Body: SummaryGenerateBody }>, reply: FastifyReply) => {
       const { bundle, summaryConfig } = request.body;
 
@@ -67,7 +68,7 @@ export async function summaryRoutes(
   // GET /api/v1/summary/:id/download
   fastify.get<{ Params: IdParams; Querystring: DownloadQuery }>(
     '/api/v1/summary/:id/download',
-    { schema: getSummaryDownloadSchema },
+    { schema: getSummaryDownloadSchema, preHandler: requireScope('summary:read') },
     async (
       request: FastifyRequest<{ Params: IdParams; Querystring: DownloadQuery }>,
       reply: FastifyReply,

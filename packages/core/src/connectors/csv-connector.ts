@@ -1,12 +1,15 @@
 /**
  * CSV file connector — streams rows as RawRecords using csv-parse.
- * Supports UTF-8, UTF-16, and Shift-JIS encodings.
+ * Supports UTF-8, UTF-16 (LE/BE), Shift-JIS, and EUC-JP encodings.
+ * Non-UTF-8 buffers được giải mã qua iconv-lite (Node BufferEncoding không có
+ * Shift-JIS/EUC-JP) để tránh mojibake im lặng với HIS Nhật/Việt.
  * Never loads the full file into memory.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { parse } from 'csv-parse';
+import iconv from 'iconv-lite';
 import type { ConnectorConfig, FileImportConfig } from '@fhirbridge/types';
 import type { HisConnector, RawRecord, ConnectionStatus } from './his-connector-interface.js';
 import { ConnectorError } from './his-connector-interface.js';
@@ -23,11 +26,16 @@ export class CsvConnector implements HisConnector {
       throw new ConnectorError('Expected csv config', 'CONFIG_MISMATCH');
     }
 
-    // Validate file path (prevent directory traversal)
-    const resolved = path.resolve(config.filePath);
-    if (!resolved.startsWith(path.resolve('/'))) {
+    // Fail-fast encoding không hỗ trợ TRƯỚC mọi thao tác FS — tránh mở stream
+    // rồi mới throw (stream mồ côi emit error không ai bắt).
+    resolveIconvEncoding(config.encoding);
+
+    // Validate file path — NUL byte không bao giờ hợp lệ trong path thật;
+    // path.resolve normalize các segment traversal (../) về absolute path.
+    if (config.filePath.includes('\0')) {
       throw new ConnectorError('Invalid file path', 'INVALID_PATH');
     }
+    const resolved = path.resolve(config.filePath);
 
     if (!fs.existsSync(resolved)) {
       throw new ConnectorError(`File not found: path omitted for security`, 'FILE_NOT_FOUND');
@@ -67,9 +75,10 @@ export class CsvConnector implements HisConnector {
     const source = `csv:${path.basename(filePath)}`;
     let rowIndex = 0;
 
-    const stream = fs.createReadStream(filePath, {
-      encoding: (encoding as BufferEncoding) ?? 'utf-8',
-    });
+    // Giải mã raw bytes qua iconv-lite → chuỗi Unicode chuẩn trước khi parse.
+    const stream = fs
+      .createReadStream(filePath)
+      .pipe(iconv.decodeStream(resolveIconvEncoding(encoding)));
 
     const parser = stream.pipe(
       parse({
@@ -104,12 +113,13 @@ export class CsvConnector implements HisConnector {
 
   /** Read only the header row to validate column names */
   private readHeaders(filePath: string, config: FileImportConfig): Promise<string[]> {
+    // Resolve encoding trước khi mở stream — throw ở đây thì chưa có FS handle nào bị bỏ rơi.
+    const iconvEncoding = resolveIconvEncoding(config.encoding);
+
     return new Promise((resolve, reject) => {
       const results: string[] = [];
-      const stream = fs.createReadStream(filePath, {
-        encoding: (config.encoding as BufferEncoding) ?? 'utf-8',
-        end: 4096, // Only read first 4KB for headers
-      });
+      const fileStream = fs.createReadStream(filePath, { end: 4096 }); // chỉ đọc 4KB đầu cho header
+      const stream = fileStream.pipe(iconv.decodeStream(iconvEncoding));
 
       const parser = stream.pipe(
         parse({
@@ -125,7 +135,11 @@ export class CsvConnector implements HisConnector {
         if (Array.isArray(row)) results.push(...row.map(String));
       });
       parser.on('end', () => resolve(results));
-      parser.on('error', reject);
+      parser.on('error', (err) => {
+        fileStream.destroy();
+        reject(err);
+      });
+      fileStream.on('error', reject);
     });
   }
 
@@ -133,4 +147,39 @@ export class CsvConnector implements HisConnector {
   getHeaders(): string[] {
     return [...this.headers];
   }
+}
+
+/**
+ * Ánh xạ SupportedEncoding / Node alias → nhãn iconv-lite.
+ * Bao phủ utf-8, utf-16le/be, shift-jis, euc-jp (+ latin1/ascii legacy).
+ */
+const ICONV_LABELS: Record<string, string> = {
+  'utf-8': 'utf-8',
+  utf8: 'utf-8',
+  'utf-16le': 'utf-16le',
+  utf16le: 'utf-16le',
+  'utf-16be': 'utf-16be',
+  utf16be: 'utf-16be',
+  'shift-jis': 'shift_jis',
+  shift_jis: 'shift_jis',
+  shiftjis: 'shift_jis',
+  sjis: 'shift_jis',
+  'euc-jp': 'euc-jp',
+  eucjp: 'euc-jp',
+  latin1: 'latin1',
+  ascii: 'ascii',
+};
+
+/**
+ * Resolve an encoding label to an iconv-lite codec, fail-fast on unsupported
+ * values so a mistyped encoding surfaces as a config error instead of silent
+ * mojibake (corrupted-but-schema-valid là failure mode tệ nhất).
+ */
+function resolveIconvEncoding(encoding?: string): string {
+  const key = (encoding ?? 'utf-8').toLowerCase();
+  const label = ICONV_LABELS[key];
+  if (!label || !iconv.encodingExists(label)) {
+    throw new ConnectorError(`Unsupported encoding: ${encoding}`, 'UNSUPPORTED_ENCODING');
+  }
+  return label;
 }

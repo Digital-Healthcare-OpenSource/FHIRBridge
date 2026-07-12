@@ -181,4 +181,71 @@ describe('summarizeSections', () => {
     const usage = tracker.getUsage();
     expect(usage.totalTokens).toBeGreaterThan(0);
   });
+
+  it('groups MedicationAdministration and MedicationDispense into Medications', async () => {
+    const bundle = buildBundle([
+      { resourceType: 'MedicationAdministration', id: 'ma1' },
+      { resourceType: 'MedicationDispense', id: 'md1' },
+    ]);
+    const tracker = new TokenTracker();
+
+    const results = await summarizeSections(bundle, stubProvider, BASE_CONFIG, tracker);
+    const medSection = results.find((s) => s.section === 'Medications');
+    expect(medSection!.resourceCount).toBe(2);
+  });
+
+  it('maps Immunization into its own Immunizations section', async () => {
+    const bundle = buildBundle([{ resourceType: 'Immunization', id: 'imm1' }]);
+    const tracker = new TokenTracker();
+
+    const results = await summarizeSections(bundle, stubProvider, BASE_CONFIG, tracker);
+    const immSection = results.find((s) => s.section === 'Immunizations');
+    expect(immSection).toBeDefined();
+    expect(immSection!.resourceCount).toBe(1);
+  });
+
+  it('records unmapped resource types in excludedResourceTypes', async () => {
+    const bundle = buildBundle([
+      { resourceType: 'Condition', id: 'c1' },
+      { resourceType: 'FamilyMemberHistory', id: 'fmh1' },
+      { resourceType: 'ServiceRequest', id: 'sr1' },
+      { resourceType: 'ServiceRequest', id: 'sr2' },
+    ]);
+    const tracker = new TokenTracker();
+
+    const results = await summarizeSections(bundle, stubProvider, BASE_CONFIG, tracker);
+    const excluded = results.flatMap((s) => s.excludedResourceTypes ?? []);
+    expect(excluded).toContain('FamilyMemberHistory');
+    expect(excluded).toContain('ServiceRequest');
+    // Distinct — ServiceRequest recorded once, not twice
+    expect(excluded.filter((t) => t === 'ServiceRequest')).toHaveLength(1);
+  });
+
+  it('sets truncated=true on a section when the provider hits max_tokens', async () => {
+    const truncatingProvider: AiProvider = {
+      name: 'stub',
+      model: 'stub-model',
+      async generate(): Promise<AiResponse> {
+        return {
+          content: 'partial summary',
+          tokenUsage: { inputTokens: 10, outputTokens: 512, totalTokens: 522 },
+          model: 'stub-model',
+          finishReason: 'max_tokens',
+        };
+      },
+      async isAvailable(): Promise<boolean> {
+        return true;
+      },
+    };
+    const bundle = buildBundle([{ resourceType: 'Condition', id: 'c1' }]);
+    const tracker = new TokenTracker();
+
+    const results = await summarizeSections(bundle, truncatingProvider, BASE_CONFIG, tracker);
+    const condSection = results.find((s) => s.section === 'Conditions');
+    expect(condSection!.truncated).toBe(true);
+
+    // Empty sections are complete, not truncated
+    const proc = results.find((s) => s.section === 'Procedures');
+    expect(proc!.truncated).toBeUndefined();
+  });
 });

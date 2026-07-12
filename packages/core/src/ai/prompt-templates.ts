@@ -11,6 +11,12 @@ export interface PromptVariables {
   language: SummaryLanguage;
   detailLevel: SummaryDetailLevel;
   resourceData: string;
+  /**
+   * True khi dates trong output vẫn còn bị shift (multi-patient bundle không
+   * thể re-identify an toàn). Khi bật, prompt nêu rõ dates đã shift để lâm
+   * sàng không hiểu nhầm là ngày thật.
+   */
+  datesShifted?: boolean;
 }
 
 /** A complete prompt with system and user parts */
@@ -29,6 +35,7 @@ export type SectionName =
   | 'Procedures'
   | 'Encounters'
   | 'DiagnosticReports'
+  | 'Immunizations'
   | 'Demographics';
 
 /** Language display names for prompt instructions */
@@ -38,12 +45,23 @@ const LANGUAGE_NAMES: Record<SummaryLanguage, string> = {
   ja: 'Japanese (日本語)',
 };
 
-/** Language-specific instructions added to system prompts */
+/**
+ * Language-specific instructions added to system prompts.
+ * Mỗi ngôn ngữ đều yêu cầu giữ nguyên CHÍNH XÁC tên thuốc, mã lâm sàng và
+ * giá trị/đơn vị liều — chỉ dịch phần diễn giải xung quanh (an toàn lâm sàng).
+ */
 const LANGUAGE_INSTRUCTIONS: Record<SummaryLanguage, string> = {
-  en: 'Respond in clear, professional English.',
-  vi: 'Phản hồi bằng tiếng Việt rõ ràng, chuyên nghiệp. Sử dụng thuật ngữ y tế chuẩn.',
-  ja: '明確かつ専門的な日本語で回答してください。標準的な医療用語を使用してください。',
+  en: 'Respond in clear, professional English. Keep medication names, clinical codes, and dosage values/units EXACTLY as they appear in the data; translate only the surrounding narrative.',
+  vi: 'Phản hồi bằng tiếng Việt rõ ràng, chuyên nghiệp. Sử dụng thuật ngữ y tế chuẩn. Giữ nguyên CHÍNH XÁC tên thuốc, mã lâm sàng và giá trị/đơn vị liều lượng như trong dữ liệu; chỉ dịch phần diễn giải xung quanh.',
+  ja: '明確かつ専門的な日本語で回答してください。標準的な医療用語を使用してください。薬剤名、臨床コード、用量の数値と単位はデータのとおり正確に保持し、周囲の説明文のみを翻訳してください。',
 };
+
+/**
+ * Note appended to prompts when dates in the data remain shifted in the final
+ * output (multi-patient bundles cannot be safely date-re-identified).
+ */
+const DATES_SHIFTED_NOTE =
+  'NOTE: All dates in this data have been shifted by a fixed number of days for privacy. State clearly that dates are shifted for privacy and must not be read as real calendar dates.';
 
 /** Detail level instructions */
 const DETAIL_INSTRUCTIONS: Record<SummaryDetailLevel, string> = {
@@ -61,14 +79,21 @@ function buildSystemPrompt(section: string, variables: PromptVariables): string 
   const langInstr = LANGUAGE_INSTRUCTIONS[variables.language];
   const detailInstr = DETAIL_INSTRUCTIONS[variables.detailLevel];
 
-  return [
+  const lines = [
     `You are a clinical documentation assistant summarizing de-identified ${section} data.`,
     `Language: ${lang}. ${langInstr}`,
     `Detail level: ${variables.detailLevel}. ${detailInstr}`,
     'IMPORTANT: All patient identifiers have been de-identified. Do not attempt to identify patients.',
     'Focus on clinically significant findings. Do not hallucinate or invent information not in the data.',
     'If data is empty or insufficient, state that briefly.',
-  ].join('\n');
+  ];
+
+  // Multi-patient bundle: dates stay shifted in the output — warn explicitly.
+  if (variables.datesShifted) {
+    lines.push(DATES_SHIFTED_NOTE);
+  }
+
+  return lines.join('\n');
 }
 
 /**
@@ -109,10 +134,10 @@ ${vars.resourceData}`,
   }),
 
   Observations: (vars) => ({
-    systemPrompt: buildSystemPrompt('Laboratory Results', vars),
-    userPrompt: `Summarize the following de-identified laboratory observations. Highlight: abnormal values, significant trends, and clinically important results. Include reference ranges where available.
+    systemPrompt: buildSystemPrompt('Clinical Observations', vars),
+    userPrompt: `Summarize the following de-identified clinical observations. These may include laboratory results, social-history findings (e.g. smoking status), imaging observations, and other non-vital categories. Group by observation category where helpful, and highlight: abnormal values, significant trends, and clinically important results. Include reference ranges where available.
 
-Laboratory data:
+Observations data:
 ${vars.resourceData}`,
   }),
 
@@ -137,6 +162,14 @@ ${vars.resourceData}`,
     userPrompt: `Summarize the following de-identified diagnostic reports. Include: report types, key findings, conclusions, and clinical significance.
 
 Diagnostic reports data:
+${vars.resourceData}`,
+  }),
+
+  Immunizations: (vars) => ({
+    systemPrompt: buildSystemPrompt('Immunizations', vars),
+    userPrompt: `Summarize the following de-identified immunization records. Include: vaccine names/codes, status (completed vs not-done), and dates (shifted for privacy). Note any incomplete or refused immunizations.
+
+Immunizations data:
 ${vars.resourceData}`,
   }),
 
@@ -168,11 +201,9 @@ export function getSynthesisPrompt(
   const langInstr = LANGUAGE_INSTRUCTIONS[variables.language];
   const detailInstr = DETAIL_INSTRUCTIONS[variables.detailLevel];
 
-  const summaryText = sectionSummaries
-    .map((s) => `## ${s.section}\n${s.content}`)
-    .join('\n\n');
+  const summaryText = sectionSummaries.map((s) => `## ${s.section}\n${s.content}`).join('\n\n');
 
-  const systemPrompt = [
+  const systemLines = [
     'You are a clinical documentation assistant creating a comprehensive patient summary narrative.',
     `Language: ${lang}. ${langInstr}`,
     `Detail level: ${variables.detailLevel}. ${detailInstr}`,
@@ -180,7 +211,13 @@ export function getSynthesisPrompt(
     'Structure: start with key concerns, then medications, allergy warnings, recent visits, and overall clinical picture.',
     'Add a disclaimer: "This is an AI-generated summary from de-identified data. Verify against source records."',
     'IMPORTANT: All data is de-identified. Do not attempt to identify patients.',
-  ].join('\n');
+  ];
+
+  if (variables.datesShifted) {
+    systemLines.push(DATES_SHIFTED_NOTE);
+  }
+
+  const systemPrompt = systemLines.join('\n');
 
   const userPrompt = `Create a comprehensive patient summary narrative from the following section summaries:
 

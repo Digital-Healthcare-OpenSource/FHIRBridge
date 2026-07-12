@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # keyless cosign signing (OIDC)
 
     steps:
       - uses: actions/checkout@v6
@@ -44,7 +45,32 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=short
 
+      # ── Gate: build the native (amd64) image locally and scan it BEFORE any
+      # push. A CRITICAL/HIGH vulnerability fails the job so nothing ships.
+      - name: Build image for scan (amd64, local)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: fhirbridge-api:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan (gate)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: fhirbridge-api:scan
+          format: table
+          exit-code: '1' # fail the job on findings
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -55,3 +81,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: mode=max # SLSA build provenance attestation
+          sbom: true # attach an SPDX SBOM attestation
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless / Sigstore)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes \
+            "ghcr.io/${{ github.repository_owner }}/fhirbridge-api@${DIGEST}"

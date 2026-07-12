@@ -41,6 +41,16 @@ export interface SectionSummary {
   tokenCount: number;
   /** Number of FHIR resources included in this section */
   resourceCount: number;
+  /**
+   * True khi provider dừng vì max_tokens — nội dung section có thể bị cắt giữa chừng.
+   * Clinician-facing output PHẢI hiển thị cảnh báo khi flag này bật.
+   */
+  truncated?: boolean;
+  /**
+   * Resource types có trong bundle nhưng KHÔNG được map vào section nào —
+   * surfaced để clinician biết dữ liệu nào bị loại khỏi summary (tránh hiểu lầm "không có dữ liệu").
+   */
+  excludedResourceTypes?: string[];
 }
 
 /**
@@ -59,6 +69,11 @@ export interface SummaryMetadata {
   language: SummaryLanguage;
   /** True = data was de-identified before AI call (should always be true) */
   deidentified: boolean;
+  /**
+   * Disclaimer theo từng lần chạy — nêu rõ trạng thái ngày tháng trong output
+   * (đã re-identify về ngày thật, hay vẫn shifted ±N ngày với multi-patient bundle).
+   */
+  disclaimer?: string;
 }
 
 /**

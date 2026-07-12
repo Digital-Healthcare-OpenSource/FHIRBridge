@@ -12,8 +12,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { AuditLogEntry } from '@fhirbridge/types';
 
 import { ExportService } from '../export-service.js';
+import { AuditService, type AuditSink } from '../audit-service.js';
 
 // Imported after vi.mock hoisting — gives us a handle to the mock functions
 import * as CoreModule from '@fhirbridge/core';
@@ -138,8 +140,10 @@ vi.mock('@fhirbridge/core', async (importOriginal) => {
   const actual = await importOriginal<typeof CoreModule>();
   return {
     ...actual,
-    // Override validateBaseUrl để luôn pass trong tests
+    // Override validateBaseUrl + validateBaseUrlWithDns để luôn pass trong tests.
+    // ExportService gọi validateBaseUrlWithDns (DNS-aware, C5) trên mọi outbound URL.
     validateBaseUrl: vi.fn().mockReturnValue({ ok: true }),
+    validateBaseUrlWithDns: vi.fn().mockResolvedValue({ ok: true }),
     FhirEndpointConnector: vi.fn().mockImplementation(() => ({
       connect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
@@ -242,7 +246,7 @@ describe('validateBaseUrl (SSRF protection — tested via runExport side-effects
    * Dùng static import CoreModule (đã được vi.mock hoisting xử lý).
    */
   function installSsrfMock(): void {
-    vi.mocked(CoreModule.validateBaseUrl).mockImplementation((url: string) => {
+    vi.mocked(CoreModule.validateBaseUrlWithDns).mockImplementation(async (url: string) => {
       const blocked = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.169.254'];
       try {
         const parsed = new URL(url);
@@ -420,7 +424,7 @@ describe('ExportService.streamExport (C-6)', () => {
 
   it('SSRF: từ chối stream khi baseUrl bị blocked', async () => {
     const core = await import('@fhirbridge/core');
-    vi.mocked(core.validateBaseUrl).mockReturnValueOnce({
+    vi.mocked(core.validateBaseUrlWithDns).mockResolvedValueOnce({
       ok: false,
       reason: 'IP is in a blocked private range',
     });
@@ -783,5 +787,160 @@ describe('ExportService.streamExport (C-6)', () => {
     expect(writeCount).toBe(2_000);
     // Memory delta vẫn bounded (slow consumer không gây spike)
     expect(heapDeltaMB).toBeLessThan(20);
+  });
+});
+
+// ── C5: DNS-aware SSRF validation is actually called ────────────────────────
+
+describe('ExportService — C5 DNS-aware SSRF', () => {
+  it('calls validateBaseUrlWithDns (not the sync-only validator) on export start', async () => {
+    vi.mocked(CoreModule.validateBaseUrlWithDns).mockClear();
+    vi.mocked(CoreModule.validateBaseUrlWithDns).mockResolvedValue({ ok: true });
+
+    const svc = new ExportService();
+    await svc.startExport(
+      {
+        patientId: 'p1',
+        connectorConfig: {
+          type: 'fhir-endpoint',
+          baseUrl: 'https://fhir.example.com',
+          authType: 'none',
+        },
+      },
+      'u1',
+    );
+    // Cho async pipeline một tick để chạy tới bước validate
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    expect(vi.mocked(CoreModule.validateBaseUrlWithDns)).toHaveBeenCalledWith(
+      'https://fhir.example.com',
+    );
+  });
+});
+
+// ── HIGH: waitForDrain settles on client close during backpressure (no hang) ──
+
+describe('ExportService.streamExport — backpressure + disconnect', () => {
+  it('settles (does not hang) when client closes during backpressure with no drain', async () => {
+    const { FhirEndpointConnector } = await import('@fhirbridge/core');
+    vi.mocked(CoreModule.validateBaseUrlWithDns).mockResolvedValue({ ok: true });
+
+    vi.mocked(FhirEndpointConnector).mockImplementation(() => ({
+      type: 'fhir-endpoint' as const,
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      testConnection: vi.fn(),
+      fetchPatientData: vi.fn().mockReturnValue(makeResourceGenerator(50)),
+    }));
+
+    const svc = new ExportService();
+
+    const emitter = new EventEmitter();
+    let ended = false;
+    let firstWrite = true;
+    const raw = Object.assign(emitter, {
+      write(_chunk: string, cb?: (err?: Error | null) => void): boolean {
+        if (cb) cb();
+        if (firstWrite) {
+          firstWrite = false;
+          // Client disconnect ngay khi backpressure — emit 'close', KHÔNG BAO GIỜ 'drain'.
+          setImmediate(() => emitter.emit('close'));
+        }
+        return false; // luôn backpressured → streamExport phải awaitDrain
+      },
+      end(): void {
+        ended = true;
+        emitter.emit('finish');
+      },
+      setHeader: vi.fn(),
+    });
+
+    const request = makeMockRequest('bp-close-user');
+    const reply = {
+      raw,
+      hijack: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      send: vi.fn().mockReturnThis(),
+      header: vi.fn().mockReturnThis(),
+    } as unknown as FastifyReply;
+
+    // Nếu waitForDrain treo, test này sẽ timeout — đó chính là bug đang fix.
+    await svc.streamExport(request, reply, {
+      patientId: 'p',
+      connectorConfig: {
+        type: 'fhir-endpoint',
+        baseUrl: 'https://fhir.example.com',
+        authType: 'none',
+      },
+      userId: 'bp-close-user',
+    });
+
+    expect(ended).toBe(true);
+  });
+});
+
+// ── MEDIUM: cross-tenant export access is audited (parity with SummaryService) ─
+
+describe('ExportService.getStatus — IDOR audit', () => {
+  class CapturingAuditSink implements AuditSink {
+    entries: AuditLogEntry[] = [];
+    async write(entry: AuditLogEntry): Promise<void> {
+      this.entries.push(entry);
+    }
+  }
+
+  it('audits cross-tenant denial with hashed ids and returns undefined', async () => {
+    vi.mocked(CoreModule.validateBaseUrlWithDns).mockResolvedValue({ ok: true });
+    const sink = new CapturingAuditSink();
+    const audit = new AuditService(sink);
+    const svc = new ExportService({ audit, auditHashSalt: 'test-salt-32-chars-min-required-here' });
+
+    const id = await svc.startExport(
+      {
+        patientId: 'p1',
+        connectorConfig: {
+          type: 'fhir-endpoint',
+          baseUrl: 'https://fhir.example.com',
+          authType: 'none',
+        },
+      },
+      'owner-user-100',
+    );
+
+    const record = await svc.getStatus(id, 'attacker-user-200');
+    expect(record).toBeUndefined();
+
+    expect(sink.entries).toHaveLength(1);
+    const entry = sink.entries[0]!;
+    expect(entry.action).toBe('export_access_denied');
+    expect(entry.status).toBe('error');
+    expect(entry.metadata?.['export_id']).toBe(id);
+    expect(entry.metadata?.['reason']).toBe('cross_tenant');
+    // Hashed, not raw
+    expect(entry.userIdHash).not.toBe('attacker-user-200');
+    expect(entry.userIdHash).toMatch(/^[0-9a-f]{16}$/);
+    expect(entry.metadata?.['owner_user_hash']).not.toBe('owner-user-100');
+  });
+
+  it('does NOT audit legitimate owner access', async () => {
+    vi.mocked(CoreModule.validateBaseUrlWithDns).mockResolvedValue({ ok: true });
+    const sink = new CapturingAuditSink();
+    const audit = new AuditService(sink);
+    const svc = new ExportService({ audit });
+
+    const id = await svc.startExport(
+      {
+        patientId: 'p1',
+        connectorConfig: {
+          type: 'fhir-endpoint',
+          baseUrl: 'https://fhir.example.com',
+          authType: 'none',
+        },
+      },
+      'owner-user-101',
+    );
+
+    await svc.getStatus(id, 'owner-user-101');
+    expect(sink.entries).toHaveLength(0);
   });
 });

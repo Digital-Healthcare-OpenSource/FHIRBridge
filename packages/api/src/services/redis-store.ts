@@ -82,11 +82,22 @@ export class RedisStore implements IRedisStore {
       }
     }
 
-    // In-memory fallback with TTL
+    // In-memory fallback with TTL.
+    // Sweep expired entries on set để fallback Map không phình vô hạn khi Redis down
+    // kéo dài (trước đây chỉ evict lazy khi get đúng key hết hạn).
+    this.sweepExpiredFallback();
     this.fallback.set(fullKey, {
       value: serialized,
       expiresAt: Date.now() + ttlSeconds * 1000,
     });
+  }
+
+  /** Evict expired entries khỏi in-memory fallback Map. */
+  private sweepExpiredFallback(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.fallback.entries()) {
+      if (now > entry.expiresAt) this.fallback.delete(key);
+    }
   }
 
   async get<T = unknown>(key: string): Promise<T | undefined> {

@@ -17,6 +17,18 @@ const MAX_RETRIES = 3;
 /** Base delay for exponential backoff in ms */
 const RETRY_BASE_DELAY_MS = 1000;
 
+/** Defensive bounds for generation parameters (API layer sets real defaults). */
+const MIN_TEMPERATURE = 0;
+const MAX_TEMPERATURE = 1;
+const MIN_MAX_TOKENS = 1;
+const MAX_MAX_TOKENS = 100_000;
+
+/** Clamp a finite number into [lo, hi]; fall back to `fallback` if not finite. */
+function clampNumber(value: number, lo: number, hi: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(Math.max(value, lo), hi);
+}
+
 /**
  * Sleeps for the given number of milliseconds.
  */
@@ -55,19 +67,36 @@ export class ClaudeProvider implements AiProvider {
 
         const response = await this.client.messages.create({
           model: this.model,
-          max_tokens: options.maxTokens,
-          temperature: options.temperature,
+          max_tokens: Math.floor(
+            clampNumber(options.maxTokens, MIN_MAX_TOKENS, MAX_MAX_TOKENS, MAX_MAX_TOKENS),
+          ),
+          temperature: clampNumber(
+            options.temperature,
+            MIN_TEMPERATURE,
+            MAX_TEMPERATURE,
+            MIN_TEMPERATURE,
+          ),
           system: options.systemPrompt,
           messages,
         });
+
+        // A refusal is a hard stop — do not collapse it into empty content.
+        if (response.stop_reason === 'refusal') {
+          throw new Error('ClaudeProvider: response refused by model safety filter');
+        }
 
         const content = response.content
           .filter((block): block is Anthropic.TextBlock => block.type === 'text')
           .map((block) => block.text)
           .join('');
 
-        const finishReason =
-          response.stop_reason === 'max_tokens' ? 'max_tokens' : 'stop';
+        // Empty output is a failure, not a valid summary — surface it so the
+        // gateway can fall back instead of emitting a blank section.
+        if (content.trim().length === 0) {
+          throw new Error('ClaudeProvider: empty response content');
+        }
+
+        const finishReason = response.stop_reason === 'max_tokens' ? 'max_tokens' : 'stop';
 
         return {
           content,

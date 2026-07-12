@@ -24,7 +24,12 @@ describe('mapRow', () => {
 
   it('applies string transform (trim)', () => {
     const mappings: ColumnMapping[] = [
-      { sourceColumn: 'first_name', fhirPath: 'name[0].given[0]', resourceType: 'Patient', transform: 'string' },
+      {
+        sourceColumn: 'first_name',
+        fhirPath: 'name[0].given[0]',
+        resourceType: 'Patient',
+        transform: 'string',
+      },
     ];
     const row = { first_name: '  John   ' };
     const records = mapRow(row, mappings, source);
@@ -40,11 +45,26 @@ describe('mapRow', () => {
     expect(records[0]!.data['birthDate']).toBe('1985-03-15');
   });
 
-  it('applies date transform: MM/DD/YYYY format', () => {
+  it('applies date transform: DD/MM/YYYY format (default VI/JP order)', () => {
     const mappings: ColumnMapping[] = [
       { sourceColumn: 'dob', fhirPath: 'birthDate', resourceType: 'Patient', transform: 'date' },
     ];
-    const records = mapRow({ dob: '03/15/1985' }, mappings, source);
+    const records = mapRow({ dob: '15/03/1985' }, mappings, source);
+    expect(records[0]!.data['birthDate']).toBe('1985-03-15');
+  });
+
+  it('rejects an impossible slash date (day/month > range)', () => {
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'dob', fhirPath: 'birthDate', resourceType: 'Patient', transform: 'date' },
+    ];
+    expect(() => mapRow({ dob: '25/13/2020' }, mappings, source)).toThrow(/Invalid date/);
+  });
+
+  it('interprets slash dates as MM/DD when dateOrder=MDY', () => {
+    const mappings: ColumnMapping[] = [
+      { sourceColumn: 'dob', fhirPath: 'birthDate', resourceType: 'Patient', transform: 'date' },
+    ];
+    const records = mapRow({ dob: '03/15/1985' }, mappings, source, undefined, 'MDY');
     expect(records[0]!.data['birthDate']).toBe('1985-03-15');
   });
 
@@ -66,7 +86,12 @@ describe('mapRow', () => {
 
   it('applies number transform', () => {
     const mappings: ColumnMapping[] = [
-      { sourceColumn: 'value', fhirPath: 'valueQuantity.value', resourceType: 'Observation', transform: 'number' },
+      {
+        sourceColumn: 'value',
+        fhirPath: 'valueQuantity.value',
+        resourceType: 'Observation',
+        transform: 'number',
+      },
     ];
     const records = mapRow({ value: '120.5' }, mappings, source);
     expect(records[0]!.data['valueQuantity.value']).toBe(120.5);
@@ -74,7 +99,12 @@ describe('mapRow', () => {
 
   it('skips invalid number values', () => {
     const mappings: ColumnMapping[] = [
-      { sourceColumn: 'value', fhirPath: 'valueQuantity.value', resourceType: 'Observation', transform: 'number' },
+      {
+        sourceColumn: 'value',
+        fhirPath: 'valueQuantity.value',
+        resourceType: 'Observation',
+        transform: 'number',
+      },
     ];
     const records = mapRow({ value: 'N/A' }, mappings, source);
     expect(records).toHaveLength(0);
@@ -88,7 +118,12 @@ describe('mapRow', () => {
         resourceType: 'Patient',
         transform: 'code',
         valueMappings: [
-          { sourceValue: 'male', system: 'http://hl7.org/fhir/administrative-gender', code: 'male', display: 'Male' },
+          {
+            sourceValue: 'male',
+            system: 'http://hl7.org/fhir/administrative-gender',
+            code: 'male',
+            display: 'Male',
+          },
         ],
       },
     ];
@@ -117,7 +152,12 @@ describe('mapRow', () => {
   it('groups multiple resource types from the same row', () => {
     const mappings: ColumnMapping[] = [
       { sourceColumn: 'patient_id', fhirPath: 'id', resourceType: 'Patient', transform: 'string' },
-      { sourceColumn: 'obs_value', fhirPath: 'valueQuantity.value', resourceType: 'Observation', transform: 'number' },
+      {
+        sourceColumn: 'obs_value',
+        fhirPath: 'valueQuantity.value',
+        resourceType: 'Observation',
+        transform: 'number',
+      },
     ];
     const records = mapRow({ patient_id: 'P001', obs_value: '120' }, mappings, source);
     expect(records).toHaveLength(2);
@@ -127,7 +167,12 @@ describe('mapRow', () => {
 
   it('skips empty/null column values', () => {
     const mappings: ColumnMapping[] = [
-      { sourceColumn: 'optional_field', fhirPath: 'someField', resourceType: 'Patient', transform: 'string' },
+      {
+        sourceColumn: 'optional_field',
+        fhirPath: 'someField',
+        resourceType: 'Patient',
+        transform: 'string',
+      },
     ];
     const records = mapRow({ optional_field: '' }, mappings, source);
     expect(records).toHaveLength(0);

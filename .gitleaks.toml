@@ -1,0 +1,10 @@
+# Gitleaks config — CI secret scan đọc file này tự động từ repo root.
+# Chỉ allowlist theo regex HẸP cho placeholder credentials trong unit test;
+# không allowlist cả thư mục test để secret thật lỡ commit vào test vẫn bị bắt.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder API keys used in unit-test fixtures (incl. deleted files still in git history)"
+regexes = ['''(valid-)?test-api-key-\d+''']

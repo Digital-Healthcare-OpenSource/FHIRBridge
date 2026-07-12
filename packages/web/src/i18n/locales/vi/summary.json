@@ -10,5 +10,13 @@
     "provider_label": "Nhà cung cấp AI",
     "model_label": "Mô hình",
     "language_label": "Ngôn ngữ tóm tắt"
+  },
+  "disclaimer": {
+    "label": "Tóm tắt do AI tạo",
+    "body": "— Nội dung này do mô hình AI tạo ra và có thể chứa sai sót. Luôn kiểm chứng thông tin lâm sàng với nhân viên y tế có chuyên môn."
+  },
+  "actions": {
+    "download_markdown": "Tải Markdown",
+    "download_pdf": "Tải PDF"
   }
 }

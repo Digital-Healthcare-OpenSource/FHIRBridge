@@ -59,7 +59,10 @@ async function _rateLimiterPlugin(
     max: maxPerMinute,
     timeWindow: '1 minute',
     keyGenerator: (req: FastifyRequest) => req.authUser?.id ?? req.ip,
-    allowList: (req: FastifyRequest) => req.url.split('?')[0] === '/api/v1/health',
+    allowList: (req: FastifyRequest) => {
+      const path = req.url.split('?')[0];
+      return path === '/api/v1/health' || path === '/api/v1/readyz';
+    },
     errorResponseBuilder: (req, context) => ({
       statusCode: 429,
       error: 'Too Many Requests',

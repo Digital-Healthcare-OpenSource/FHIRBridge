@@ -8,6 +8,7 @@ import { cn } from '../../lib/utils';
 import { exportApi, type ExportJob } from '../../api/export-api';
 import { formatCount, maskPatientId, formatDate } from '../../lib/format-utils';
 import { Toast, type ToastState } from '../ui/toast';
+import { useTranslation } from '../../i18n/use-translation';
 
 interface Props {
   job: ExportJob;
@@ -24,6 +25,8 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export function ExportResult({ job, className }: Props) {
+  const { t } = useTranslation('common');
+  const { t: tError } = useTranslation('errors');
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const handleDownload = useCallback(async () => {
@@ -31,9 +34,9 @@ export function ExportResult({ job, className }: Props) {
       const blob = await exportApi.downloadBundle(job.id);
       downloadBlob(blob, `fhir-bundle-${job.id}.json`);
     } catch {
-      setToast({ message: 'Download failed. Please try again.', variant: 'error' });
+      setToast({ message: tError('download_failed'), variant: 'error' });
     }
-  }, [job.id]);
+  }, [job.id, tError]);
 
   return (
     <>
@@ -50,9 +53,11 @@ export function ExportResult({ job, className }: Props) {
             aria-hidden
           />
           <div className="flex-1 space-y-1">
-            <p className="font-medium text-green-800 dark:text-green-200">Export complete</p>
+            <p className="font-medium text-green-800 dark:text-green-200">
+              {t('export_result.complete')}
+            </p>
             <p className="text-sm text-green-700 dark:text-green-300">
-              Patient ID: {maskPatientId(job.patientId ?? '')} ·{' '}
+              {t('export_result.patient_id_label')}: {maskPatientId(job.patientId ?? '')} ·{' '}
               {formatCount(job.resourceCount, 'resource')} · {formatDate(job.updatedAt ?? '')}
             </p>
           </div>
@@ -65,7 +70,7 @@ export function ExportResult({ job, className }: Props) {
             className="inline-flex items-center gap-1.5 rounded-md bg-green-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
           >
             <Download className="h-4 w-4" aria-hidden />
-            Download FHIR Bundle (JSON)
+            {t('export_result.download')}
           </button>
         </div>
       </div>

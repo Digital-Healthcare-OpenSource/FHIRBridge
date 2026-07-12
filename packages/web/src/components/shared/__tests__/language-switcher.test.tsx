@@ -4,7 +4,7 @@
  * - Default renders VI selected
  * - Switch to EN updates i18n.language
  * - Persistence: localStorage written on change
- * - All 3 options rendered
+ * - Chỉ VI + EN được render; JA cố tình vắng mặt cho tới khi có bản dịch thật
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -33,11 +33,13 @@ describe('LanguageSwitcher', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
-  it('shows all 3 language options', () => {
+  it('shows VI and EN options; JA absent until real translations exist', () => {
     renderSwitcher();
     expect(screen.getByRole('option', { name: 'Tiếng Việt' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'English' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '日本語' })).toBeInTheDocument();
+    // JA bị loại chủ đích — locales/ja/* còn là placeholder tiếng Việt;
+    // hiện 日本語 mà nội dung là tiếng Việt sẽ đánh lừa clinician Nhật.
+    expect(screen.queryByRole('option', { name: '日本語' })).toBeNull();
   });
 
   it('VI is selected by default', async () => {
@@ -62,19 +64,6 @@ describe('LanguageSwitcher', () => {
     await waitFor(() => {
       expect(localStorage.getItem('fhirbridge.lang')).toBe('en');
     });
-  });
-
-  it('selecting JA updates select value', async () => {
-    const { rerender } = renderSwitcher();
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'ja' } });
-    await waitFor(() => expect(i18n.language).toBe('ja'));
-    rerender(
-      <I18nextProvider i18n={i18n}>
-        <LanguageSwitcher />
-      </I18nextProvider>,
-    );
-    expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('ja');
   });
 
   it('has accessible aria-label', () => {

@@ -16,6 +16,9 @@ const baseConfig: ApiConfig = {
   apiKeys: [],
   corsOrigins: ['http://localhost:3000'],
   logLevel: 'silent',
+  rateLimitPerMinute: 100,
+  enableDocs: true,
+  auditRetentionDays: 90,
 };
 
 async function buildApp(corsOrigins: string[]): Promise<FastifyInstance> {

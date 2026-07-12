@@ -18,6 +18,14 @@ import { skipOverride } from './plugin-utils.js';
 
 export interface AuthUser {
   id: string;
+  /** Optional RBAC-lite role claim (from JWT `role`). */
+  role?: string;
+  /** Optional OAuth-style scopes (from JWT `scope` string or `scopes` array). */
+  scopes?: string[];
+  /** JWT ID — present only for JWT auth; used by the logout denylist. */
+  jti?: string;
+  /** JWT expiry (epoch seconds) — used to bound the denylist TTL. */
+  exp?: number;
 }
 
 // Augment FastifyRequest to carry typed user info
@@ -27,8 +35,69 @@ declare module 'fastify' {
   }
 }
 
-/** Paths that bypass authentication */
-const PUBLIC_PATHS = new Set(['/api/v1/health']);
+/**
+ * Optional revocation list for JWT `jti` values (logout / forced sign-out).
+ * Redis-backed in production; in-memory fallback for single-replica / tests.
+ */
+export interface IJtiDenylist {
+  isRevoked(jti: string): Promise<boolean>;
+  revoke(jti: string, ttlSeconds: number): Promise<void>;
+}
+
+/** In-memory jti denylist — lazily evicts expired entries on read. */
+export class InMemoryJtiDenylist implements IJtiDenylist {
+  private readonly revoked = new Map<string, number>();
+
+  async isRevoked(jti: string): Promise<boolean> {
+    const expiresAt = this.revoked.get(jti);
+    if (expiresAt === undefined) return false;
+    if (Date.now() >= expiresAt) {
+      this.revoked.delete(jti);
+      return false;
+    }
+    return true;
+  }
+
+  async revoke(jti: string, ttlSeconds: number): Promise<void> {
+    this.revoked.set(jti, Date.now() + Math.max(0, ttlSeconds) * 1000);
+  }
+}
+
+/** Paths that bypass authentication (liveness + readiness probes). */
+const PUBLIC_PATHS = new Set(['/api/v1/health', '/api/v1/readyz']);
+
+/** Default maximum accepted JWT age — defence-in-depth cap on top of `exp`. */
+const DEFAULT_JWT_MAX_AGE = '1h';
+
+/**
+ * Route helper (register as `preHandler`) enforcing an OAuth-style scope.
+ * DEFAULT PERMISSIVE: a token with no scopes is allowed (RBAC-lite is opt-in / backward
+ * compatible). Only a token that *carries* scopes but lacks the required one is rejected (403).
+ */
+export function requireScope(scope: string) {
+  return async function scopeGuard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+    const scopes = request.authUser?.scopes;
+    if (!scopes || scopes.length === 0) return; // permissive default
+    if (!scopes.includes(scope)) {
+      await reply.status(403).send({
+        statusCode: 403,
+        error: 'Forbidden',
+        message: `Missing required scope: ${scope}`,
+      });
+    }
+  };
+}
+
+/** Parse `scope` (space-delimited string) and/or `scopes` (array) claims into a string[]. */
+function parseScopes(claims: { scope?: unknown; scopes?: unknown }): string[] | undefined {
+  if (Array.isArray(claims.scopes)) {
+    return claims.scopes.filter((s): s is string => typeof s === 'string' && s.length > 0);
+  }
+  if (typeof claims.scope === 'string' && claims.scope.trim().length > 0) {
+    return claims.scope.trim().split(/\s+/);
+  }
+  return undefined;
+}
 
 /**
  * So sánh hai chuỗi bằng constant-time để chống timing attack.
@@ -56,11 +125,27 @@ function apiKeyToId(key: string): string {
   return createHash('sha256').update(key, 'utf8').digest('hex').slice(0, 16);
 }
 
-async function _authPlugin(fastify: FastifyInstance, opts: { config: ApiConfig }): Promise<void> {
+export interface AuthPluginOptions {
+  config: ApiConfig;
+  /** Optional jti revocation list — enables logout / forced sign-out. */
+  jtiDenylist?: IJtiDenylist;
+  /** Maximum accepted JWT age (jsonwebtoken maxAge form). Default 1h. */
+  jwtMaxAge?: string | number;
+}
+
+async function _authPlugin(fastify: FastifyInstance, opts: AuthPluginOptions): Promise<void> {
   await fastify.register(fastifyJwt, {
     secret: opts.config.jwtSecret,
     sign: { algorithm: 'HS256' },
+    // Reject unsigned-lifetime / subject-less tokens and cap token age (global-standards JWT).
+    verify: {
+      algorithms: ['HS256'],
+      maxAge: opts.jwtMaxAge ?? DEFAULT_JWT_MAX_AGE,
+      requiredClaims: ['exp', 'sub'],
+    },
   });
+
+  const jtiDenylist = opts.jtiDenylist;
 
   // Lưu array để có thể iterate; Set.has() không dùng constant-time
   const validApiKeys: string[] = opts.config.apiKeys;
@@ -93,9 +178,42 @@ async function _authPlugin(fastify: FastifyInstance, opts: { config: ApiConfig }
 
     if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
       try {
-        const decoded = await request.jwtVerify<{ sub?: string; id?: string }>();
-        const id = decoded.sub ?? decoded.id ?? 'unknown';
-        request.authUser = { id };
+        const decoded = await request.jwtVerify<{
+          sub?: string;
+          id?: string;
+          jti?: string;
+          exp?: number;
+          role?: unknown;
+          scope?: unknown;
+          scopes?: unknown;
+        }>();
+
+        // Identity collapse guard: never default to a shared 'unknown' id (breaks IDOR checks).
+        const subject = (decoded.sub ?? decoded.id ?? '').trim();
+        if (subject.length === 0) {
+          return reply.status(401).send({
+            statusCode: 401,
+            error: 'Unauthorized',
+            message: 'Invalid token: missing subject',
+          });
+        }
+
+        // Revocation check (logout / forced sign-out).
+        if (decoded.jti && jtiDenylist && (await jtiDenylist.isRevoked(decoded.jti))) {
+          return reply.status(401).send({
+            statusCode: 401,
+            error: 'Unauthorized',
+            message: 'Token has been revoked',
+          });
+        }
+
+        request.authUser = {
+          id: subject,
+          role: typeof decoded.role === 'string' ? decoded.role : undefined,
+          scopes: parseScopes(decoded),
+          jti: decoded.jti,
+          exp: decoded.exp,
+        };
         return;
       } catch {
         return reply

@@ -35,7 +35,11 @@ export interface ConsentRecord {
   version: string;
   granted: boolean;
   timestamp: string;
-  /** Undefined = không "remember" → không persist qua sessions */
+  /**
+   * Thời điểm hết hạn. Record được persist BẮT BUỘC phải có expiresAt — record
+   * thiếu expiresAt bị coi là KHÔNG hợp lệ (xem isRecordValid). Grant không
+   * "remember" chỉ sống trong React state, không ghi localStorage.
+   */
   expiresAt?: string;
 }
 
@@ -115,7 +119,10 @@ function deleteRecord(): void {
 function isRecordValid(record: ConsentRecord, currentVersion: string): boolean {
   if (!record.granted) return false;
   if (record.version !== currentVersion) return false;
-  if (record.expiresAt && new Date(record.expiresAt) < new Date()) return false;
+  // Record persist KHÔNG có expiresAt = không hợp lệ. Trước đây thiếu expiresAt
+  // bị coi là "không bao giờ hết hạn" → grant session-only vô tình sống mãi.
+  if (!record.expiresAt) return false;
+  if (new Date(record.expiresAt) < new Date()) return false;
   return true;
 }
 
@@ -142,6 +149,8 @@ async function recordConsentApi(consentVersionHash: string, granted: boolean): P
 export function useConsent(): UseConsentReturn {
   const [modalOpen, setModalOpen] = useState(false);
   const [consentVersion, setConsentVersion] = useState<string>('');
+  // Grant "không remember": chỉ sống trong session React state, KHÔNG persist.
+  const [sessionGranted, setSessionGranted] = useState(false);
 
   // Promise resolver để bridge giữa async requestConsent() và UI callbacks
   const resolverRef = useRef<((granted: boolean) => void) | null>(null);
@@ -153,15 +162,17 @@ export function useConsent(): UseConsentReturn {
     return hash;
   }, []);
 
-  // Kiểm tra localStorage có consent hợp lệ không
+  // Kiểm tra consent hợp lệ: ưu tiên session grant, rồi tới localStorage record
   const checkExisting = useCallback(async (): Promise<boolean> => {
     const version = await ensureVersion();
+    if (sessionGranted) return true;
     const record = readRecord();
     return record !== null && isRecordValid(record, version);
-  }, [ensureVersion]);
+  }, [ensureVersion, sessionGranted]);
 
   // hasConsent là synchronous check (dùng cached version nếu có)
   const hasConsent = (() => {
+    if (sessionGranted) return true;
     if (!_versionHashCache) return false;
     const record = readRecord();
     return record !== null && isRecordValid(record, _versionHashCache);
@@ -187,15 +198,22 @@ export function useConsent(): UseConsentReturn {
       void (async () => {
         const version = await ensureVersion();
         const now = new Date();
-        const record: ConsentRecord = {
-          version,
-          granted: true,
-          timestamp: now.toISOString(),
-          expiresAt: rememberSession
-            ? new Date(now.getTime() + SESSION_TTL_MS).toISOString()
-            : undefined,
-        };
-        writeRecord(record);
+        if (rememberSession) {
+          // Persist 24h vào localStorage
+          const record: ConsentRecord = {
+            version,
+            granted: true,
+            timestamp: now.toISOString(),
+            expiresAt: new Date(now.getTime() + SESSION_TTL_MS).toISOString(),
+          };
+          writeRecord(record);
+          setSessionGranted(false);
+        } else {
+          // KHÔNG remember: chỉ giữ trong React state, xóa mọi record persist cũ
+          // để không vô tình để lại grant "không hết hạn".
+          deleteRecord();
+          setSessionGranted(true);
+        }
         await recordConsentApi(version, true);
         resolverRef.current?.(true);
         resolverRef.current = null;
@@ -210,6 +228,7 @@ export function useConsent(): UseConsentReturn {
     void (async () => {
       const version = await ensureVersion();
       // Xóa consent cũ nếu có
+      setSessionGranted(false);
       deleteRecord();
       await recordConsentApi(version, false);
       resolverRef.current?.(false);
@@ -219,6 +238,7 @@ export function useConsent(): UseConsentReturn {
 
   const revokeConsent = useCallback(async (): Promise<void> => {
     const version = await ensureVersion();
+    setSessionGranted(false);
     deleteRecord();
     await recordConsentApi(version, false);
   }, [ensureVersion]);

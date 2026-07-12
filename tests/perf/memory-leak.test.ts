@@ -60,29 +60,34 @@ describe('Memory — export initiation RSS growth', () => {
 });
 
 describe('Memory — export store TTL eviction', () => {
-  it('evictExpiredMemory removes stale records (unit-level check)', async () => {
-    // Import ExportService directly to verify eviction logic
-    // without needing to wait for real TTL (10 minutes)
+  it('TTL sweep removes stale records (unit-level check)', async () => {
+    // Job-record lifecycle giờ nằm ở JobRecordStore (redis-or-memory) —
+    // inject record hết hạn qua store.set rồi verify getStatus evict + trả undefined.
     const { ExportService } = await import('../../packages/api/src/services/export-service.js');
 
     const service = new ExportService();
-    // Access internal memStore via bracket notation (private field test)
     type StoreRecord = { createdAt: number; userId: string; status: string };
-    const memStore = (service as unknown as { memStore: Map<string, StoreRecord> }).memStore;
+    const store = (
+      service as unknown as {
+        store: {
+          set(id: string, record: StoreRecord): Promise<void>;
+          memStore: Map<string, StoreRecord>;
+        };
+      }
+    ).store;
 
-    // Manually inject an expired record
+    // Manually inject an expired record (TTL = 10 min)
     const fakeId = 'fake-expired-export';
-    const staleCreatedAt = Date.now() - 11 * 60 * 1000; // 11 minutes ago (TTL = 10 min)
-    memStore.set(fakeId, { status: 'complete', userId: 'user-x', createdAt: staleCreatedAt });
+    const staleCreatedAt = Date.now() - 11 * 60 * 1000; // 11 minutes ago
+    await store.set(fakeId, { status: 'complete', userId: 'user-x', createdAt: staleCreatedAt });
 
-    expect(memStore.has(fakeId)).toBe(true);
+    expect(store.memStore.has(fakeId)).toBe(true);
 
-    // Calling getStatus triggers evictExpiredMemory internally
+    // getStatus → getOwned → sweepExpired evicts the stale record
     const record = await service.getStatus(fakeId, 'user-x');
 
-    // After eviction the record is gone — getStatus returns undefined
     expect(record).toBeUndefined();
-    expect(memStore.has(fakeId)).toBe(false);
+    expect(store.memStore.has(fakeId)).toBe(false);
   });
 });
 

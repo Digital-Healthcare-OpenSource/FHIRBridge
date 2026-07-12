@@ -124,15 +124,55 @@ describe('formatComposition', () => {
     expect(comp.subject?.reference).toBe('Patient/[PATIENT]');
   });
 
-  it('includes synthesis + all sections in Composition sections', () => {
+  it('includes synthesis + all sections + disclaimer in Composition sections', () => {
     const comp = formatComposition(buildTestSummary(), 'Patient/[PATIENT]');
-    // synthesis + 3 sections = 4
-    expect(comp.section.length).toBe(4);
+    // synthesis + 3 sections + trailing disclaimer = 5
+    expect(comp.section.length).toBe(5);
     const titles = comp.section.map((s) => s.title);
     expect(titles).toContain('Clinical Narrative');
     expect(titles).toContain('Conditions');
     expect(titles).toContain('Medications');
     expect(titles).toContain('Allergies');
+    expect(titles).toContain('Disclaimer');
+  });
+
+  it('includes a clinician-review disclaimer section', () => {
+    const comp = formatComposition(buildTestSummary(), 'Patient/[PATIENT]');
+    const disclaimerSection = comp.section.find((s) => s.title === 'Disclaimer');
+    expect(disclaimerSection).toBeDefined();
+    expect(disclaimerSection!.text.div.toLowerCase()).toContain('clinician');
+  });
+
+  it('prefers metadata.disclaimer when set', () => {
+    const summary = buildTestSummary();
+    summary.metadata.disclaimer = 'CUSTOM shifted-date disclaimer for this run.';
+    const comp = formatComposition(summary, 'Patient/[PATIENT]');
+    const disclaimerSection = comp.section.find((s) => s.title === 'Disclaimer');
+    expect(disclaimerSection!.text.div).toContain('CUSTOM shifted-date disclaimer');
+  });
+
+  it('surfaces a truncated section warning in the section div', () => {
+    const summary = buildTestSummary();
+    summary.sections[0]!.truncated = true;
+    const comp = formatComposition(summary, 'Patient/[PATIENT]');
+    const cond = comp.section.find((s) => s.title === 'Conditions');
+    expect(cond!.text.div.toLowerCase()).toContain('truncated');
+  });
+
+  it('surfaces excluded resource types in the disclaimer section', () => {
+    const summary = buildTestSummary();
+    summary.sections[0]!.excludedResourceTypes = ['ServiceRequest', 'FamilyMemberHistory'];
+    const comp = formatComposition(summary, 'Patient/[PATIENT]');
+    const disclaimerSection = comp.section.find((s) => s.title === 'Disclaimer');
+    expect(disclaimerSection!.text.div).toContain('ServiceRequest');
+  });
+
+  it('localizes headings and disclaimer for Vietnamese', () => {
+    const summary = buildTestSummary();
+    summary.metadata.language = 'vi';
+    const md = formatMarkdown(summary);
+    expect(md).toContain('Báo cáo Tóm tắt Bệnh nhân');
+    expect(md).toContain('Tuyên bố miễn trừ');
   });
 
   it('each section has valid FHIR narrative div', () => {

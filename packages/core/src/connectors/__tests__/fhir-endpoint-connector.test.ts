@@ -1,36 +1,56 @@
 /**
  * Tests for FhirEndpointConnector.
  * Does NOT test actual HTTP calls — only interface compliance and structural behavior.
+ * The SSRF validator is mocked so tests are hermetic (no real DNS).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FhirEndpointConnector } from '../fhir-endpoint-connector.js';
 import type { FhirEndpointConfig } from '@fhirbridge/types';
 
+// Shared mocks for the fhir-kit-client instance methods.
+const { requestMock, capabilityMock } = vi.hoisted(() => ({
+  requestMock: vi.fn(),
+  capabilityMock: vi.fn(),
+}));
+
 // Stub fhir-kit-client to avoid real HTTP
-vi.mock('fhir-kit-client', () => {
-  return {
-    default: vi.fn().mockImplementation(() => ({
-      capabilityStatement: vi.fn().mockResolvedValue({ fhirVersion: '4.0.1' }),
-      request: vi.fn().mockResolvedValue({
-        resourceType: 'Bundle',
-        entry: [],
-        link: [],
-      }),
-    })),
-  };
-});
+vi.mock('fhir-kit-client', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    capabilityStatement: capabilityMock,
+    request: requestMock,
+  })),
+}));
+
+// Stub the DNS-aware SSRF validator — block private/metadata targets deterministically.
+vi.mock('../../security/ssrf-validator.js', () => ({
+  validateBaseUrlWithDns: vi.fn(async (url: string) => {
+    if (/169\.254\.169\.254|localhost|127\.0\.0\.1|(?:^|\/\/)10\.|192\.168\.|metadata/.test(url)) {
+      return { ok: false, reason: `blocked target ${url}` };
+    }
+    return { ok: true };
+  }),
+  validateBaseUrl: vi.fn(() => ({ ok: true })),
+}));
 
 const BASE_CONFIG: FhirEndpointConfig = {
   type: 'fhir-endpoint',
   baseUrl: 'https://hapi.fhir.org/baseR4',
 };
 
+function emptyBundle() {
+  return { resourceType: 'Bundle', entry: [], link: [] };
+}
+
 describe('FhirEndpointConnector', () => {
   let connector: FhirEndpointConnector;
 
   beforeEach(() => {
     connector = new FhirEndpointConnector();
+    requestMock.mockReset();
+    requestMock.mockResolvedValue(emptyBundle());
+    capabilityMock.mockReset();
+    capabilityMock.mockResolvedValue({ fhirVersion: '4.0.1' });
   });
 
   describe('interface compliance', () => {
@@ -79,8 +99,6 @@ describe('FhirEndpointConnector', () => {
     });
 
     it('returns ConnectionStatus object (may fail) when called without connect', async () => {
-      // Without connect, client is null — connector creates a temporary client using empty baseUrl
-      // testConnection should not throw but may return connected:false
       const status = await connector.testConnection();
       expect(typeof status.connected).toBe('boolean');
       expect(typeof status.checkedAt).toBe('string');
@@ -99,6 +117,60 @@ describe('FhirEndpointConnector', () => {
 
       const gen = connector.fetchPatientData('patient-123');
       await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow('connect()');
+    });
+  });
+
+  describe('SSRF protection', () => {
+    it('rejects connect when tokenEndpoint resolves to a cloud-metadata IP', async () => {
+      await expect(
+        connector.connect({
+          ...BASE_CONFIG,
+          clientId: 'c',
+          clientSecret: 's',
+          tokenEndpoint: 'http://169.254.169.254/token',
+        }),
+      ).rejects.toThrow(/Blocked tokenEndpoint/);
+    });
+
+    it('follows a same-origin pagination next-link', async () => {
+      await connector.connect(BASE_CONFIG);
+      requestMock.mockReset();
+      requestMock
+        .mockResolvedValueOnce({
+          resourceType: 'Bundle',
+          entry: [{ resource: { resourceType: 'Patient', id: 'p1' } }],
+          link: [{ relation: 'next', url: 'https://hapi.fhir.org/baseR4?page=2' }],
+        })
+        .mockResolvedValueOnce({
+          resourceType: 'Bundle',
+          entry: [{ resource: { resourceType: 'Observation', id: 'o1' } }],
+          link: [],
+        });
+
+      const records = [];
+      for await (const record of connector.fetchPatientData('p1')) {
+        records.push(record);
+      }
+
+      expect(records.map((r) => r.resourceType)).toEqual(['Patient', 'Observation']);
+      expect(requestMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects a cross-origin pagination next-link pointing at a metadata IP', async () => {
+      await connector.connect(BASE_CONFIG);
+      requestMock.mockReset();
+      requestMock.mockResolvedValueOnce({
+        resourceType: 'Bundle',
+        entry: [{ resource: { resourceType: 'Patient', id: 'p1' } }],
+        link: [{ relation: 'next', url: 'http://169.254.169.254/latest/meta-data' }],
+      });
+
+      const drain = async () => {
+        for await (const _ of connector.fetchPatientData('p1')) {
+          void _;
+        }
+      };
+      await expect(drain()).rejects.toThrow(/Cross-origin|Blocked/);
     });
   });
 });

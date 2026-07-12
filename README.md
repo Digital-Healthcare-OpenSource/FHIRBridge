@@ -64,12 +64,17 @@ The fastest way to try FHIRBridge is the pre-built image. The API runs with no P
 JWT_SECRET=$(openssl rand -hex 48)
 HMAC_SECRET=$(openssl rand -hex 48)
 
-# Pull and run
+# Pull and run — pin to a released version tag (not :latest) so a deploy is
+# reproducible. For production, pin to an immutable digest instead:
+#   ghcr.io/tranhoangtu-it/fhirbridge-api@sha256:<digest>
+# Images are cosign-signed and ship SBOM + provenance attestations; verify with
+#   cosign verify ghcr.io/tranhoangtu-it/fhirbridge-api:v0.1.0 \
+#     --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'
 docker run --rm \
   -e JWT_SECRET=$JWT_SECRET \
   -e HMAC_SECRET=$HMAC_SECRET \
   -p 3001:3001 \
-  ghcr.io/tranhoangtu-it/fhirbridge-api:latest
+  ghcr.io/tranhoangtu-it/fhirbridge-api:v0.1.0
 
 # In another terminal:
 curl http://localhost:3001/api/v1/health
@@ -201,7 +206,12 @@ The simplest deployment is a single Node.js process. Docker compose for Postgres
 # 1. Build the production bundle
 pnpm build
 
-# 2. (Optional) Start Postgres + Redis for persistent audit logs and distributed rate limit
+# 2. (Optional) Start Postgres + Redis for persistent audit logs and distributed rate limit.
+#    POSTGRES_PASSWORD and REDIS_PASSWORD are REQUIRED (compose fails fast if unset)
+#    and both services bind to 127.0.0.1 only. Redis persistence is disabled and
+#    /data is tmpfs, so no cached record is ever written to durable disk.
+export POSTGRES_PASSWORD=$(openssl rand -hex 24)
+export REDIS_PASSWORD=$(openssl rand -hex 24)
 docker compose -f docker/docker-compose.yml up -d
 
 # 3. Start the API server
@@ -218,6 +228,28 @@ Behavior under degraded infra:
 - No `REDIS_URL` set → rate limit + caches stay in-memory per process. Single-replica only.
 - No `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` → AI summary endpoints return a clear error; export + connector endpoints unaffected.
 
+### Production hardening
+
+FHIRBridge handles PHI in transit. **TLS is REQUIRED in production** — never expose
+`:3001` directly. Terminate TLS at a reverse proxy and run the API on loopback / a
+private network behind it. The operator is the data controller; these docs cover the
+operational contract:
+
+- **[Reverse proxy & TLS](docs/operations/reverse-proxy.md)** — Caddy (automatic HTTPS)
+  and nginx examples, `TRUST_PROXY`, and the streaming-critical settings (disable
+  response buffering, long read timeouts) needed for NDJSON exports.
+- **[Backup & restore](docs/operations/backup-restore.md)** — nightly `pg_dump` of the
+  audit DB, retention per jurisdiction (US ~6 yr, VN/JP per local rule), the
+  append-only purge path, and a restore drill.
+- **[Upgrading](docs/operations/upgrading.md)** — `init.sql` runs on first boot only;
+  the schema-migration gap and how to close it with a migration runner.
+- **[Scaling](docs/operations/scaling.md)** — single-replica by default; running
+  multiple replicas **requires `REDIS_URL`** (exports, summaries, idempotency, and
+  rate limiting are otherwise per-process), plus per-replica `/metrics` scraping.
+
+Pin production deployments to an image **digest** (not `:latest`), and verify the
+cosign signature / SBOM / provenance attestations published with each release.
+
 ## Privacy & security
 
 | Protection           | Implementation                                                                             |
@@ -233,6 +265,19 @@ Behavior under degraded infra:
 | Cross-border consent | Per-session consent recording before sending data to non-domestic AI providers             |
 | BAA disclaimer       | Hospital operator owns the BAA decision; UI surfaces the disclaimer for end users          |
 | HMAC secret reuse    | Boot fails if `HMAC_SECRET == JWT_SECRET` (Zod-enforced)                                   |
+
+### Data residency — Japan (APPI)
+
+Under Japan's APPI, pseudonymized patient data (HMAC-hashed IDs, shifted dates) is
+still **personal information**, and sending 要配慮個人情報 (special care-required
+personal information) to an AI provider hosted outside Japan generally requires
+explicit per-patient consent naming the destination country (Art. 28).
+
+**Recommendation for Japanese deployments:** run with AI summaries disabled (simply
+omit `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — export and connectors are unaffected),
+or ensure your provider contract keeps inference in-country before enabling them.
+The built-in consent recording captures operator consent, not patient consent — the
+operator remains the data controller. This is engineering guidance, not legal advice.
 
 ## Testing
 

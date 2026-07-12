@@ -8,6 +8,11 @@
   "quota_exceeded": "Bạn đã dùng hết giới hạn xuất dữ liệu tháng này. Nâng cấp gói để tiếp tục.",
   "export_failed": "Xuất dữ liệu thất bại. Kiểm tra kết nối HIS và thử lại.",
   "ai_unavailable": "Dịch vụ AI tạm thời không khả dụng. Thử lại sau.",
+  "upload_failed": "Tải lên thất bại",
+  "import_failed": "Nhập thất bại",
+  "download_failed": "Tải xuống thất bại. Vui lòng thử lại.",
+  "markdown_download_failed": "Tải Markdown thất bại. Vui lòng thử lại.",
+  "file_rejected": "Tệp bị từ chối: {{reason}}",
   "validation": {
     "required": "Trường này là bắt buộc.",
     "invalid_url": "URL không hợp lệ.",

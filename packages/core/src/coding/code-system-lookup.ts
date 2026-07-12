@@ -96,29 +96,33 @@ const SNOMED_TABLE: Record<string, string> = {
   '71388002': 'Procedure',
   '182813001': 'Emergency treatment',
   '416940007': 'Past history of procedure',
-  // Findings
-  '160303001': 'Family history of ischemic heart disease',
-  '160303002': 'Family history of diabetes mellitus',
-  '415068001': 'Observation finding',
+  // NOTE: family-history findings 160303001/160303002 và 415068001 đã bị loại bỏ —
+  // 160303002 và 415068001 KHÔNG vượt qua Verhoeff check (SCTID không hợp lệ);
+  // 160303001 có display sai và không thể xác minh từ nguồn có thẩm quyền.
+  // Thà thiếu còn hơn ship display lâm sàng sai.
 };
 
 // ── RxNorm embedded subset ────────────────────────────────────────────────────
 
+// Displays xác minh trực tiếp từ RxNav (RxNorm Name property) — nguồn có thẩm quyền
+// của U.S. National Library of Medicine. Bảng cũ gán sai gần như toàn bộ code→drug
+// (vd 429503 KHÔNG phải Lisinopril mà là hydrochlorothiazide; 311702 là midazolam,
+// không phải aspirin). Không bịa display thuốc — chỉ dùng giá trị RxNav trả về.
 const RXNORM_TABLE: Record<string, string> = {
-  '1049502': 'Hydrocodone 5 MG / Acetaminophen 325 MG Oral Tablet',
-  '198440': 'Metformin 500 MG Oral Tablet',
-  '854871': 'Atorvastatin 40 MG Oral Tablet',
-  '429503': 'Lisinopril 10 MG Oral Tablet',
+  '1049502': '12 HR oxycodone hydrochloride 10 MG Extended Release Oral Tablet',
+  '198440': 'Acetaminophen 500 MG Oral Tablet',
+  '854871': 'rabeprazole sodium 10 MG',
+  '429503': 'Hydrochlorothiazide 12.5 MG Oral Tablet',
   '197361': 'Amlodipine 5 MG Oral Tablet',
   '309362': 'Clopidogrel 75 MG Oral Tablet',
-  '311702': 'Aspirin 81 MG Oral Tablet',
-  '197380': 'Metoprolol 25 MG Oral Tablet',
-  '866514': 'Furosemide 20 MG Oral Tablet',
-  '562250': 'Omeprazole 20 MG Delayed Release Oral Capsule',
-  '597967': 'Sertraline 50 MG Oral Tablet',
-  '476350': 'Gabapentin 300 MG Oral Capsule',
-  '310964': 'Albuterol 0.09 MG/ACTUAT Metered Dose Inhaler',
-  '628958': 'Insulin Glargine 100 UNT/ML Injectable Solution',
+  '311702': 'Midazolam 5 MG/ML Injectable Solution',
+  '197380': 'Atenolol 25 MG Oral Tablet',
+  '866514': 'Metoprolol Tartrate 50 MG Oral Tablet',
+  '562250': 'Amoxicillin / Clavulanate Oral Tablet',
+  '597967': 'Amlodipine 10 MG / Atorvastatin 20 MG Oral Tablet',
+  '476350': 'Ezetimibe 10 MG / Simvastatin 40 MG Oral Tablet',
+  '310964': 'Ibuprofen 200 MG Oral Capsule',
+  '628958': 'Potassium Chloride 10 MEQ Extended Release Oral Tablet [Klor-Con]',
 };
 
 // ── Lookup function ────────────────────────────────────────────────────────────

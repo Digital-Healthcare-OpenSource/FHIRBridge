@@ -168,20 +168,23 @@ describe('deidentify', () => {
     expect(bundleStr).not.toContain('john.smith@example.com');
   });
 
-  it('strips address lines and postal code, keeps city/state', () => {
+  it('strips address line/city/postalCode, keeps only state/country (Safe Harbor)', () => {
     const bundle = buildTestBundle();
     const { bundle: deident } = deidentify(bundle, HMAC_SECRET);
 
     const patient = deident.entry?.[0]?.resource as Record<string, unknown>;
     const addresses = patient?.['address'] as Array<Record<string, unknown>>;
-    expect(addresses[0]?.['city']).toBe('Boston');
+    // HIGH: city is now DROPPED (re-identification vector) — only state + country remain
+    expect(addresses[0]?.['city']).toBeUndefined();
     expect(addresses[0]?.['state']).toBe('MA');
+    expect(addresses[0]?.['country']).toBe('US');
     expect(addresses[0]?.['line']).toBeUndefined();
     expect(addresses[0]?.['postalCode']).toBeUndefined();
 
     const bundleStr = JSON.stringify(deident);
     expect(bundleStr).not.toContain('123 Main St');
     expect(bundleStr).not.toContain('02101');
+    expect(bundleStr).not.toContain('Boston');
   });
 
   it('hashes patient ID and MRN', () => {
@@ -659,5 +662,255 @@ describe('deidentify — C-10 invariant tests', () => {
     expect(medReq?.['authoredOn']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     // effectiveInstant phải được shift
     expect(obs?.['effectiveInstant']).not.toBe('2023-05-10T12:00:00Z');
+  });
+});
+
+describe('deidentify — expert-review fixes (C1/C2/contained/onsetAge)', () => {
+  // C1: Reference.display (subject/performer/requester) leaks tên → redact
+  it('C1: redacts subject/performer/requester Reference.display, preserves coding[].display', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Patient',
+            id: 'p1',
+          } as unknown as Resource,
+        },
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs1',
+            status: 'final',
+            subject: { reference: 'Patient/p1', display: 'Nguyễn Văn A' },
+            performer: [{ reference: 'Practitioner/pr1', display: 'BS. Trần Thị B' }],
+            code: {
+              coding: [{ system: 'http://loinc.org', code: '29463-7', display: 'Body Weight' }],
+            },
+          } as unknown as Resource,
+        },
+        {
+          resource: {
+            resourceType: 'ServiceRequest',
+            id: 'sr1',
+            status: 'active',
+            requester: { reference: 'Practitioner/pr2', display: 'Dr. Charlie Requester' },
+          } as unknown as Resource,
+        },
+      ],
+    };
+    const { bundle: deident } = deidentify(bundle, HMAC_SECRET);
+    const bundleStr = JSON.stringify(deident);
+
+    // Tên người trong display KHÔNG được leak
+    expect(bundleStr).not.toContain('Nguyễn Văn A');
+    expect(bundleStr).not.toContain('Trần Thị B');
+    expect(bundleStr).not.toContain('Charlie Requester');
+    expect(bundleStr).toContain('[REDACTED]');
+
+    // Medical code display PHẢI được giữ nguyên
+    expect(bundleStr).toContain('Body Weight');
+    expect(bundleStr).toContain('29463-7');
+
+    const obs = deident.entry?.[1]?.resource as Record<string, unknown>;
+    const subject = obs?.['subject'] as Record<string, unknown>;
+    expect(subject?.['display']).toBe('[REDACTED]');
+    // reference vẫn được hash (không phải plaintext id)
+    expect(String(subject?.['reference'])).toMatch(/^Patient\/[0-9a-f]{16}$/);
+  });
+
+  // C2: Patient.photo + DiagnosticReport.presentedForm + DocumentReference attachment → strip
+  it('C2: strips Attachment data/url/title, preserves contentType', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Patient',
+            id: 'p1',
+            photo: [
+              { contentType: 'image/jpeg', data: 'aGVsbG8tcGhvdG8tYmFzZTY0', title: 'face.jpg' },
+            ],
+          } as unknown as Resource,
+        },
+        {
+          resource: {
+            resourceType: 'DiagnosticReport',
+            id: 'dr1',
+            status: 'final',
+            presentedForm: [
+              {
+                contentType: 'application/pdf',
+                data: 'JVBERi0xLjQtaWRlbnRpZnlpbmctcGRm',
+                title: 'John Smith Radiology Report.pdf',
+              },
+            ],
+          } as unknown as Resource,
+        },
+        {
+          resource: {
+            resourceType: 'DocumentReference',
+            id: 'doc1',
+            status: 'current',
+            content: [
+              {
+                attachment: {
+                  contentType: 'application/pdf',
+                  url: 'https://hospital.example.com/patients/john-smith/scan.pdf',
+                },
+              },
+            ],
+          } as unknown as Resource,
+        },
+      ],
+    };
+    const { bundle: deident } = deidentify(bundle, HMAC_SECRET);
+    const bundleStr = JSON.stringify(deident);
+
+    // Base64 payload + tiêu đề định danh + url KHÔNG được leak
+    expect(bundleStr).not.toContain('aGVsbG8tcGhvdG8tYmFzZTY0');
+    expect(bundleStr).not.toContain('JVBERi0xLjQtaWRlbnRpZnlpbmctcGRm');
+    expect(bundleStr).not.toContain('John Smith');
+    expect(bundleStr).not.toContain('face.jpg');
+    expect(bundleStr).not.toContain('hospital.example.com');
+    expect(bundleStr).toContain('[ATTACHMENT_REDACTED]');
+
+    // contentType PHẢI được giữ
+    expect(bundleStr).toContain('image/jpeg');
+    expect(bundleStr).toContain('application/pdf');
+
+    const patient = deident.entry?.[0]?.resource as Record<string, unknown>;
+    const photo = (patient?.['photo'] as Array<Record<string, unknown>>)[0];
+    expect(photo?.['data']).toBe('[ATTACHMENT_REDACTED]');
+    expect(photo?.['title']).toBe('[ATTACHMENT_REDACTED]');
+    expect(photo?.['contentType']).toBe('image/jpeg');
+  });
+
+  // C2 negative: SampledData.data (không có contentType) KHÔNG bị redact nhầm
+  it('C2: does not redact SampledData.data (no contentType → not an attachment)', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs1',
+            status: 'final',
+            valueSampledData: {
+              origin: { value: 0 },
+              period: 100,
+              dimensions: 1,
+              data: '1 2 3 4 5',
+            },
+          } as unknown as Resource,
+        },
+      ],
+    };
+    const { bundle: deident } = deidentify(bundle, HMAC_SECRET);
+    const obs = deident.entry?.[0]?.resource as Record<string, unknown>;
+    const sampled = obs?.['valueSampledData'] as Record<string, unknown>;
+    expect(sampled?.['data']).toBe('1 2 3 4 5');
+  });
+
+  // MEDIUM: contained Organization name phải được hash (resourceType override)
+  it('contained Organization name is HMAC-hashed via resourceType override', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Encounter',
+            id: 'enc1',
+            status: 'finished',
+            contained: [
+              {
+                resourceType: 'Organization',
+                id: 'org-contained',
+                name: 'Contained General Hospital',
+              },
+              {
+                resourceType: 'Location',
+                id: 'loc-contained',
+                name: 'Contained ICU Ward 7',
+              },
+            ],
+          } as unknown as Resource,
+        },
+      ],
+    };
+    const { bundle: deident } = deidentify(bundle, HMAC_SECRET);
+    const bundleStr = JSON.stringify(deident);
+    // Tên tổ chức/địa điểm contained KHÔNG được leak
+    expect(bundleStr).not.toContain('Contained General Hospital');
+    expect(bundleStr).not.toContain('Contained ICU Ward 7');
+
+    const enc = deident.entry?.[0]?.resource as Record<string, unknown>;
+    const contained = enc?.['contained'] as Array<Record<string, unknown>>;
+    expect(contained[0]?.['name']).toMatch(/^[0-9a-f]{16}$/);
+    expect(contained[1]?.['name']).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  // MEDIUM: onsetAge > 89 phải bị cap; onsetString phải bị redact
+  it('caps onsetAge/abatementAge value > 89 and redacts onsetString/abatementString', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Condition',
+            id: 'c1',
+            onsetAge: { value: 92, unit: 'years', system: 'http://unitsofmeasure.org', code: 'a' },
+            abatementAge: {
+              value: 80,
+              unit: 'years',
+              system: 'http://unitsofmeasure.org',
+              code: 'a',
+            },
+            onsetString: 'since patient John moved to Boston in his 90s',
+          } as unknown as Resource,
+        },
+      ],
+    };
+    const { bundle: deident } = deidentify(bundle, HMAC_SECRET);
+    const condition = deident.entry?.[0]?.resource as Record<string, unknown>;
+
+    const onsetAge = condition?.['onsetAge'] as Record<string, unknown>;
+    expect(onsetAge?.['value']).toBe(89); // 92 capped to 89
+    expect(onsetAge?.['unit']).toBe('years'); // unit preserved
+
+    const abatementAge = condition?.['abatementAge'] as Record<string, unknown>;
+    expect(abatementAge?.['value']).toBe(80); // ≤ 89 untouched
+
+    expect(condition?.['onsetString']).toBe('[CLINICAL_TEXT_REDACTED]');
+    expect(JSON.stringify(deident)).not.toContain('Boston');
+    expect(JSON.stringify(deident)).not.toContain('John moved');
+  });
+
+  // LOW: patient-less bundle derives per-subject date-shift offset (not a shared global)
+  it('derives per-subject date shift for patient-less bundles', () => {
+    const makeBundle = (subjectRef: string): Bundle => ({
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Observation',
+            id: 'obs1',
+            status: 'final',
+            subject: { reference: subjectRef },
+            effectiveDateTime: '2023-06-15',
+          } as unknown as Resource,
+        },
+      ],
+    });
+    const { shiftMap: mapA } = deidentify(makeBundle('Patient/subject-A'), HMAC_SECRET);
+    const { shiftMap: mapB } = deidentify(makeBundle('Patient/subject-B'), HMAC_SECRET);
+    // Hai subject khác nhau → key khác nhau (không dùng chung offset 'unknown')
+    expect(Object.keys(mapA)[0]).not.toBe(Object.keys(mapB)[0]);
   });
 });

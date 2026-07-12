@@ -41,13 +41,15 @@ export class BundleBuilder {
   /**
    * Build the final Bundle resource.
    * Returns a FHIR R4 collection Bundle.
+   *
+   * NOTE: Bundle.total KHÔNG được set — theo FHIR R4 bdl-1, `total` chỉ hợp lệ
+   * cho bundle type 'searchset' hoặc 'history', không phải 'collection'.
    */
   build(): Bundle {
     return {
       resourceType: 'Bundle',
       type: 'collection',
       timestamp: this.timestamp,
-      total: this.entries.length,
       entry: [...this.entries],
     };
   }

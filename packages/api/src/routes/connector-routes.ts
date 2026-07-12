@@ -21,6 +21,7 @@ import {
 import type { FhirEndpointConfig, Resource, ColumnMapping } from '@fhirbridge/types';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
+import { requireScope } from '../plugins/auth-plugin.js';
 import { postConnectorTestSchema } from '../schemas/connector-schemas.js';
 
 interface ConnectorTestBody {
@@ -50,7 +51,7 @@ export async function connectorRoutes(fastify: FastifyInstance): Promise<void> {
   // POST /api/v1/connectors/test
   fastify.post<{ Body: ConnectorTestBody }>(
     '/api/v1/connectors/test',
-    { schema: postConnectorTestSchema },
+    { schema: postConnectorTestSchema, preHandler: requireScope('connector:write') },
     async (request: FastifyRequest<{ Body: ConnectorTestBody }>, reply: FastifyReply) => {
       const { config } = request.body;
 
@@ -87,6 +88,7 @@ export async function connectorRoutes(fastify: FastifyInstance): Promise<void> {
   // POST /api/v1/connectors/import — multipart CSV/Excel upload → FHIR Bundle
   fastify.post(
     '/api/v1/connectors/import',
+    { preHandler: requireScope('connector:write') },
     async (request: FastifyRequest, reply: FastifyReply) => {
       if (!request.isMultipart()) {
         return reply.status(400).send({

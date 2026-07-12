@@ -7,16 +7,14 @@
  *
  * Bootstrap order:
  *   1. Config validation (Zod — fail fast)
- *   2. Redis client (optional)
- *   3. Stores: RedisStore (optional, in-memory fallback)
- *   4. Sinks: AuditSink (Postgres nếu có DATABASE_URL, else Console)
- *   5. Services: ExportService, SummaryService
- *   6. Server: createServer với services đã wire
- *   7. Graceful shutdown hooks
+ *   2. Stores: RedisStore (optional, in-memory fallback)
+ *   3. Sinks: AuditSink (Postgres nếu có DATABASE_URL, else Console)
+ *   4. Services: ExportService, SummaryService
+ *   5. Server: createServer với services đã wire
+ *   6. Graceful shutdown hooks
  */
 
 import 'dotenv/config';
-import Redis from 'ioredis';
 import { loadConfig } from './config.js';
 import { createServer } from './server.js';
 import { RedisStore } from './services/redis-store.js';
@@ -35,33 +33,21 @@ export async function startServer(): Promise<void> {
   // ── 1. Config — Zod validation, throw ngay nếu sai ──────────────────────────
   const config = loadConfig();
 
-  // ── 2. Redis client (optional) ───────────────────────────────────────────────
-  let redisClient: Redis | null = null;
-  if (config.redisUrl) {
-    redisClient = new Redis(config.redisUrl, {
-      lazyConnect: true,
-      enableOfflineQueue: false,
-      maxRetriesPerRequest: 1,
-      connectTimeout: 3000,
-    });
-    redisClient.connect().catch((err: Error) => {
-      console.warn('[Bootstrap] Redis connect failed, falling back to in-memory:', err.message);
-    });
-  }
-
-  // ── 3. Stores ─────────────────────────────────────────────────────────────────
+  // ── 2. Stores ─────────────────────────────────────────────────────────────────
+  // RedisStore owns its own ioredis client (with in-memory fallback) — no separate bootstrap
+  // client needed. This one is closed in shutdown().
   const redisStore = config.redisUrl
     ? new RedisStore({ url: config.redisUrl, keyPrefix: 'fhirbridge:' })
     : null;
 
-  // ── 4. Audit sink ─────────────────────────────────────────────────────────────
+  // ── 3. Audit sink ─────────────────────────────────────────────────────────────
   const auditSink = config.databaseUrl
     ? new PostgresAuditSink(config.databaseUrl)
     : new ConsoleAuditSink();
 
   const auditService = new AuditService(auditSink);
 
-  // ── 5. Services ───────────────────────────────────────────────────────────────
+  // ── 4. Services ───────────────────────────────────────────────────────────────
   const exportService = new ExportService({
     redis: redisStore ?? undefined,
   });
@@ -72,7 +58,7 @@ export async function startServer(): Promise<void> {
     config.hmacSecret,
   );
 
-  // ── 6. Server ─────────────────────────────────────────────────────────────────
+  // ── 5. Server ─────────────────────────────────────────────────────────────────
   const server = await createServer({
     config,
     auditSink,
@@ -81,9 +67,23 @@ export async function startServer(): Promise<void> {
     summaryService,
   });
 
-  // ── 7. Graceful shutdown ──────────────────────────────────────────────────────
+  // ── 6. Graceful shutdown ──────────────────────────────────────────────────────
+  // Race the drain against a hard timeout so an in-flight stream can't hang the process past the
+  // orchestrator's SIGKILL window; re-entrancy guarded so a second signal doesn't double-close.
+  const SHUTDOWN_TIMEOUT_MS = 25_000;
+  let isShuttingDown = false;
+
   const shutdown = async (signal: string): Promise<void> => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
     server.log.info(`Received ${signal}, shutting down gracefully...`);
+
+    const forceExit = setTimeout(() => {
+      server.log.error(`Shutdown exceeded ${SHUTDOWN_TIMEOUT_MS}ms — forcing exit`);
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+    forceExit.unref();
+
     try {
       await server.close();
 
@@ -91,13 +91,16 @@ export async function startServer(): Promise<void> {
         await auditSink.shutdown();
       }
 
-      if (redisClient) {
-        await redisClient.quit().catch(() => redisClient?.disconnect());
+      // Close the real RedisStore client (previously an unused bootstrap client was closed instead).
+      if (redisStore) {
+        await redisStore.close();
       }
 
+      clearTimeout(forceExit);
       server.log.info('Server closed');
       process.exit(0);
     } catch (err) {
+      clearTimeout(forceExit);
       server.log.error(err, 'Error during shutdown');
       process.exit(1);
     }

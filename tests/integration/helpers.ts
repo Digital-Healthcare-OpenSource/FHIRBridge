@@ -34,18 +34,27 @@ export async function createTestServer(): Promise<FastifyInstance> {
   return server;
 }
 
-/** Sign a JWT with an arbitrary payload */
+/**
+ * Sign a JWT with an arbitrary payload.
+ * Auth plugin yêu cầu claim `sub` + `exp`; tự suy `sub` từ `id` khi thiếu để
+ * các call site cũ (`makeJwt({ id })`) vẫn tạo token hợp lệ. Truyền `sub`
+ * tường minh (hoặc payload không có `id`) nếu muốn test token thiếu subject.
+ */
 export function makeJwt(
   payload: Record<string, unknown>,
   secret: string = TEST_JWT_SECRET,
   options: { expiresIn?: string | number } = { expiresIn: '1h' },
 ): string {
-  return sign(payload, secret, options as Parameters<typeof sign>[2]);
+  const withSub =
+    payload['sub'] === undefined && typeof payload['id'] === 'string'
+      ? { sub: payload['id'], ...payload }
+      : payload;
+  return sign(withSub, secret, options as Parameters<typeof sign>[2]);
 }
 
 /** JWT for a generic test user */
 export function userJwt(id = 'user-test'): string {
-  return makeJwt({ id });
+  return makeJwt({ sub: id, id });
 }
 
 /** Build Authorization header value */

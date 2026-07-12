@@ -17,6 +17,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { serializeToJson } from '@fhirbridge/core';
 import type { ConnectorConfig } from '@fhirbridge/types';
 import { ExportService } from '../services/export-service.js';
+import { requireScope } from '../plugins/auth-plugin.js';
 import {
   postExportSchema,
   getExportStatusSchema,
@@ -53,7 +54,7 @@ export async function exportRoutes(
   // POST /api/v1/export — start async export
   fastify.post<{ Body: ExportBody }>(
     '/api/v1/export',
-    { schema: postExportSchema },
+    { schema: postExportSchema, preHandler: requireScope('export:write') },
     async (request: FastifyRequest<{ Body: ExportBody }>, reply: FastifyReply) => {
       const { patientId, connectorConfig, outputFormat, includeSummary } = request.body;
       const userId = request.authUser?.id ?? 'anonymous';
@@ -70,7 +71,7 @@ export async function exportRoutes(
   // GET /api/v1/export/:id/status
   fastify.get<{ Params: IdParams }>(
     '/api/v1/export/:id/status',
-    { schema: getExportStatusSchema },
+    { schema: getExportStatusSchema, preHandler: requireScope('export:read') },
     async (request: FastifyRequest<{ Params: IdParams }>, reply: FastifyReply) => {
       const userId = request.authUser?.id ?? 'anonymous';
       const record = await exportService.getStatus(request.params.id, userId);
@@ -98,7 +99,7 @@ export async function exportRoutes(
    */
   fastify.get<{ Params: IdParams; Querystring: DownloadQuery }>(
     '/api/v1/export/:id/download',
-    { schema: getExportDownloadSchema },
+    { schema: getExportDownloadSchema, preHandler: requireScope('export:read') },
     async (
       request: FastifyRequest<{ Params: IdParams; Querystring: DownloadQuery }>,
       reply: FastifyReply,
@@ -170,7 +171,7 @@ export async function exportRoutes(
    */
   fastify.get<{ Params: IdParams }>(
     '/api/v1/export/:id/stream',
-    { schema: getExportDownloadSchema },
+    { schema: getExportDownloadSchema, preHandler: requireScope('export:read') },
     async (request: FastifyRequest<{ Params: IdParams }>, reply: FastifyReply) => {
       const userId = request.authUser?.id ?? 'anonymous';
       const record = await exportService.getStatus(request.params.id, userId);

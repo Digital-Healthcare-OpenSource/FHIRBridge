@@ -14,14 +14,104 @@
   "language": {
     "label": "Language",
     "vi": "Tiếng Việt",
-    "en": "English",
-    "ja": "日本語"
+    "en": "English"
   },
   "action": {
     "cancel": "Cancel",
     "confirm": "Confirm",
     "close": "Close",
     "save": "Save",
-    "retry": "Retry"
+    "retry": "Retry",
+    "back": "Back",
+    "next": "Next",
+    "try_again": "Try again"
+  },
+  "toast": {
+    "dismiss": "Dismiss notification"
+  },
+  "dropzone": {
+    "instruction": "Drag & drop or click to upload",
+    "drop_here": "Drop the file here",
+    "hint": "CSV, XLSX or FHIR JSON · max {{size}}",
+    "input_label": "File upload",
+    "remove_label": "Remove file"
+  },
+  "wizard": {
+    "title": "Export FHIR Bundle",
+    "description": "Follow the steps to export patient data",
+    "steps_aria": "Export wizard steps",
+    "step": {
+      "connector": "Connector",
+      "configure": "Configure",
+      "patient": "Patient",
+      "options": "Options",
+      "review": "Review",
+      "progress": "Progress"
+    },
+    "select_source": "Select data source",
+    "source_fhir_title": "FHIR Endpoint",
+    "source_fhir_desc": "Connect to a FHIR R4 server",
+    "source_file_title": "File Upload",
+    "source_file_desc": "Upload CSV, XLSX or FHIR JSON",
+    "fhir_connection": "FHIR Connection",
+    "upload_file": "Upload File",
+    "uploading": "Uploading… {{progress}}%",
+    "file_uploaded": "File uploaded successfully.",
+    "patient_id": "Patient ID",
+    "patient_identifier": "Patient identifier",
+    "patient_placeholder": "e.g. patient-123",
+    "output_options": "Output Options",
+    "format": "Format",
+    "format_json": "FHIR Bundle JSON",
+    "format_ndjson": "NDJSON",
+    "generate_summary": "Generate AI summary after export",
+    "review": "Review",
+    "review_source": "Source",
+    "review_fhir": "FHIR: {{url}}",
+    "review_file": "File upload",
+    "review_patient": "Patient ID",
+    "review_format": "Format",
+    "review_summary": "Include summary",
+    "yes": "Yes",
+    "no": "No",
+    "exporting": "Exporting…",
+    "start_export": "Start Export",
+    "back_to_dashboard": "Back to Dashboard",
+    "new_export": "New Export"
+  },
+  "import": {
+    "title": "Import File",
+    "description": "Upload CSV, XLSX or FHIR JSON and map to FHIR R4",
+    "preview": "Preview",
+    "rows_columns": "{{rows}} rows · {{columns}} columns",
+    "map_columns": "Map Columns to FHIR",
+    "start_import": "Start Import",
+    "processing": "Processing import…",
+    "started": "Import started",
+    "job_id": "Job ID: {{id}}",
+    "import_another": "Import another file",
+    "failed": "Import failed"
+  },
+  "progress": {
+    "label": "Progress",
+    "step_connecting": "Connecting to source",
+    "step_fetching": "Fetching patient data",
+    "step_mapping": "Mapping to FHIR R4",
+    "step_bundling": "Creating bundle",
+    "step_complete": "Complete",
+    "error_generic": "An error occurred during export"
+  },
+  "mapper": {
+    "source_column": "Source Column",
+    "fhir_path": "FHIR Path",
+    "skip": "— Skip —",
+    "map_aria": "Map {{col}} to FHIR path",
+    "duplicate_warning": "Two or more columns map to the same FHIR path ({{paths}}). Only one value will be kept.",
+    "identifier_required": "Map at least a patient identifier (e.g. Patient.id) to continue."
+  },
+  "export_result": {
+    "complete": "Export complete",
+    "patient_id_label": "Patient ID",
+    "download": "Download FHIR Bundle (JSON)"
   }
 }

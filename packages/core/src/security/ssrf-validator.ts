@@ -108,6 +108,9 @@ function isBlockedIpv6(ip: string): boolean {
   // Loopback
   if (addr === '::1') return true;
 
+  // Unspecified address (::) — routes to loopback/all-interfaces on many stacks
+  if (addr === '::' || addr === '::0') return true;
+
   // IPv4-mapped: ::ffff:x.x.x.x hoặc ::ffff:0xhex
   if (addr.startsWith('::ffff:')) {
     const ipv4Part = addr.slice(7);

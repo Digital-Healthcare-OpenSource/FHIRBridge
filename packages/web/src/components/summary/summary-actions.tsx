@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { Download, FileText } from 'lucide-react';
 import { summaryApi } from '../../api/summary-api';
 import { Toast, type ToastState } from '../ui/toast';
+import { useTranslation } from '../../i18n/use-translation';
 
 interface Props {
   summaryId: string;
@@ -23,6 +24,8 @@ function triggerDownload(blob: Blob, filename: string) {
 }
 
 export function SummaryActions({ summaryId }: Props) {
+  const { t } = useTranslation('summary');
+  const { t: tError } = useTranslation('errors');
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const downloadMarkdown = useCallback(async () => {
@@ -30,9 +33,9 @@ export function SummaryActions({ summaryId }: Props) {
       const blob = await summaryApi.downloadMarkdown(summaryId);
       triggerDownload(blob, `summary-${summaryId}.md`);
     } catch {
-      setToast({ message: 'Markdown download failed. Please try again.', variant: 'error' });
+      setToast({ message: tError('markdown_download_failed'), variant: 'error' });
     }
-  }, [summaryId]);
+  }, [summaryId, tError]);
 
   const downloadPdf = useCallback(async () => {
     try {
@@ -40,9 +43,9 @@ export function SummaryActions({ summaryId }: Props) {
       const blob = await summaryApi.downloadPdf(summaryId);
       triggerDownload(blob, `summary-${summaryId}.md`);
     } catch {
-      setToast({ message: 'Download failed. Please try again.', variant: 'error' });
+      setToast({ message: tError('download_failed'), variant: 'error' });
     }
-  }, [summaryId]);
+  }, [summaryId, tError]);
 
   return (
     <>
@@ -54,7 +57,7 @@ export function SummaryActions({ summaryId }: Props) {
           className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
         >
           <FileText className="h-4 w-4" aria-hidden />
-          Download Markdown
+          {t('actions.download_markdown')}
         </button>
         <button
           type="button"
@@ -62,7 +65,7 @@ export function SummaryActions({ summaryId }: Props) {
           className="inline-flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700"
         >
           <Download className="h-4 w-4" aria-hidden />
-          Download PDF
+          {t('actions.download_pdf')}
         </button>
       </div>
     </>

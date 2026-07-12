@@ -6,10 +6,12 @@
  * - Hash all identifiers with HMAC-SHA256 (truncated to 16 hex chars)
  * - Replace patient names with [PATIENT], practitioner names with [PROVIDER]
  * - Shift all dates by a random offset (±29 days, never 0), consistent per patient
- * - Strip address line/postalCode, phone, email, SSN
- * - Redact Organization.name + Location.name → HMAC hash
- * - Truncate age ≥ 89 to year-only bucket per HIPAA Safe Harbor
- * - PRESERVE: medical codes (LOINC, SNOMED, RxNorm), observation values, dosages
+ * - Strip address line/city/postalCode, phone, email, SSN (keep only state + country
+ *   for Safe Harbor — city is a re-identification vector)
+ * - Redact Organization.name + Location.name → HMAC hash (kể cả contained resources)
+ * - Redact Reference.display (tên người) và Attachment data/url/title (ảnh/PDF định danh)
+ * - Truncate age ≥ 89 to year-only bucket per HIPAA Safe Harbor (birthDate + onsetAge)
+ * - PRESERVE: medical codes (LOINC, SNOMED, RxNorm) incl. coding[].display, values, dosages
  */
 
 import { createHmac } from 'node:crypto';
@@ -114,15 +116,42 @@ function deidentifyResource(
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
-  // Xác định resourceType từ resource nếu chưa có (top-level call)
-  const effectiveResourceType =
-    resourceType ??
-    (typeof resource['resourceType'] === 'string' ? resource['resourceType'] : undefined);
+  // Xác định resourceType. resourceType RIÊNG của object phải OVERRIDE resourceType
+  // kế thừa từ parent (MEDIUM: contained Organization/Location — tên phải được hash
+  // đúng thay vì bị coi là field con của resource cha nên bỏ sót).
+  const ownResourceType =
+    typeof resource['resourceType'] === 'string' ? resource['resourceType'] : undefined;
+  const effectiveResourceType = ownResourceType ?? resourceType;
+
+  // C1: object dạng Reference (có key 'reference') → sibling 'display' là tên
+  // bệnh nhân/bác sĩ/tổ chức → phải redact (KHÔNG đụng coding[].display).
+  const parentHasReference = 'reference' in resource;
+  // C2: object dạng Attachment (có 'contentType') → 'data'/'url'/'title' chứa
+  // ảnh/PDF/tài liệu định danh → phải redact, chỉ giữ lại contentType.
+  const parentIsAttachment = 'contentType' in resource;
 
   for (const [key, value] of Object.entries(resource)) {
     // Skip null/undefined
     if (value === null || value === undefined) {
       result[key] = value;
+      continue;
+    }
+
+    // C1: Reference.display leaks tên người → redact. Giữ nguyên coding[].display
+    // (medical code display) vì coding object không có key 'reference'.
+    if (key === 'display' && parentHasReference && typeof value === 'string') {
+      result[key] = '[REDACTED]';
+      continue;
+    }
+
+    // C2: Attachment content (data/url/title) leaks tài liệu/ảnh định danh → redact,
+    // giữ contentType để summarizer vẫn biết loại nội dung.
+    if (
+      parentIsAttachment &&
+      (key === 'data' || key === 'url' || key === 'title') &&
+      typeof value === 'string'
+    ) {
+      result[key] = '[ATTACHMENT_REDACTED]';
       continue;
     }
 
@@ -191,10 +220,11 @@ function deidentifyResource(
       continue;
     }
 
-    // Strip address details, keep only city/state for geographic context
+    // Strip address details. HIGH: DROP city — city+state+birthYear+rare-dx là vector
+    // tái định danh (Sweeney). Giữ lại chỉ state + country để claim HIPAA Safe Harbor
+    // (geographic subdivision nhỏ hơn state phải được loại bỏ).
     if (key === 'address' && Array.isArray(value)) {
       result[key] = value.map((addr: Record<string, unknown>) => ({
-        city: addr['city'],
         state: addr['state'],
         country: addr['country'],
       }));
@@ -214,6 +244,31 @@ function deidentifyResource(
       } else {
         result[key] = shiftDate(birthDateStr, offsetDays);
       }
+      continue;
+    }
+
+    // MEDIUM: onsetAge/abatementAge (Age = Quantity) — cap value > 89 theo Safe Harbor
+    // (tuổi > 89 phải được gộp, không tiết lộ chính xác). Giữ unit/system/code.
+    if (
+      (key === 'onsetAge' || key === 'abatementAge') &&
+      typeof value === 'object' &&
+      !Array.isArray(value)
+    ) {
+      const age = value as Record<string, unknown>;
+      const numeric = age['value'];
+      result[key] = {
+        ...age,
+        value:
+          typeof numeric === 'number' && numeric > HIPAA_AGE_THRESHOLD
+            ? HIPAA_AGE_THRESHOLD
+            : numeric,
+      };
+      continue;
+    }
+
+    // MEDIUM: onsetString/abatementString — free-text lâm sàng có thể chứa PHI → redact.
+    if ((key === 'onsetString' || key === 'abatementString') && typeof value === 'string') {
+      result[key] = '[CLINICAL_TEXT_REDACTED]';
       continue;
     }
 
@@ -355,6 +410,27 @@ function deidentifyResource(
 }
 
 /**
+ * Tìm subject/patient reference đầu tiên trong bundle không có Patient resource.
+ * Dùng để derive date-shift key theo từng bệnh nhân thay vì dùng chung offset 'unknown'
+ * toàn cục (LOW: patient-less bundles không được share một offset cố định — sẽ cho phép
+ * correlate ngày giữa các bundle khác nhau).
+ */
+function findSubjectKey(bundle: Bundle): string | undefined {
+  for (const entry of bundle.entry ?? []) {
+    const res = entry.resource as unknown as Record<string, unknown> | undefined;
+    if (!res) continue;
+    for (const field of ['subject', 'patient'] as const) {
+      const ref = res[field];
+      if (ref && typeof ref === 'object' && !Array.isArray(ref)) {
+        const reference = (ref as Record<string, unknown>)['reference'];
+        if (typeof reference === 'string' && reference) return reference;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
  * De-identify a FHIR Bundle.
  * Returns the sanitized bundle and the date shift map for later re-identification.
  *
@@ -363,9 +439,12 @@ function deidentifyResource(
 export function deidentify(bundle: Bundle, hmacSecret: string): DeidentifyResult {
   const shiftMap: DateShiftMap = {};
 
-  // Determine patient ID hash and date shift offset
+  // Determine patient ID hash and date shift offset.
+  // LOW: bundle không có Patient resource → derive key từ subject/patient reference
+  // (per-subject) thay vì hằng số 'unknown' dùng chung; chỉ fallback 'unknown' khi
+  // thực sự không có subject nào.
   const patientEntry = bundle.entry?.find((e) => e.resource?.resourceType === 'Patient');
-  const patientId = patientEntry?.resource?.id ?? 'unknown';
+  const patientId = patientEntry?.resource?.id ?? findSubjectKey(bundle) ?? 'unknown';
   const patientIdHash = hashIdentifier(patientId, hmacSecret);
 
   if (!(patientIdHash in shiftMap)) {
@@ -420,11 +499,14 @@ export function deidentify(bundle: Bundle, hmacSecret: string): DeidentifyResult
  */
 export function reidentifyDates(text: string, shiftMap: DateShiftMap): string {
   const offsets = Object.values(shiftMap);
-  // Safety: only apply if single patient (multi-patient would corrupt dates)
-  if (offsets.length !== 1) {
-    return text; // Cannot safely reverse dates for multi-patient bundles
-  }
+  if (offsets.length === 0) return text;
+  // Safety: chỉ đảo ngược khi mọi offset giống nhau. Bundle single-patient luôn có 1
+  // offset; nhiều offset KHÁC nhau (multi-patient) không thể reverse an toàn nên trả
+  // nguyên văn. (Thay cho guard cũ `length !== 1` chỉ xử lý đúng trường hợp 1 entry.)
   const offset = offsets[0]!;
+  if (!offsets.every((o) => o === offset)) {
+    return text;
+  }
   return text.replace(/\b(\d{4}-\d{2}-\d{2}(?:T[\d:.]+Z?)?)\b/g, (match) =>
     shiftDate(match, -offset),
   );

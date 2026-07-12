@@ -4,7 +4,7 @@
  * PDF output via Puppeteer is deferred — see TODO below.
  */
 
-import type { PatientSummary } from '@fhirbridge/types';
+import type { PatientSummary, SectionSummary, SummaryLanguage } from '@fhirbridge/types';
 export { formatPdf } from './pdf-formatter.js';
 
 /** FHIR R4 Composition resource (minimal shape for type safety) */
@@ -26,36 +26,127 @@ export interface FhirComposition {
   }>;
 }
 
+/** Localized headings/labels — a small string table keyed by language. */
+interface Headings {
+  title: string;
+  clinicalNarrative: string;
+  sectionDetails: string;
+  disclaimerHeading: string;
+  endOfSummary: string;
+  yes: string;
+  no: string;
+  resourcesSummarized: (n: number) => string;
+  truncatedWarning: string;
+  excludedNote: (types: string[]) => string;
+}
+
+const HEADINGS: Record<SummaryLanguage, Headings> = {
+  en: {
+    title: 'Patient Summary Report',
+    clinicalNarrative: 'Clinical Narrative',
+    sectionDetails: 'Section Details',
+    disclaimerHeading: 'Disclaimer',
+    endOfSummary: 'End of AI-generated summary',
+    yes: 'Yes',
+    no: 'No',
+    resourcesSummarized: (n) => `${n} resource(s) summarized`,
+    truncatedWarning:
+      '⚠️ This section was truncated (model token limit reached) and may be incomplete.',
+    excludedNote: (types) =>
+      `⚠️ ${types.length} resource type(s) were not summarized (no section mapping): ${types.join(', ')}.`,
+  },
+  vi: {
+    title: 'Báo cáo Tóm tắt Bệnh nhân',
+    clinicalNarrative: 'Diễn giải Lâm sàng',
+    sectionDetails: 'Chi tiết từng Mục',
+    disclaimerHeading: 'Tuyên bố miễn trừ',
+    endOfSummary: 'Kết thúc bản tóm tắt do AI tạo',
+    yes: 'Có',
+    no: 'Không',
+    resourcesSummarized: (n) => `Đã tóm tắt ${n} tài nguyên`,
+    truncatedWarning:
+      '⚠️ Mục này bị cắt ngắn (đạt giới hạn token của mô hình) và có thể chưa đầy đủ.',
+    excludedNote: (types) =>
+      `⚠️ ${types.length} loại tài nguyên không được tóm tắt (không có ánh xạ mục): ${types.join(', ')}.`,
+  },
+  ja: {
+    title: '患者サマリーレポート',
+    clinicalNarrative: '臨床ナラティブ',
+    sectionDetails: 'セクション詳細',
+    disclaimerHeading: '免責事項',
+    endOfSummary: 'AI生成サマリーの終わり',
+    yes: 'はい',
+    no: 'いいえ',
+    resourcesSummarized: (n) => `${n}件のリソースを要約`,
+    truncatedWarning:
+      '⚠️ このセクションは打ち切られ（モデルのトークン上限に到達）、不完全な可能性があります。',
+    excludedNote: (types) =>
+      `⚠️ ${types.length}件のリソースタイプは要約されませんでした（セクション未対応）: ${types.join(', ')}。`,
+  },
+};
+
+/** Localized clinician-review disclaimers. */
+const DISCLAIMERS: Record<SummaryLanguage, string> = {
+  en: '⚠️ Disclaimer: This is an AI-generated summary derived from de-identified data. It may contain errors or omissions and must be reviewed by a qualified clinician and verified against the source medical records before any clinical use.',
+  vi: '⚠️ Tuyên bố miễn trừ: Đây là bản tóm tắt do AI tạo ra từ dữ liệu đã ẩn danh. Bản tóm tắt có thể chứa sai sót hoặc thiếu sót và phải được bác sĩ có chuyên môn xem xét, đối chiếu với hồ sơ bệnh án gốc trước khi sử dụng trong lâm sàng.',
+  ja: '⚠️ 免責事項: これは匿名化されたデータからAIが生成した要約です。誤りや欠落が含まれる可能性があり、臨床使用の前に有資格の臨床医が確認し、元の診療記録と照合する必要があります。',
+};
+
+/**
+ * Build the localized clinician-review disclaimer.
+ * @param language - Target language (falls back to English for unknown values).
+ * @param extraNote - Optional extra sentence appended (e.g. a date-shift notice).
+ */
+export function buildDisclaimer(language: SummaryLanguage, extraNote?: string): string {
+  const base = DISCLAIMERS[language] ?? DISCLAIMERS.en;
+  return extraNote ? `${base} ${extraNote}` : base;
+}
+
+/** Resolve headings for a language, falling back to English. */
+function headingsFor(language: SummaryLanguage): Headings {
+  return HEADINGS[language] ?? HEADINGS.en;
+}
+
+/** Collect the distinct excluded resource types recorded across sections. */
+function collectExcludedResourceTypes(sections: SectionSummary[]): string[] {
+  const set = new Set<string>();
+  for (const s of sections) {
+    for (const t of s.excludedResourceTypes ?? []) set.add(t);
+  }
+  return [...set].sort();
+}
+
 /**
  * Format a PatientSummary as Markdown.
  * Produces a structured document with headers per section and a synthesis narrative.
  */
 export function formatMarkdown(summary: PatientSummary): string {
   const { sections, synthesis, metadata } = summary;
+  const h = headingsFor(metadata.language);
+  const disclaimer = metadata.disclaimer ?? buildDisclaimer(metadata.language);
 
   const lines: string[] = [
-    '# Patient Summary Report',
+    `# ${h.title}`,
     '',
     `> **Generated:** ${metadata.generatedAt}  `,
     `> **Provider:** ${metadata.provider} (${metadata.model})  `,
     `> **Language:** ${metadata.language}  `,
     `> **Tokens used:** ${metadata.totalTokens}  `,
-    `> **De-identified:** ${metadata.deidentified ? 'Yes' : 'No'}`,
+    `> **De-identified:** ${metadata.deidentified ? h.yes : h.no}`,
     '',
     '---',
     '',
-    '> ⚠️ **Disclaimer:** This is an AI-generated summary from de-identified data.',
-    '> Always verify against source medical records before clinical use.',
+    `> ${disclaimer}`,
     '',
     '---',
     '',
-    '## Clinical Narrative',
+    `## ${h.clinicalNarrative}`,
     '',
     synthesis,
     '',
     '---',
     '',
-    '## Section Details',
+    `## ${h.sectionDetails}`,
     '',
   ];
 
@@ -63,45 +154,74 @@ export function formatMarkdown(summary: PatientSummary): string {
     lines.push(`### ${section.section}`);
     lines.push('');
     if (section.resourceCount > 0) {
-      lines.push(`_${section.resourceCount} resource(s) summarized_`);
+      lines.push(`_${h.resourcesSummarized(section.resourceCount)}_`);
+      lines.push('');
+    }
+    if (section.truncated) {
+      lines.push(h.truncatedWarning);
       lines.push('');
     }
     lines.push(section.content);
     lines.push('');
   }
 
+  const excluded = collectExcludedResourceTypes(sections);
+  if (excluded.length > 0) {
+    lines.push('---');
+    lines.push('');
+    lines.push(h.excludedNote(excluded));
+    lines.push('');
+  }
+
   lines.push('---');
   lines.push('');
-  lines.push('_End of AI-generated summary_');
+  lines.push(`_${h.endOfSummary}_`);
 
   return lines.join('\n');
 }
 
 /**
  * Format a PatientSummary as a FHIR R4 Composition resource.
- * Each section becomes a Composition.section entry.
+ * Each section becomes a Composition.section entry, plus a trailing localized
+ * clinician-review disclaimer section.
  *
  * @param summary - The patient summary to format
  * @param patientRef - FHIR reference to the patient (e.g. 'Patient/[PATIENT]')
  */
 export function formatComposition(summary: PatientSummary, patientRef: string): FhirComposition {
   const { sections, synthesis, metadata } = summary;
+  const h = headingsFor(metadata.language);
+  const disclaimer = metadata.disclaimer ?? buildDisclaimer(metadata.language);
+  const excluded = collectExcludedResourceTypes(sections);
+
+  const disclaimerText =
+    excluded.length > 0 ? `${disclaimer} ${h.excludedNote(excluded)}` : disclaimer;
 
   const compositionSections: FhirComposition['section'] = [
     {
-      title: 'Clinical Narrative',
+      title: h.clinicalNarrative,
       text: {
         status: 'generated',
         div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${escapeHtml(synthesis)}</p></div>`,
       },
     },
-    ...sections.map((s) => ({
-      title: s.section,
+    ...sections.map((s) => {
+      const body = s.truncated ? `${h.truncatedWarning} ${s.content}` : s.content;
+      return {
+        title: s.section,
+        text: {
+          status: 'generated' as const,
+          div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${escapeHtml(body)}</p></div>`,
+        },
+      };
+    }),
+    {
+      title: h.disclaimerHeading,
       text: {
         status: 'generated' as const,
-        div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${escapeHtml(s.content)}</p></div>`,
+        div: `<div xmlns="http://www.w3.org/1999/xhtml"><p>${escapeHtml(disclaimerText)}</p></div>`,
       },
-    })),
+    },
   ];
 
   return {
