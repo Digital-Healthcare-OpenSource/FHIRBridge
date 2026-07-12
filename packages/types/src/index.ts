@@ -287,6 +287,13 @@ export type {
   TransformType,
 } from './connectors/index.js';
 
+/**
+ * Text encodings supported for CSV/Excel file import decoding.
+ * Shared so connector config and file readers agree on the allowed set —
+ * includes Japanese encodings (Shift-JIS, EUC-JP) common in JP HIS exports.
+ */
+export type SupportedEncoding = 'utf-8' | 'utf-16le' | 'utf-16be' | 'shift-jis' | 'euc-jp';
+
 // ── AI Summary Engine Types ──────────────────────────────────────────────────
 export type {
   AiProviderName,
