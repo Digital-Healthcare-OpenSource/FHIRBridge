@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage build for FHIRBridge API server.
-# Final image is a slim Node 20-alpine that runs `node packages/api/dist/index.js`.
+# Final image is a slim Node 20-alpine that runs `node dist/index.js` from a pnpm-deploy prod bundle.
 
 # ── Stage 1: build ────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
@@ -28,8 +28,11 @@ RUN pnpm --filter @fhirbridge/types build \
  && pnpm --filter @fhirbridge/core build \
  && pnpm --filter @fhirbridge/api build
 
-# Prune dev deps from node_modules to slim the runtime
-RUN pnpm prune --prod --no-optional
+# Tạo bản deploy prod-only, self-contained cho riêng @fhirbridge/api.
+# KHÔNG dùng `pnpm prune --prod`: trong workspace nó không dọn được devDeps
+# khỏi .pnpm store → vite/esbuild/vitest lọt vào image và dính Trivy gate
+# (CVE trong esbuild Go binary, vite server.fs.deny bypass...).
+RUN pnpm --filter @fhirbridge/api --prod deploy /deploy
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
 FROM node:20-alpine AS runtime
@@ -48,14 +51,9 @@ ENV NODE_ENV=production \
 # Non-root user
 RUN addgroup -S fhirbridge && adduser -S fhirbridge -G fhirbridge
 
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/node_modules ./node_modules
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/packages/types/dist ./packages/types/dist
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/packages/types/package.json ./packages/types/package.json
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/packages/core/dist ./packages/core/dist
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/packages/core/package.json ./packages/core/package.json
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/packages/api/dist ./packages/api/dist
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/packages/api/package.json ./packages/api/package.json
-COPY --from=builder --chown=fhirbridge:fhirbridge /app/package.json ./package.json
+# Bản deploy self-contained: dist + package.json + node_modules prod-only
+# (workspace deps @fhirbridge/types|core được pnpm deploy nhúng sẵn).
+COPY --from=builder --chown=fhirbridge:fhirbridge /deploy ./
 
 USER fhirbridge
 
@@ -67,4 +65,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${PORT:-3001}/api/v1/health" > /dev/null || exit 1
 
-CMD ["node", "packages/api/dist/index.js"]
+CMD ["node", "dist/index.js"]
