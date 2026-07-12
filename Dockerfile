@@ -35,6 +35,12 @@ RUN pnpm prune --prod --no-optional
 FROM node:20-alpine AS runtime
 WORKDIR /app
 
+# Vá CVE mức OS của base image (Trivy gate chặn publish khi còn HIGH+, vd
+# CVE-2026-45447 libcrypto3) và gỡ npm/corepack/yarn khỏi runtime — app chạy
+# bằng `node` trực tiếp, còn npm mang theo bundled deps (glob/minimatch/
+# cross-spawn/sigstore) dính CVE mà app không thể vá qua lockfile.
+RUN apk --no-cache upgrade && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn*
+
 ENV NODE_ENV=production \
     PORT=3001 \
     HOST=0.0.0.0
