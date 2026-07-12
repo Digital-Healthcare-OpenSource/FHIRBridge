@@ -25,7 +25,7 @@
   "dependencies": {
     "@fhirbridge/core": "workspace:*",
     "@fhirbridge/types": "workspace:*",
-    "@inquirer/prompts": "^8.3.2",
+    "@inquirer/prompts": "^8.4.2",
     "chalk": "^4.1.2",
     "cli-progress": "^3.12.0",
     "cli-table3": "^0.6.5",
