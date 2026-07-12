@@ -913,4 +913,23 @@ describe('deidentify — expert-review fixes (C1/C2/contained/onsetAge)', () => 
     // Hai subject khác nhau → key khác nhau (không dùng chung offset 'unknown')
     expect(Object.keys(mapA)[0]).not.toBe(Object.keys(mapB)[0]);
   });
+
+  // Prototype-pollution guard: key độc từ bundle remote không được copy sang output
+  it('drops __proto__/constructor/prototype keys from remote resources', () => {
+    const malicious = JSON.parse(
+      '{"resourceType":"Bundle","type":"collection","entry":[{"resource":' +
+        '{"resourceType":"Observation","id":"obs1","status":"final",' +
+        '"__proto__":{"polluted":true},"constructor":{"x":1},"prototype":{"y":2}}}]}',
+    ) as Bundle;
+
+    const { bundle: deident } = deidentify(malicious, HMAC_SECRET);
+    const resource = deident.entry?.[0]?.resource as Record<string, unknown>;
+
+    expect(Object.prototype.hasOwnProperty.call(resource, '__proto__')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(resource, 'constructor')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(resource, 'prototype')).toBe(false);
+    // Prototype của output không bị thay bằng object attacker-controlled
+    expect((resource as { polluted?: unknown }).polluted).toBeUndefined();
+    expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
+  });
 });
