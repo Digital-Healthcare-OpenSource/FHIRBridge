@@ -129,7 +129,12 @@ jobs:
           # Full history so gitleaks can scan every commit on PRs.
           fetch-depth: 0
 
+      # Chạy gitleaks CLI trực tiếp — gitleaks-action@v2 yêu cầu license key
+      # cho organization repo; bản binary (MIT) thì không.
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz gitleaks
+          ./gitleaks detect --source . --no-banner --redact --exit-code 1

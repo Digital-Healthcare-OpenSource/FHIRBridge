@@ -206,12 +206,19 @@ describe('CsvConnector', () => {
   });
 
   describe('encoding decode (golden fixtures)', () => {
+    // mkdtemp tạo thư mục riêng tư unique — tránh predictable-path race trong temp dir chung.
+    function makeTempCsv(name: string, content: Buffer | string): { tmp: string; dir: string } {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fhirbridge-csv-'));
+      const tmp = path.join(dir, name);
+      fs.writeFileSync(tmp, content);
+      return { tmp, dir };
+    }
+
     it('decodes a Shift-JIS CSV correctly (JP HIS default)', async () => {
       // Golden bytes produced by a real Shift-JIS encoder; the connector must
       // decode them via iconv-lite (Node BufferEncoding has no Shift-JIS).
       const csv = 'patient_id,name\nP001,テスト\n';
-      const tmp = path.join(os.tmpdir(), `fhirbridge-sjis-${Date.now()}.csv`);
-      fs.writeFileSync(tmp, iconv.encode(csv, 'shift_jis'));
+      const { tmp, dir } = makeTempCsv('sjis.csv', iconv.encode(csv, 'shift_jis'));
 
       try {
         const connector = new CsvConnector();
@@ -226,14 +233,13 @@ describe('CsvConnector', () => {
 
         expect(records[0]!.data['name[0].text']).toBe('テスト');
       } finally {
-        fs.rmSync(tmp, { force: true });
+        fs.rmSync(dir, { recursive: true, force: true });
       }
     });
 
     it('preserves Vietnamese diacritics in a UTF-8 CSV', async () => {
       const csv = 'patient_id,name\nP001,Nguyễn Văn Tú\n';
-      const tmp = path.join(os.tmpdir(), `fhirbridge-vi-${Date.now()}.csv`);
-      fs.writeFileSync(tmp, Buffer.from(csv, 'utf-8'));
+      const { tmp, dir } = makeTempCsv('vi.csv', Buffer.from(csv, 'utf-8'));
 
       try {
         const connector = new CsvConnector();
@@ -248,13 +254,12 @@ describe('CsvConnector', () => {
 
         expect(records[0]!.data['name[0].text']).toBe('Nguyễn Văn Tú');
       } finally {
-        fs.rmSync(tmp, { force: true });
+        fs.rmSync(dir, { recursive: true, force: true });
       }
     });
 
     it('rejects an unsupported encoding at connect (fail-fast, no silent mojibake)', async () => {
-      const tmp = path.join(os.tmpdir(), `fhirbridge-enc-${Date.now()}.csv`);
-      fs.writeFileSync(tmp, 'patient_id,name\nP001,x\n');
+      const { tmp, dir } = makeTempCsv('enc.csv', 'patient_id,name\nP001,x\n');
 
       try {
         const connector = new CsvConnector();
@@ -267,7 +272,7 @@ describe('CsvConnector', () => {
           }),
         ).rejects.toThrow(/Unsupported encoding/);
       } finally {
-        fs.rmSync(tmp, { force: true });
+        fs.rmSync(dir, { recursive: true, force: true });
       }
     });
   });

@@ -56,7 +56,9 @@ describe('ExcelConnector', () => {
 
   it('rejects a file exceeding the compressed-size ceiling (zip-bomb guard)', async () => {
     // Sparse 51 MB file — logical size only, no real bytes written to disk.
-    const bigPath = path.join(os.tmpdir(), `fhirbridge-xlsx-bomb-${Date.now()}.xlsx`);
+    // mkdtemp: thư mục riêng tư unique, tránh predictable-path race trong temp dir chung.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fhirbridge-xlsx-'));
+    const bigPath = path.join(tmpDir, 'bomb.xlsx');
     const fd = fs.openSync(bigPath, 'w');
     fs.ftruncateSync(fd, 51 * 1024 * 1024);
     fs.closeSync(fd);
@@ -67,7 +69,7 @@ describe('ExcelConnector', () => {
         connector.connect({ type: 'excel', filePath: bigPath, mapping: [] }),
       ).rejects.toThrow(/limit/);
     } finally {
-      fs.rmSync(bigPath, { force: true });
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
