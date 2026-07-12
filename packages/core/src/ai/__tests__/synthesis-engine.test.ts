@@ -93,7 +93,7 @@ describe('synthesize', () => {
       expect(result).toBe('Insufficient data available to generate a patient summary.');
     });
 
-    it('filters out "No data available" sections before synthesis', async () => {
+    it('filters out empty sections (resourceCount 0) before synthesis', async () => {
       const mixed: SectionSummary[] = [
         { section: 'Conditions', content: 'Hypertension', tokenCount: 20, resourceCount: 1 },
         {
@@ -106,9 +106,86 @@ describe('synthesize', () => {
       const tracker = new TokenTracker();
       await synthesize(mixed, capturingProvider, makeConfig(), tracker);
 
-      // Only "Conditions" should appear in the prompt, not "Medications"
+      // Only "Conditions" should appear in the prompt, not the empty "Medications"
       expect(lastPromptSeen).toContain('Conditions');
       expect(lastPromptSeen).not.toContain('No data available');
+    });
+
+    it('keeps a real section whose narrative legitimately contains "No data available"', async () => {
+      // resourceCount > 0 → this is a real summary, even though the phrase appears
+      const sections: SectionSummary[] = [
+        {
+          section: 'Observations',
+          content: 'CBC reviewed. No data available for platelet count; other values normal.',
+          tokenCount: 40,
+          resourceCount: 3,
+        },
+      ];
+      const tracker = new TokenTracker();
+      await synthesize(sections, capturingProvider, makeConfig(), tracker);
+
+      // The section must NOT be filtered out — its content reaches the prompt
+      expect(lastPromptSeen).toContain('platelet count');
+    });
+
+    it('appends an UNVERIFIED marker for dosage values absent from the source', async () => {
+      const hallucinatingProvider: AiProvider = {
+        name: 'stub',
+        model: 'stub-model',
+        async generate(): Promise<AiResponse> {
+          return {
+            content: 'Patient takes Lisinopril 20mg daily.',
+            tokenUsage: { inputTokens: 10, outputTokens: 8, totalTokens: 18 },
+            model: 'stub-model',
+            finishReason: 'stop',
+          };
+        },
+        async isAvailable(): Promise<boolean> {
+          return true;
+        },
+      };
+      // Source section only mentions 10mg — 20mg is invented by the model
+      const sections: SectionSummary[] = [
+        {
+          section: 'Medications',
+          content: 'Lisinopril 10mg daily.',
+          tokenCount: 20,
+          resourceCount: 1,
+        },
+      ];
+      const tracker = new TokenTracker();
+      const result = await synthesize(sections, hallucinatingProvider, makeConfig(), tracker);
+      expect(result).toContain('UNVERIFIED');
+      expect(result).toContain('20mg');
+    });
+
+    it('does not flag dosage values that are present in the source', async () => {
+      const faithfulProvider: AiProvider = {
+        name: 'stub',
+        model: 'stub-model',
+        async generate(): Promise<AiResponse> {
+          return {
+            content: 'Patient takes Lisinopril 10 mg daily.',
+            tokenUsage: { inputTokens: 10, outputTokens: 8, totalTokens: 18 },
+            model: 'stub-model',
+            finishReason: 'stop',
+          };
+        },
+        async isAvailable(): Promise<boolean> {
+          return true;
+        },
+      };
+      const sections: SectionSummary[] = [
+        {
+          section: 'Medications',
+          content: 'Lisinopril 10mg daily.',
+          tokenCount: 20,
+          resourceCount: 1,
+        },
+      ];
+      const tracker = new TokenTracker();
+      const result = await synthesize(sections, faithfulProvider, makeConfig(), tracker);
+      expect(result).not.toContain('UNVERIFIED');
     });
 
     it('tracks tokens in TokenTracker', async () => {

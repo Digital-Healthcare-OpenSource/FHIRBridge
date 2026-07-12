@@ -111,17 +111,49 @@ describe('OpenAiProvider', () => {
       await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow('Auth failure');
     });
 
-    it('handles missing content in response (returns empty string)', async () => {
+    it('throws when response content is empty instead of collapsing to ""', async () => {
       const mockCreate = await getMockCreate();
-      mockCreate.mockResolvedValueOnce({
+      mockCreate.mockResolvedValue({
         choices: [{ message: { content: null }, finish_reason: 'stop' }],
         usage: { prompt_tokens: 10, completion_tokens: 0 },
         model: 'gpt-test-model',
       });
 
       const provider = new OpenAiProvider(BASE_CONFIG);
-      const result = await provider.generate('Prompt', GENERATE_OPTIONS);
-      expect(result.content).toBe('');
+      await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow(
+        /empty response/i,
+      );
+    });
+
+    it('throws when finish_reason is content_filter', async () => {
+      const mockCreate = await getMockCreate();
+      mockCreate.mockResolvedValue({
+        choices: [{ message: { content: 'partial' }, finish_reason: 'content_filter' }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+        model: 'gpt-test-model',
+      });
+
+      const provider = new OpenAiProvider(BASE_CONFIG);
+      await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow(
+        /content filter/i,
+      );
+    });
+
+    it('clamps out-of-range temperature and maxTokens before calling the API', async () => {
+      const mockCreate = await getMockCreate();
+      mockCreate.mockResolvedValueOnce({
+        choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 5, completion_tokens: 2 },
+        model: 'gpt-test-model',
+      });
+
+      const provider = new OpenAiProvider(BASE_CONFIG);
+      await provider.generate('Prompt', { maxTokens: -5, temperature: 9 });
+
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.temperature).toBeLessThanOrEqual(1);
+      expect(callArgs.temperature).toBeGreaterThanOrEqual(0);
+      expect(callArgs.max_tokens).toBeGreaterThanOrEqual(1);
     });
 
     it('includes system prompt in messages when provided', async () => {

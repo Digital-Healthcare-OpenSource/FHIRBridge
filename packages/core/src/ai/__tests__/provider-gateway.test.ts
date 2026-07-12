@@ -60,8 +60,10 @@ vi.mock('../openai-provider.js', () => ({
   OPENAI_DEFAULT_MODEL: 'gpt-4o',
 }));
 
-// Import gateway AFTER mocks are set up
+// Import gateway AFTER mocks are set up. The deidentifier is NOT mocked, so
+// real de-identify + date shift/re-identify run in these tests.
 import { ProviderGateway } from '../provider-gateway.js';
+import { deidentify, reidentifyDates } from '../deidentifier.js';
 
 const BASE_PROVIDER_CONFIG = {
   provider: 'claude' as const,
@@ -194,6 +196,76 @@ describe('ProviderGateway', () => {
       await expect(gateway.summarize(MINIMAL_BUNDLE, BASE_SUMMARY_CONFIG)).rejects.toThrow(
         'fatal error',
       );
+    });
+  });
+
+  describe('date handling', () => {
+    const SUMMARY_TEXT_WITH_DATE = 'Encounter noted on 2021-06-15 with follow-up.';
+
+    /** Single-patient bundle with a dated resource. */
+    const SINGLE_PATIENT_BUNDLE = {
+      resourceType: 'Bundle' as const,
+      type: 'collection' as const,
+      entry: [
+        { resource: { resourceType: 'Patient', id: 'p1', birthDate: '1980-02-02' } },
+        {
+          resource: {
+            resourceType: 'Encounter',
+            id: 'enc-1',
+            status: 'finished',
+            period: { start: '2021-06-15' },
+          },
+        },
+      ],
+    };
+
+    /** Multi-patient bundle (two Patient resources). */
+    const MULTI_PATIENT_BUNDLE = {
+      resourceType: 'Bundle' as const,
+      type: 'collection' as const,
+      entry: [
+        { resource: { resourceType: 'Patient', id: 'p1' } },
+        { resource: { resourceType: 'Patient', id: 'p2' } },
+        {
+          resource: {
+            resourceType: 'Encounter',
+            id: 'enc-1',
+            status: 'finished',
+            period: { start: '2021-06-15' },
+          },
+        },
+      ],
+    };
+
+    it('re-identifies dates back to real values for a single-patient bundle', async () => {
+      primaryStub = makeStubProvider('claude', SUMMARY_TEXT_WITH_DATE);
+      const gateway = new ProviderGateway(BASE_SUMMARY_CONFIG);
+
+      const result = await gateway.summarize(SINGLE_PATIENT_BUNDLE, BASE_SUMMARY_CONFIG);
+
+      // The gateway computes the same deterministic shift; reversing the stub
+      // text must equal what the gateway produced.
+      const { shiftMap } = deidentify(SINGLE_PATIENT_BUNDLE, BASE_SUMMARY_CONFIG.hmacSecret);
+      const expected = reidentifyDates(SUMMARY_TEXT_WITH_DATE, shiftMap);
+
+      expect(result.synthesis).toBe(expected);
+      // Real re-identification actually changed the date (shift is never zero)
+      expect(result.synthesis).not.toBe(SUMMARY_TEXT_WITH_DATE);
+      expect(result.metadata.disclaimer).toBeDefined();
+      expect(result.metadata.disclaimer!.toLowerCase()).not.toContain('shifted ±');
+    });
+
+    it('keeps dates shifted and states so in the disclaimer for a multi-patient bundle', async () => {
+      primaryStub = makeStubProvider('claude', SUMMARY_TEXT_WITH_DATE);
+      const gateway = new ProviderGateway(BASE_SUMMARY_CONFIG);
+
+      const result = await gateway.summarize(MULTI_PATIENT_BUNDLE, BASE_SUMMARY_CONFIG);
+
+      // Dates are NOT re-identified — the stub text is preserved verbatim
+      expect(result.synthesis).toBe(SUMMARY_TEXT_WITH_DATE);
+      expect(result.metadata.disclaimer).toBeDefined();
+      expect(result.metadata.disclaimer!.toLowerCase()).toContain('shifted');
+      expect(result.metadata.disclaimer).toContain('days for privacy');
     });
   });
 });

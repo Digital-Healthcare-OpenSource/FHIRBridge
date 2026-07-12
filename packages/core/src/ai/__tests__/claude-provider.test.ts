@@ -115,6 +115,52 @@ describe('ClaudeProvider', () => {
       await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow('Auth failure');
     });
 
+    it('throws when response content is empty instead of collapsing to ""', async () => {
+      const mockCreate = await getMockCreate();
+      mockCreate.mockResolvedValue({
+        content: [{ type: 'text', text: '   ' }],
+        usage: { input_tokens: 10, output_tokens: 0 },
+        model: 'claude-test-model',
+        stop_reason: 'end_turn',
+      });
+
+      const provider = new ClaudeProvider(BASE_CONFIG);
+      await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow(
+        /empty response/i,
+      );
+    });
+
+    it('throws when stop_reason is refusal', async () => {
+      const mockCreate = await getMockCreate();
+      mockCreate.mockResolvedValue({
+        content: [{ type: 'text', text: 'partial' }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+        model: 'claude-test-model',
+        stop_reason: 'refusal',
+      });
+
+      const provider = new ClaudeProvider(BASE_CONFIG);
+      await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow(/refus/i);
+    });
+
+    it('clamps out-of-range temperature and maxTokens before calling the API', async () => {
+      const mockCreate = await getMockCreate();
+      mockCreate.mockResolvedValueOnce({
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 5, output_tokens: 2 },
+        model: 'claude-test-model',
+        stop_reason: 'end_turn',
+      });
+
+      const provider = new ClaudeProvider(BASE_CONFIG);
+      await provider.generate('Prompt', { maxTokens: -5, temperature: 9 });
+
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs.temperature).toBeLessThanOrEqual(1);
+      expect(callArgs.temperature).toBeGreaterThanOrEqual(0);
+      expect(callArgs.max_tokens).toBeGreaterThanOrEqual(1);
+    });
+
     it('concatenates multiple text blocks', async () => {
       const mockCreate = await getMockCreate();
       mockCreate.mockResolvedValueOnce({
