@@ -10,5 +10,13 @@
     "provider_label": "AI Provider",
     "model_label": "Model",
     "language_label": "Summary language"
+  },
+  "disclaimer": {
+    "label": "AI-generated summary",
+    "body": "— This content is produced by an AI model and may contain errors. Always verify clinical information with a qualified healthcare provider."
+  },
+  "actions": {
+    "download_markdown": "Download Markdown",
+    "download_pdf": "Download PDF"
   }
 }

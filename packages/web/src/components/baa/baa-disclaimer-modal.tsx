@@ -29,18 +29,26 @@ export function BaaDisclaimerModal({ baa }: Props) {
   const [checked, setChecked] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const checkboxRef = useRef<HTMLInputElement>(null);
+  // Lưu element đang focus trước khi mở modal để restore khi đóng
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = 'baa-modal-title';
   const descId = 'baa-modal-desc';
 
-  // Reset checkbox mỗi lần modal mở
+  // Reset checkbox mỗi lần modal mở; lưu/khôi phục focus quanh vòng đời modal
   useEffect(() => {
-    if (baa.isModalOpen) {
-      setChecked(false);
-      // Focus vào dialog sau khi mount để screen reader thông báo
-      requestAnimationFrame(() => {
-        dialogRef.current?.focus();
-      });
-    }
+    if (!baa.isModalOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    setChecked(false);
+    // Focus vào dialog sau khi mount để screen reader thông báo
+    requestAnimationFrame(() => {
+      dialogRef.current?.focus();
+    });
+
+    return () => {
+      // Trả focus về trigger khi modal đóng/unmount
+      previousFocusRef.current?.focus?.();
+    };
   }, [baa.isModalOpen]);
 
   // Focus trap — giữ focus bên trong modal khi tab
@@ -56,7 +64,7 @@ export function BaaDisclaimerModal({ baa }: Props) {
     if (!dialog) return;
 
     const focusable = dialog.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])',
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -80,10 +88,10 @@ export function BaaDisclaimerModal({ baa }: Props) {
   const bullets = t('modal.bullets', { returnObjects: true }) as string[];
 
   return (
-    // Backdrop
+    // Backdrop — KHÔNG đặt aria-hidden ở đây: nó bọc role=dialog nên sẽ ẩn toàn
+    // bộ nội dung HIPAA khỏi screen reader. aria-modal trên dialog đã xử lý inert.
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      aria-hidden="true"
       onClick={(e) => {
         // Click ngoài backdrop KHÔNG đóng modal — user phải chọn rõ ràng
         e.stopPropagation();

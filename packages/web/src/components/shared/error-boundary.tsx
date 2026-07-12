@@ -4,6 +4,9 @@
 
 import { Component, type ReactNode, type ErrorInfo } from 'react';
 
+/** Giới hạn độ dài message để tránh log rò rỉ nội dung dài (có thể chứa PHI). */
+const MAX_LOGGED_MESSAGE_LENGTH = 200;
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
@@ -27,8 +30,11 @@ export class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info);
+  componentDidCatch(error: Error, _info: ErrorInfo) {
+    // PHI-safety: chỉ log name + message đã cắt ngắn. KHÔNG log raw error object
+    // hoặc componentStack (info) — props/state render có thể chứa dữ liệu bệnh nhân.
+    const message = error.message.slice(0, MAX_LOGGED_MESSAGE_LENGTH);
+    console.error(`[ErrorBoundary] ${error.name}: ${message}`);
   }
 
   render() {

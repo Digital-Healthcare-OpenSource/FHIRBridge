@@ -11,6 +11,7 @@
 import { useEffect } from 'react';
 import { X, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useTranslation } from '../../i18n/use-translation';
 
 export type ToastVariant = 'error' | 'success' | 'info';
 
@@ -41,6 +42,7 @@ const ICONS: Record<ToastVariant, React.ReactNode> = {
 };
 
 export function Toast({ state, onClose, autoClose = 5000 }: Props) {
+  const { t } = useTranslation('common');
   useEffect(() => {
     if (!state || autoClose === 0) return;
     const timer = setTimeout(onClose, autoClose);
@@ -63,7 +65,7 @@ export function Toast({ state, onClose, autoClose = 5000 }: Props) {
       <button
         type="button"
         onClick={onClose}
-        aria-label="Dismiss notification"
+        aria-label={t('toast.dismiss')}
         className="ml-1 flex-shrink-0 rounded p-0.5 opacity-60 hover:opacity-100"
       >
         <X className="h-3.5 w-3.5" />

@@ -16,6 +16,35 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Build an ApiError from a non-ok Response.
+ *
+ * Đọc body ĐÚNG MỘT LẦN qua res.text() rồi JSON.parse — gọi res.json() rồi
+ * res.text() sẽ double-consume stream và ném 'body stream already read'.
+ * statusText rỗng trên HTTP/2 nên message ưu tiên body.message / body.error,
+ * fallback về status code.
+ */
+async function buildApiError(res: Response): Promise<ApiError> {
+  const raw = await res.text();
+  let body: unknown = raw;
+  let message = `HTTP ${res.status}`;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      body = parsed;
+      if (parsed && typeof parsed === 'object') {
+        const p = parsed as { message?: unknown; error?: unknown };
+        if (typeof p.message === 'string' && p.message) message = p.message;
+        else if (typeof p.error === 'string' && p.error) message = p.error;
+      }
+    } catch {
+      // Non-JSON body (HTML error page, plain text) — dùng raw làm message.
+      message = raw;
+    }
+  }
+  return new ApiError(res.status, message, body);
+}
+
 let _authToken: string | null = null;
 
 export function setAuthToken(token: string | null): void {
@@ -46,13 +75,7 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    let errorBody: unknown;
-    try {
-      errorBody = await res.json();
-    } catch {
-      errorBody = await res.text();
-    }
-    throw new ApiError(res.status, `HTTP ${res.status}: ${res.statusText}`, errorBody);
+    throw await buildApiError(res);
   }
 
   if (res.status === 204) return undefined as T;
@@ -86,13 +109,7 @@ export const apiClient = {
     const url = `${API_BASE_URL}${path}`;
     const res = await fetch(url, { method: 'POST', headers, body: form });
     if (!res.ok) {
-      let errorBody: unknown;
-      try {
-        errorBody = await res.json();
-      } catch {
-        errorBody = await res.text();
-      }
-      throw new ApiError(res.status, `HTTP ${res.status}: ${res.statusText}`, errorBody);
+      throw await buildApiError(res);
     }
     return res.json() as Promise<T>;
   },

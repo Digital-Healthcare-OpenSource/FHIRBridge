@@ -3,9 +3,13 @@
  *
  * Chiến lược:
  * - VI loaded eagerly (default locale)
- * - EN / JA lazy-loaded khi user switch
+ * - EN loaded eagerly alongside VI
  * - Detect order: localStorage → navigator → 'vi' fallback
  * - Namespace per file: common | consent | baa | summary | errors
+ *
+ * JA: các file locales/ja/*.json hiện là placeholder (text tiếng Việt), CHƯA
+ * dịch. Không expose 'ja' trong SUPPORTED_LANGUAGES cho tới khi có bản dịch thật
+ * — không fabricate nội dung y tế tiếng Nhật. Giữ file JSON lại cho v1.1.
  */
 
 import i18n from 'i18next';
@@ -31,24 +35,15 @@ import enSummary from './locales/en/summary.json';
 import enErrors from './locales/en/errors.json';
 
 // ---------------------------------------------------------------------------
-// JA bundles — placeholder content (VI text). Full translation in v1.1.
-// ---------------------------------------------------------------------------
-import jaCommon from './locales/ja/common.json';
-import jaConsent from './locales/ja/consent.json';
-import jaBaa from './locales/ja/baa.json';
-import jaSummary from './locales/ja/summary.json';
-import jaErrors from './locales/ja/errors.json';
-
-// ---------------------------------------------------------------------------
 // Supported locales
+// JA cố tình bị loại — locales/ja/*.json vẫn là placeholder tiếng Việt.
 // ---------------------------------------------------------------------------
-export const SUPPORTED_LANGUAGES = ['vi', 'en', 'ja'] as const;
+export const SUPPORTED_LANGUAGES = ['vi', 'en'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   vi: 'Tiếng Việt',
   en: 'English',
-  ja: '日本語',
 };
 
 // ---------------------------------------------------------------------------
@@ -85,13 +80,6 @@ void i18n
         baa: enBaa,
         summary: enSummary,
         errors: enErrors,
-      },
-      ja: {
-        common: jaCommon,
-        consent: jaConsent,
-        baa: jaBaa,
-        summary: jaSummary,
-        errors: jaErrors,
       },
     },
 

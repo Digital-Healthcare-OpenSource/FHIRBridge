@@ -8,6 +8,11 @@
   "quota_exceeded": "You have reached your monthly export limit. Upgrade your plan to continue.",
   "export_failed": "Export failed. Check your HIS connection and try again.",
   "ai_unavailable": "AI service is temporarily unavailable. Please try again later.",
+  "upload_failed": "Upload failed",
+  "import_failed": "Import failed",
+  "download_failed": "Download failed. Please try again.",
+  "markdown_download_failed": "Markdown download failed. Please try again.",
+  "file_rejected": "File rejected: {{reason}}",
   "validation": {
     "required": "This field is required.",
     "invalid_url": "Invalid URL.",

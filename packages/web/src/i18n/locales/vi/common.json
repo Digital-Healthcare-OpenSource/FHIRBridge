@@ -14,14 +14,104 @@
   "language": {
     "label": "Ngôn ngữ",
     "vi": "Tiếng Việt",
-    "en": "English",
-    "ja": "日本語"
+    "en": "English"
   },
   "action": {
     "cancel": "Hủy",
     "confirm": "Xác nhận",
     "close": "Đóng",
     "save": "Lưu",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "back": "Quay lại",
+    "next": "Tiếp tục",
+    "try_again": "Thử lại"
+  },
+  "toast": {
+    "dismiss": "Đóng thông báo"
+  },
+  "dropzone": {
+    "instruction": "Kéo thả hoặc nhấn để tải lên",
+    "drop_here": "Thả tệp vào đây",
+    "hint": "CSV, XLSX hoặc FHIR JSON · tối đa {{size}}",
+    "input_label": "Tải tệp lên",
+    "remove_label": "Xóa tệp"
+  },
+  "wizard": {
+    "title": "Xuất FHIR Bundle",
+    "description": "Làm theo các bước để xuất dữ liệu bệnh nhân",
+    "steps_aria": "Các bước xuất dữ liệu",
+    "step": {
+      "connector": "Kết nối",
+      "configure": "Cấu hình",
+      "patient": "Bệnh nhân",
+      "options": "Tùy chọn",
+      "review": "Xem lại",
+      "progress": "Tiến trình"
+    },
+    "select_source": "Chọn nguồn dữ liệu",
+    "source_fhir_title": "FHIR Endpoint",
+    "source_fhir_desc": "Kết nối tới máy chủ FHIR R4",
+    "source_file_title": "Tải tệp lên",
+    "source_file_desc": "Tải lên CSV, XLSX hoặc FHIR JSON",
+    "fhir_connection": "Kết nối FHIR",
+    "upload_file": "Tải tệp lên",
+    "uploading": "Đang tải lên… {{progress}}%",
+    "file_uploaded": "Tải tệp thành công.",
+    "patient_id": "Mã bệnh nhân",
+    "patient_identifier": "Mã định danh bệnh nhân",
+    "patient_placeholder": "vd. patient-123",
+    "output_options": "Tùy chọn đầu ra",
+    "format": "Định dạng",
+    "format_json": "FHIR Bundle JSON",
+    "format_ndjson": "NDJSON",
+    "generate_summary": "Tạo tóm tắt AI sau khi xuất",
+    "review": "Xem lại",
+    "review_source": "Nguồn",
+    "review_fhir": "FHIR: {{url}}",
+    "review_file": "Tải tệp lên",
+    "review_patient": "Mã bệnh nhân",
+    "review_format": "Định dạng",
+    "review_summary": "Kèm tóm tắt",
+    "yes": "Có",
+    "no": "Không",
+    "exporting": "Đang xuất…",
+    "start_export": "Bắt đầu xuất",
+    "back_to_dashboard": "Về Dashboard",
+    "new_export": "Xuất mới"
+  },
+  "import": {
+    "title": "Nhập tệp",
+    "description": "Tải lên CSV, XLSX hoặc FHIR JSON và ánh xạ sang FHIR R4",
+    "preview": "Xem trước",
+    "rows_columns": "{{rows}} dòng · {{columns}} cột",
+    "map_columns": "Ánh xạ cột sang FHIR",
+    "start_import": "Bắt đầu nhập",
+    "processing": "Đang xử lý nhập…",
+    "started": "Đã bắt đầu nhập",
+    "job_id": "Mã tác vụ: {{id}}",
+    "import_another": "Nhập tệp khác",
+    "failed": "Nhập thất bại"
+  },
+  "progress": {
+    "label": "Tiến trình",
+    "step_connecting": "Đang kết nối nguồn",
+    "step_fetching": "Đang lấy dữ liệu bệnh nhân",
+    "step_mapping": "Đang ánh xạ sang FHIR R4",
+    "step_bundling": "Đang tạo bundle",
+    "step_complete": "Hoàn tất",
+    "error_generic": "Đã xảy ra lỗi trong quá trình xuất"
+  },
+  "mapper": {
+    "source_column": "Cột nguồn",
+    "fhir_path": "Đường dẫn FHIR",
+    "skip": "— Bỏ qua —",
+    "map_aria": "Ánh xạ {{col}} sang đường dẫn FHIR",
+    "duplicate_warning": "Hai hoặc nhiều cột ánh xạ tới cùng đường dẫn FHIR ({{paths}}). Chỉ một giá trị được giữ lại.",
+    "identifier_required": "Ánh xạ ít nhất một mã định danh bệnh nhân (vd. Patient.id) để tiếp tục."
+  },
+  "export_result": {
+    "complete": "Xuất hoàn tất",
+    "patient_id_label": "Mã bệnh nhân",
+    "download": "Tải FHIR Bundle (JSON)"
   }
 }

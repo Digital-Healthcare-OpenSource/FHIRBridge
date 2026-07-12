@@ -53,17 +53,20 @@ describe('i18n setup', () => {
     expect(localStorage.getItem('fhirbridge.lang')).toBe('en');
   });
 
-  it('changeLanguage to JA updates i18n.language', async () => {
+  it('changeLanguage to JA resolves to fallback — JA chưa được hỗ trợ (chưa có bản dịch thật)', async () => {
     const { default: i18n } = await import('../index');
+    await i18n.changeLanguage('vi');
     await i18n.changeLanguage('ja');
-    expect(i18n.language).toBe('ja');
+    // supportedLngs = ['vi','en'] — 'ja' bị từ chối, không được chuyển sang
+    // locale có nội dung placeholder tiếng Việt gắn nhãn 日本語
+    expect(i18n.language).not.toBe('ja');
+    expect(i18n.resolvedLanguage).toBe('vi');
   });
 
-  it('JA baa namespace falls back to VI placeholder text', async () => {
+  it('JA baa lookup falls back to VI text (ja outside supportedLngs)', async () => {
     const { default: i18n } = await import('../index');
     const jaBtnText = i18n.t('modal.confirm_button', { ns: 'baa', lng: 'ja' });
     const viBtnText = i18n.t('modal.confirm_button', { ns: 'baa', lng: 'vi' });
-    // JA placeholder = VI text per spec
     expect(jaBtnText).toBe(viBtnText);
   });
 
