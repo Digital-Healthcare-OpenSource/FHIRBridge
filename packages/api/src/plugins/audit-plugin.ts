@@ -18,30 +18,34 @@ async function _auditPlugin(
   const { config, auditService } = opts;
 
   fastify.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (request.url === '/api/v1/health') return;
+    const path = request.url.split('?')[0];
+    if (path === '/api/v1/health' || path === '/api/v1/readyz') return;
 
     const userId = request.authUser?.id ?? 'anonymous';
-    const userIdHash = createHmac('sha256', config.jwtSecret)
+    // Key separation: hash user IDs with HMAC_SECRET, never the JWT signing key.
+    const userIdHash = createHmac('sha256', config.hmacSecret)
       .update(userId)
       .digest('hex')
       .slice(0, 16);
 
     const durationMs = Math.round(reply.elapsedTime);
 
-    auditService.log({
-      userIdHash,
-      action: request.url,
-      status: reply.statusCode >= 400 ? 'error' : 'success',
-      metadata: {
-        method: request.method,
-        path: request.routeOptions?.url ?? request.url,
-        statusCode: reply.statusCode,
-        durationMs,
-        requestId: (request as FastifyRequest & { id?: string }).id,
-      },
-    }).catch(() => {
-      // Swallow audit errors — never break the API
-    });
+    auditService
+      .log({
+        userIdHash,
+        action: request.url,
+        status: reply.statusCode >= 400 ? 'error' : 'success',
+        metadata: {
+          method: request.method,
+          path: request.routeOptions?.url ?? request.url,
+          statusCode: reply.statusCode,
+          durationMs,
+          requestId: (request as FastifyRequest & { id?: string }).id,
+        },
+      })
+      .catch(() => {
+        // Swallow audit errors — never break the API
+      });
   });
 }
 

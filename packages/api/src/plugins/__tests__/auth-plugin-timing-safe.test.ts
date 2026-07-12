@@ -23,6 +23,9 @@ const mockConfig: ApiConfig = {
   apiKeys: [VALID_API_KEY, ANOTHER_VALID_KEY],
   corsOrigins: ['http://localhost:3000'],
   logLevel: 'silent',
+  rateLimitPerMinute: 100,
+  enableDocs: true,
+  auditRetentionDays: 90,
 };
 
 let app: FastifyInstance;

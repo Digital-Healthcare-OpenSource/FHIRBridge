@@ -12,8 +12,8 @@ let app: FastifyInstance;
 let store: InMemoryIdempotencyStore;
 
 function attachAuthUser(userId: string) {
-  return async (request: { authUser?: { userId: string } }) => {
-    request.authUser = { userId };
+  return async (request: { authUser?: { id: string } }) => {
+    request.authUser = { id: userId };
   };
 }
 
@@ -28,6 +28,11 @@ beforeEach(async () => {
   app.post('/echo', async () => {
     counter += 1;
     return { counter };
+  });
+
+  app.post('/echo-body', async (req) => {
+    counter += 1;
+    return { counter, body: req.body };
   });
 
   app.post('/fail', async (_req, reply) => {
@@ -92,6 +97,53 @@ describe('Idempotency plugin', () => {
     const b = await app.inject({ method: 'GET', url: '/echo-get', headers });
     expect(a.statusCode).toBe(200);
     expect(b.headers['idempotent-replay']).toBeUndefined();
+  });
+
+  it('same key + SAME body → replayed (keyed per user + body-hash)', async () => {
+    const headers = { 'idempotency-key': 'body-key' };
+    const payload = { patientId: 'p-1' };
+    const first = await app.inject({ method: 'POST', url: '/echo-body', payload, headers });
+    const second = await app.inject({ method: 'POST', url: '/echo-body', payload, headers });
+    expect(second.headers['idempotent-replay']).toBe('true');
+    expect(second.json().counter).toBe(first.json().counter);
+  });
+
+  it('same key but DIFFERENT body → NOT replayed (body-hash guard)', async () => {
+    const headers = { 'idempotency-key': 'reused-key' };
+    const first = await app.inject({
+      method: 'POST',
+      url: '/echo-body',
+      payload: { patientId: 'p-1' },
+      headers,
+    });
+    const second = await app.inject({
+      method: 'POST',
+      url: '/echo-body',
+      payload: { patientId: 'p-2' },
+      headers,
+    });
+    expect(second.headers['idempotent-replay']).toBeUndefined();
+    expect(second.json().counter).not.toBe(first.json().counter);
+    expect(second.json().body).toEqual({ patientId: 'p-2' });
+  });
+
+  it('no authenticated identity → un-cacheable (never shares an anonymous bucket)', async () => {
+    const anon = Fastify({ logger: false });
+    const shared = new InMemoryIdempotencyStore();
+    // No authUser hook → request.authUser is undefined.
+    await anon.register(idempotencyPlugin, { store: shared, ttlMs: 60_000 });
+    let n = 0;
+    anon.post('/echo', async () => ({ n: ++n }));
+    await anon.ready();
+
+    const headers = { 'idempotency-key': 'anon-key' };
+    const a = await anon.inject({ method: 'POST', url: '/echo', payload: {}, headers });
+    const b = await anon.inject({ method: 'POST', url: '/echo', payload: {}, headers });
+    // Both execute fresh — no cross-request replay for unauthenticated callers.
+    expect(a.json().n).toBe(1);
+    expect(b.json().n).toBe(2);
+    expect(b.headers['idempotent-replay']).toBeUndefined();
+    await anon.close();
   });
 
   it('same key under different user → not shared', async () => {

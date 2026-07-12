@@ -57,6 +57,26 @@ const ApiConfigSchema = z
       }),
 
     metricsBearerToken: z.string().min(16).optional(),
+
+    // Per-user rate-limit budget (was read ad-hoc from process.env — now validated so typos fail fast).
+    rateLimitPerMinute: z.coerce.number().int().positive().default(100),
+
+    // Swagger/OpenAPI docs toggle. Accepts true/1 → on; anything else → off. Default on.
+    enableDocs: z
+      .string()
+      .optional()
+      .transform((val) => (val === undefined ? true : val === 'true' || val === '1')),
+
+    // Optional AI provider credentials + selection (summary endpoints).
+    anthropicApiKey: z.string().optional(),
+    openaiApiKey: z.string().optional(),
+    aiProvider: z.enum(['anthropic', 'openai']).optional(),
+
+    // Optional override for structured-error docs deep links.
+    errorDocsBaseUrl: z.string().url('ERROR_DOCS_BASE_URL must be a valid URL').optional(),
+
+    // Audit retention window (days). Default 90 — tune to your compliance retention policy.
+    auditRetentionDays: z.coerce.number().int().positive().default(90),
   })
   .superRefine((data, ctx) => {
     // HMAC_SECRET must differ from JWT_SECRET to prevent key reuse
@@ -67,7 +87,59 @@ const ApiConfigSchema = z
         message: 'HMAC_SECRET must be different from JWT_SECRET (key reuse is a security risk)',
       });
     }
+
+    const isProduction = process.env['NODE_ENV'] === 'production';
+
+    for (const field of ['jwtSecret', 'hmacSecret'] as const) {
+      const value = data[field];
+
+      // Placeholder secrets are NEVER acceptable — a copy-pasted .env.example must fail fast.
+      if (isPlaceholderSecret(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} looks like a placeholder — set a real, unique secret`,
+        });
+        continue;
+      }
+
+      // Low-entropy secrets (e.g. "aaaa…", padded repeats) only rejected in production.
+      if (isProduction && isLowEntropySecret(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} has insufficient entropy for production — use a random ≥32-char secret`,
+        });
+      }
+    }
   });
+
+/** Known placeholder markers that must never ship as real secrets. */
+const PLACEHOLDER_MARKERS = [
+  'change-this',
+  'changeme',
+  'change-me',
+  'your-secret',
+  'your_secret',
+  'placeholder',
+  'example',
+  'secret-here',
+] as const;
+
+/** True when the secret contains any known placeholder marker (case-insensitive). */
+function isPlaceholderSecret(secret: string): boolean {
+  const lower = secret.toLowerCase();
+  return PLACEHOLDER_MARKERS.some((marker) => lower.includes(marker));
+}
+
+/**
+ * Heuristic low-entropy check: too few distinct characters for the length signals a padded or
+ * repeated secret (e.g. "aaaa…"). A random 32-char secret has well over a dozen distinct chars.
+ */
+function isLowEntropySecret(secret: string): boolean {
+  const distinct = new Set(secret).size;
+  return distinct < 8;
+}
 
 /** Load and validate configuration from environment variables. Throws on failure. */
 export function loadConfig(): ApiConfig {
@@ -83,6 +155,13 @@ export function loadConfig(): ApiConfig {
     logLevel: process.env['LOG_LEVEL'],
     trustProxy: process.env['TRUST_PROXY'],
     metricsBearerToken: process.env['METRICS_BEARER_TOKEN'],
+    rateLimitPerMinute: process.env['RATE_LIMIT_PER_MINUTE'],
+    enableDocs: process.env['ENABLE_DOCS'],
+    anthropicApiKey: process.env['ANTHROPIC_API_KEY'],
+    openaiApiKey: process.env['OPENAI_API_KEY'],
+    aiProvider: process.env['AI_PROVIDER'],
+    errorDocsBaseUrl: process.env['ERROR_DOCS_BASE_URL'],
+    auditRetentionDays: process.env['AUDIT_RETENTION_DAYS'],
   };
 
   const result = ApiConfigSchema.safeParse(raw);

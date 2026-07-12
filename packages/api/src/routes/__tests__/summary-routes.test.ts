@@ -35,6 +35,9 @@ const mockConfig: ApiConfig = {
   apiKeys: [],
   corsOrigins: ['*'],
   logLevel: 'silent',
+  rateLimitPerMinute: 100,
+  enableDocs: true,
+  auditRetentionDays: 90,
 };
 
 const validBundle = {

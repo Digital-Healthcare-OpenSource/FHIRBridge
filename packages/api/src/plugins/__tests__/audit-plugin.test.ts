@@ -3,6 +3,7 @@
  * Uses Fastify inject() — no network.
  */
 
+import { createHmac } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { auditPlugin } from '../audit-plugin.js';
@@ -17,6 +18,9 @@ const mockConfig: ApiConfig = {
   apiKeys: [],
   corsOrigins: ['*'],
   logLevel: 'silent',
+  rateLimitPerMinute: 100,
+  enableDocs: true,
+  auditRetentionDays: 90,
 };
 
 function buildMockAuditService() {
@@ -99,6 +103,25 @@ describe('Audit plugin — user ID hashing', () => {
     await new Promise((r) => setTimeout(r, 10));
     const last = auditCalls[auditCalls.length - 1];
     expect(last?.userIdHash.length).toBe(16);
+  });
+
+  it('keys the HMAC with hmacSecret — NOT the JWT signing key (key separation)', async () => {
+    auditCalls.length = 0;
+    await app.inject({ method: 'GET', url: '/api/v1/data' });
+    await new Promise((r) => setTimeout(r, 10));
+    const last = auditCalls[auditCalls.length - 1];
+
+    const withHmac = createHmac('sha256', mockConfig.hmacSecret)
+      .update('anonymous')
+      .digest('hex')
+      .slice(0, 16);
+    const withJwt = createHmac('sha256', mockConfig.jwtSecret)
+      .update('anonymous')
+      .digest('hex')
+      .slice(0, 16);
+
+    expect(last?.userIdHash).toBe(withHmac);
+    expect(last?.userIdHash).not.toBe(withJwt);
   });
 });
 

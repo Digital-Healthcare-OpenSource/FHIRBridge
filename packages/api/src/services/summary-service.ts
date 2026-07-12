@@ -1,14 +1,16 @@
 /**
  * Summary service — orchestrates deidentify → AI generation → format.
- * Supports Redis-backed store (optional) with in-memory fallback.
+ * Job-record lifecycle được uỷ cho JobRecordStore (redis-or-memory, TTL, sweep,
+ * ownership + audit) — chia sẻ với ExportService để tránh drift.
  * No PHI in logs — only hashed IDs and counts.
  */
 
-import { createHmac, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { ProviderGateway, formatMarkdown } from '@fhirbridge/core';
 import type { Bundle, SummaryConfig, PatientSummary } from '@fhirbridge/types';
 import type { IRedisStore } from './redis-store.js';
 import type { AuditService } from './audit-service.js';
+import { JobRecordStore } from './job-record-store.js';
 
 export interface SummaryRequestOptions {
   language?: 'en' | 'vi' | 'ja';
@@ -38,7 +40,6 @@ export interface SummaryRecord {
 
 /** TTL for summary records: 10 minutes */
 const SUMMARY_TTL_SECONDS = 10 * 60;
-const STORE_TTL_MS = SUMMARY_TTL_SECONDS * 1000;
 
 function resolveProvider(provider?: string): 'claude' | 'openai' {
   if (provider === 'openai') return 'openai';
@@ -65,56 +66,40 @@ function buildSummaryConfig(
       model: providerName === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-20250514',
       apiKey,
       maxTokens: 2048,
-      temperature: 0.3,
+      // Clinical: deterministic output — không để model bịa/biến thiên trên nội dung y khoa.
+      temperature: 0,
       timeoutMs: 30000,
     },
   };
 }
 
-/** Hash userId trước khi log để tránh PHI/PII trong audit trail. */
-function hashUserId(userId: string, secret: string): string {
-  return createHmac('sha256', secret).update(userId).digest('hex').slice(0, 16);
-}
-
 export class SummaryService {
-  private readonly memStore = new Map<string, SummaryRecord>();
-  private readonly redis: IRedisStore | null;
-  private readonly auditService: AuditService | null;
-  private readonly auditHashSalt: string;
+  private readonly store: JobRecordStore<SummaryRecord>;
 
   constructor(redisStore?: IRedisStore, auditService?: AuditService, auditHashSalt?: string) {
-    this.redis = redisStore ?? null;
-    this.auditService = auditService ?? null;
-    this.auditHashSalt =
+    const hashKey =
       auditHashSalt ?? process.env['HMAC_SECRET'] ?? 'dev-only-fallback-salt-32-chars-min';
-  }
 
-  private async storeRecord(summaryId: string, record: SummaryRecord): Promise<void> {
-    if (this.redis) {
-      await this.redis.set(summaryId, record, SUMMARY_TTL_SECONDS);
-    } else {
-      this.memStore.set(summaryId, record);
-    }
-  }
-
-  private async loadRecord(summaryId: string): Promise<SummaryRecord | undefined> {
-    if (this.redis) {
-      return this.redis.get<SummaryRecord>(summaryId);
-    }
-    return this.memStore.get(summaryId);
-  }
-
-  private evictExpiredMemory(): void {
-    const now = Date.now();
-    for (const [key, record] of this.memStore.entries()) {
-      if (now - record.createdAt > STORE_TTL_MS) this.memStore.delete(key);
-    }
+    this.store = new JobRecordStore<SummaryRecord>({
+      redis: redisStore ?? null,
+      ttlSeconds: SUMMARY_TTL_SECONDS,
+      ...(auditService
+        ? {
+            audit: {
+              service: auditService,
+              hashKey,
+              deniedAction: 'summary_access_denied',
+              idField: 'summary_id',
+            },
+          }
+        : {}),
+    });
   }
 
   /** Start async summary generation. Returns summaryId immediately. */
   async startGeneration(request: SummaryRequest): Promise<string> {
     const summaryId = randomUUID();
-    await this.storeRecord(summaryId, {
+    await this.store.set(summaryId, {
       status: 'processing',
       userId: request.userId,
       createdAt: Date.now(),
@@ -128,46 +113,46 @@ export class SummaryService {
   /**
    * Lấy trạng thái summary job.
    * Nếu truyền userId, kiểm tra ownership — trả undefined nếu không khớp (treat as 404).
+   * Cross-tenant attempt được audit qua JobRecordStore (AC-2).
    */
   async getStatus(summaryId: string, userId?: string): Promise<SummaryRecord | undefined> {
-    this.evictExpiredMemory();
-    const record = await this.loadRecord(summaryId);
-    if (!record) return undefined;
-    // IDOR protection (AC-2): cross-tenant attempt → audit + 404 (no 403 timing leak)
-    if (userId !== undefined && record.userId !== userId) {
-      if (this.auditService) {
-        await this.auditService.log({
-          userIdHash: hashUserId(userId, this.auditHashSalt),
-          action: 'summary_access_denied',
-          status: 'error',
-          metadata: {
-            summary_id: summaryId,
-            owner_user_hash: hashUserId(record.userId, this.auditHashSalt),
-            reason: 'cross_tenant',
-          },
-        });
-      }
-      return undefined;
-    }
-    return record;
+    return this.store.getOwned(summaryId, userId);
   }
 
   /** Internal: run the full AI pipeline */
   private async runGeneration(summaryId: string, request: SummaryRequest): Promise<void> {
-    const record = (await this.loadRecord(summaryId))!;
+    // MEDIUM: handle undefined explicitly thay vì non-null assert race với TTL.
+    const existing = await this.store.get(summaryId);
+    if (!existing) {
+      await this.store.set(summaryId, {
+        status: 'failed',
+        userId: request.userId,
+        createdAt: Date.now(),
+        error: 'Summary record expired before processing',
+      });
+      return;
+    }
+
     try {
       const config = buildSummaryConfig(request.summaryConfig, request.hmacSecret);
       const gateway = new ProviderGateway(config);
       const summary = await gateway.summarize(request.bundle, config);
 
-      record.summary = summary;
-      record.formattedMarkdown = formatMarkdown(summary);
-      record.status = 'complete';
-      await this.storeRecord(summaryId, record);
+      // Immutable update — không mutate record có thể đang được chia sẻ.
+      const completed: SummaryRecord = {
+        ...existing,
+        summary,
+        formattedMarkdown: formatMarkdown(summary),
+        status: 'complete',
+      };
+      await this.store.set(summaryId, completed);
     } catch (err) {
-      record.status = 'failed';
-      record.error = err instanceof Error ? err.message : 'Summary generation failed';
-      await this.storeRecord(summaryId, record);
+      const failed: SummaryRecord = {
+        ...existing,
+        status: 'failed',
+        error: err instanceof Error ? err.message : 'Summary generation failed',
+      };
+      await this.store.set(summaryId, failed);
     }
   }
 }

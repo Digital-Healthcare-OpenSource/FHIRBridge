@@ -18,6 +18,9 @@ const mockConfig: ApiConfig = {
   databaseUrl: 'postgres://localhost/test',
   redisUrl: 'redis://localhost:6379',
   logLevel: 'silent',
+  rateLimitPerMinute: 100,
+  enableDocs: true,
+  auditRetentionDays: 90,
 };
 
 let app: FastifyInstance;
@@ -69,5 +72,61 @@ describe('GET /api/v1/health', () => {
   it('returns JSON content type', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/v1/health' });
     expect(response.headers['content-type']).toMatch(/application\/json/);
+  });
+
+  it('liveness stays 200 even when a configured dependency is down', async () => {
+    const app2 = Fastify({ logger: false });
+    await app2.register(healthRoutes, {
+      config: mockConfig,
+      redisStore: { isHealthy: () => false } as unknown as never,
+    });
+    await app2.ready();
+    const res = await app2.inject({ method: 'GET', url: '/api/v1/health' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('degraded');
+    await app2.close();
+  });
+});
+
+describe('GET /api/v1/readyz', () => {
+  it('returns 503 when a CONFIGURED dependency is unhealthy', async () => {
+    const app2 = Fastify({ logger: false });
+    await app2.register(healthRoutes, {
+      config: mockConfig,
+      redisStore: { isHealthy: () => false } as unknown as never,
+    });
+    await app2.ready();
+    const res = await app2.inject({ method: 'GET', url: '/api/v1/readyz' });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().status).toBe('unavailable');
+    expect(res.json().checks.redis).toBe('error');
+    await app2.close();
+  });
+
+  it('returns 200 ready when configured dependencies are healthy', async () => {
+    const app2 = Fastify({ logger: false });
+    await app2.register(healthRoutes, {
+      config: mockConfig,
+      redisStore: { isHealthy: () => true } as unknown as never,
+      postgresAuditSink: { isHealthy: () => true } as unknown as never,
+    });
+    await app2.ready();
+    const res = await app2.inject({ method: 'GET', url: '/api/v1/readyz' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('ready');
+    await app2.close();
+  });
+
+  it('returns 200 ready when dependencies are merely DISABLED (unconfigured)', async () => {
+    const app2 = Fastify({ logger: false });
+    await app2.register(healthRoutes, {
+      config: { ...mockConfig, databaseUrl: undefined, redisUrl: undefined },
+    });
+    await app2.ready();
+    const res = await app2.inject({ method: 'GET', url: '/api/v1/readyz' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('ready');
+    expect(res.json().checks).toMatchObject({ database: 'disabled', redis: 'disabled' });
+    await app2.close();
   });
 });

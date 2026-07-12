@@ -1,22 +1,26 @@
 /**
  * Export service — orchestrates connector → bundle assembly.
- * Supports Redis-backed store (optional) with in-memory fallback.
+ * Job-record lifecycle được uỷ cho JobRecordStore (redis-or-memory, TTL, sweep,
+ * ownership + audit) — service class giữ mỏng.
  * No PHI in service-level logs.
  *
  * C-6: streamExport() cho NDJSON streaming trực tiếp.
  * Memory-bounded — không gom resource array, stream-through only.
  */
 
-import { randomUUID, createHmac } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
   FhirEndpointConnector,
   BundleBuilder,
   serializeResourceAsNdjsonLine,
-  validateBaseUrl,
+  validateBaseUrlWithDns,
+  validateResource,
 } from '@fhirbridge/core';
 import type { Bundle, ConnectorConfig, Resource } from '@fhirbridge/types';
 import type { IRedisStore } from './redis-store.js';
+import type { AuditService } from './audit-service.js';
+import { JobRecordStore, hashUserId } from './job-record-store.js';
 
 export interface ExportRequest {
   patientId: string;
@@ -52,102 +56,104 @@ const MAX_REDIS_BYTES = 5 * 1024 * 1024;
 /** TTL for export records: 10 minutes */
 const EXPORT_TTL_SECONDS = 10 * 60;
 
-/** In-memory store TTL (ms) used when no Redis store is provided */
-const STORE_TTL_MS = EXPORT_TTL_SECONDS * 1000;
-
-/**
- * Hash userId cho audit log — không log raw userId (privacy).
- * Dùng SHA-256 truncated 16 chars, không cần HMAC key vì chỉ dùng cho audit.
- */
-function hashUserId(userId: string): string {
-  return createHmac('sha256', 'audit-salt').update(userId).digest('hex').slice(0, 16);
-}
-
 export interface ExportServiceDeps {
   /** Optional Redis store; falls back to in-memory when absent */
   redis?: IRedisStore;
   /** Optional logger; defaults to console.warn/error when absent */
   logger?: { warn(msg: string): void; error(msg: string): void };
+  /** Optional audit service — bật audit cho cross-tenant denial trong getStatus */
+  audit?: AuditService;
+  /** HMAC key để hash userId trong audit; mặc định process.env.HMAC_SECRET */
+  auditHashSalt?: string;
 }
 
 export class ExportService {
-  /** In-memory fallback store (used when no RedisStore provided) */
-  private readonly memStore = new Map<string, ExportRecord>();
-  private readonly redis: IRedisStore | null;
+  private readonly store: JobRecordStore<ExportRecord>;
   private readonly logger: { warn(msg: string): void; error(msg: string): void };
+  private readonly auditHashKey: string;
 
   /**
    * @param optsOrRedis - Either an ExportServiceDeps object (preferred DI form)
    *   or a bare IRedisStore for backward compatibility with existing callers.
    */
   constructor(optsOrRedis?: IRedisStore | ExportServiceDeps) {
+    let redis: IRedisStore | null = null;
+    let logger: { warn(msg: string): void; error(msg: string): void } = console;
+    let audit: AuditService | undefined;
+    let auditHashSalt: string | undefined;
+
     if (!optsOrRedis) {
-      this.redis = null;
-      this.logger = console;
+      // defaults
     } else if ('set' in optsOrRedis && 'get' in optsOrRedis) {
-      this.redis = optsOrRedis as IRedisStore;
-      this.logger = console;
+      redis = optsOrRedis as IRedisStore;
     } else {
       const deps = optsOrRedis as ExportServiceDeps;
-      this.redis = deps.redis ?? null;
-      this.logger = deps.logger ?? console;
+      redis = deps.redis ?? null;
+      logger = deps.logger ?? console;
+      audit = deps.audit;
+      auditHashSalt = deps.auditHashSalt;
     }
-  }
 
-  private async storeRecord(exportId: string, record: ExportRecord): Promise<void> {
-    if (this.redis) {
-      const serialized = JSON.stringify(record);
-      if (serialized.length > MAX_REDIS_BYTES) {
-        this.logger.warn(`[ExportService] bundle for ${exportId} exceeds 5 MB, keeping in-memory`);
-        this.memStore.set(exportId, record);
-        return;
-      }
-      await this.redis.set(exportId, record, EXPORT_TTL_SECONDS);
-    } else {
-      this.memStore.set(exportId, record);
-    }
-  }
+    this.logger = logger;
+    this.auditHashKey =
+      auditHashSalt ?? process.env['HMAC_SECRET'] ?? 'dev-only-fallback-salt-32-chars-min';
 
-  private async loadRecord(exportId: string): Promise<ExportRecord | undefined> {
-    if (this.redis) {
-      const fromRedis = await this.redis.get<ExportRecord>(exportId);
-      if (fromRedis) return fromRedis;
-    }
-    return this.memStore.get(exportId);
-  }
-
-  private evictExpiredMemory(): void {
-    const now = Date.now();
-    for (const [key, record] of this.memStore.entries()) {
-      if (now - record.createdAt > STORE_TTL_MS) this.memStore.delete(key);
-    }
+    this.store = new JobRecordStore<ExportRecord>({
+      redis,
+      logger,
+      ttlSeconds: EXPORT_TTL_SECONDS,
+      maxRedisBytes: MAX_REDIS_BYTES,
+      ...(audit
+        ? {
+            audit: {
+              service: audit,
+              hashKey: this.auditHashKey,
+              deniedAction: 'export_access_denied',
+              idField: 'export_id',
+            },
+          }
+        : {}),
+    });
   }
 
   /** Kick off async export. Returns exportId immediately (202 pattern). */
   async startExport(request: ExportRequest, userId: string): Promise<string> {
     const exportId = randomUUID();
     const record: ExportRecord = { status: 'processing', userId, createdAt: Date.now() };
-    await this.storeRecord(exportId, record);
-    this.runExport(exportId, request).catch(() => {
+    await this.store.set(exportId, record);
+    this.runExport(exportId, request, userId).catch(() => {
       /* errors stored in record */
     });
     return exportId;
   }
 
-  /** Get current status of an export job — verifies ownership */
+  /** Get current status of an export job — verifies ownership + audits denials */
   async getStatus(exportId: string, userId: string): Promise<ExportRecord | undefined> {
-    this.evictExpiredMemory();
-    const record = await this.loadRecord(exportId);
-    if (record && record.userId !== userId) return undefined; // IDOR protection
-    return record;
+    return this.store.getOwned(exportId, userId);
   }
 
   /** Internal: run the full export pipeline */
-  private async runExport(exportId: string, request: ExportRequest): Promise<void> {
-    const record = (await this.loadRecord(exportId))!;
+  private async runExport(exportId: string, request: ExportRequest, userId: string): Promise<void> {
+    // MEDIUM: handle undefined explicitly — record có thể biến mất (TTL/eviction/redis flush)
+    // trước khi pipeline chạy. Ghi một record 'failed' mới thay vì crash với non-null assert.
+    const existing = await this.store.get(exportId);
+    if (!existing) {
+      this.logger.warn(
+        `[ExportService] record ${exportId} missing before run; writing fresh failed record`,
+      );
+      await this.store.set(exportId, {
+        status: 'failed',
+        userId,
+        createdAt: Date.now(),
+        error: 'Export record expired before processing',
+      });
+      return;
+    }
+
     try {
       if ('baseUrl' in request.connectorConfig) {
-        const ssrfResult = validateBaseUrl(request.connectorConfig.baseUrl as string);
+        // C5: DNS-aware SSRF — resolve hostname và validate IP đã resolve trước khi connect.
+        const ssrfResult = await validateBaseUrlWithDns(request.connectorConfig.baseUrl as string);
         if (!ssrfResult.ok) {
           throw new Error(ssrfResult.reason);
         }
@@ -162,20 +168,37 @@ export class ExportService {
         if (++resourceCount > MAX_RESOURCES) {
           throw new Error(`Export exceeded maximum of ${MAX_RESOURCES} resources`);
         }
-        builder.addResource(rawRecord.data as unknown as Resource);
+        // MEDIUM: validate connector output thay vì cast mù `as unknown as Resource`.
+        // skipOnError — bỏ qua record malformed thay vì nhét vào bundle.
+        const candidate = rawRecord.data as unknown;
+        const validation = validateResource(candidate);
+        if (!validation.valid) {
+          this.logger.warn(
+            `[ExportService] skipping invalid resource in export ${exportId} (no PHI)`,
+          );
+          continue;
+        }
+        builder.addResource(candidate as Resource);
       }
 
       await connector.disconnect();
 
       const bundle = builder.build();
-      record.bundle = bundle;
-      record.resourceCount = bundle.entry?.length ?? 0;
-      record.status = 'complete';
-      await this.storeRecord(exportId, record);
+      // Immutable update — không mutate record có thể đang được chia sẻ.
+      const completed: ExportRecord = {
+        ...existing,
+        bundle,
+        resourceCount: bundle.entry?.length ?? 0,
+        status: 'complete',
+      };
+      await this.store.set(exportId, completed);
     } catch (err) {
-      record.status = 'failed';
-      record.error = err instanceof Error ? err.message : 'Export failed';
-      await this.storeRecord(exportId, record);
+      const failed: ExportRecord = {
+        ...existing,
+        status: 'failed',
+        error: err instanceof Error ? err.message : 'Export failed',
+      };
+      await this.store.set(exportId, failed);
     }
   }
 
@@ -206,7 +229,8 @@ export class ExportService {
     }
 
     if ('baseUrl' in connectorConfig) {
-      const ssrfResult = validateBaseUrl(connectorConfig.baseUrl as string);
+      // C5: DNS-aware SSRF cũng áp cho streaming path.
+      const ssrfResult = await validateBaseUrlWithDns(connectorConfig.baseUrl as string);
       if (!ssrfResult.ok) {
         reply.status(400).send({
           statusCode: 400,
@@ -254,12 +278,30 @@ export class ExportService {
           break;
         }
 
-        const resource = rawRecord.data as unknown as Resource;
-        const line = serializeResourceAsNdjsonLine(resource);
+        // MEDIUM: validate trước khi ship — emit OperationOutcome per bad record (skipOnError).
+        const candidate = rawRecord.data as unknown;
+        const validation = validateResource(candidate);
+        if (!validation.valid) {
+          const outcome =
+            JSON.stringify({
+              resourceType: 'OperationOutcome',
+              issue: [
+                {
+                  severity: 'error',
+                  code: 'invalid',
+                  details: { text: 'Skipped malformed resource in export stream' },
+                },
+              ],
+            }) + '\n';
+          await writeChunk(reply.raw, outcome);
+          continue;
+        }
+
+        const line = serializeResourceAsNdjsonLine(candidate as Resource);
 
         const drained = await writeChunk(reply.raw, line);
         if (!drained) {
-          await waitForDrain(reply.raw);
+          await waitForDrain(reply.raw, signal);
         }
       }
 
@@ -291,7 +333,7 @@ export class ExportService {
       reply.raw.removeListener('close', onClose);
 
       const duration = Date.now() - startTime;
-      const userIdHash = hashUserId(userId);
+      const userIdHash = hashUserId(userId, this.auditHashKey);
       process.nextTick(() => {
         const line = JSON.stringify({
           audit: true,
@@ -324,8 +366,35 @@ function writeChunk(stream: NodeJS.WritableStream, data: string): Promise<boolea
   });
 }
 
-function waitForDrain(stream: NodeJS.WritableStream): Promise<void> {
+/**
+ * Đợi 'drain' NHƯNG race với 'close'/'error' và abort signal.
+ * HIGH fix: nếu client disconnect lúc backpressure, 'drain' không bao giờ fire —
+ * promise sẽ treo vĩnh viễn và finally không chạy (connector + PHI buffer leak).
+ * Ở đây ta settle trên bất kỳ điều kiện nào và gỡ listener sau khi settle.
+ */
+function waitForDrain(stream: NodeJS.WritableStream, signal: AbortSignal): Promise<void> {
   return new Promise<void>((resolve) => {
-    stream.once('drain', resolve);
+    if (signal.aborted) {
+      resolve();
+      return;
+    }
+
+    const emitter = stream as unknown as NodeJS.EventEmitter;
+
+    const cleanup = (): void => {
+      emitter.removeListener('drain', onSettle);
+      emitter.removeListener('close', onSettle);
+      emitter.removeListener('error', onSettle);
+      signal.removeEventListener('abort', onSettle);
+    };
+    const onSettle = (): void => {
+      cleanup();
+      resolve();
+    };
+
+    emitter.once('drain', onSettle);
+    emitter.once('close', onSettle);
+    emitter.once('error', onSettle);
+    signal.addEventListener('abort', onSettle, { once: true });
   });
 }

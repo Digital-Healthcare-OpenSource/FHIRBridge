@@ -12,6 +12,7 @@
  * This keeps the plugin PHI-safe — cached payloads never outlive the 10-min TTL.
  */
 
+import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 import { skipOverride } from './plugin-utils.js';
@@ -62,11 +63,26 @@ export interface IdempotencyPluginOptions {
 const DEFAULT_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_METHODS = ['POST', 'PUT', 'PATCH'] as const;
 
-function keyFor(request: FastifyRequest, idempotencyKey: string): string {
-  const authUser = (request as FastifyRequest & { authUser?: { userId?: string } }).authUser;
-  const userId = authUser?.userId ?? 'anonymous';
+/** SHA-256 (16 hex) of the serialized request body — binds a cache entry to its payload. */
+function hashBody(body: unknown): string {
+  const serialized = body === undefined || body === null ? '' : JSON.stringify(body);
+  return createHash('sha256').update(serialized, 'utf8').digest('hex').slice(0, 16);
+}
+
+/**
+ * Build the idempotency cache key.
+ *
+ * C4: key on `authUser.id` (auth sets `id`, never `userId`). A missing/empty id makes the
+ * request UN-CACHEABLE (returns null) — we must NOT collapse every unauthenticated caller into a
+ * shared 'anonymous' bucket, which would let one tenant replay another tenant's cached PHI.
+ * The body hash ensures a reused Idempotency-Key with a *different* payload cannot replay a stale
+ * response.
+ */
+function keyFor(request: FastifyRequest, idempotencyKey: string): string | null {
+  const userId = request.authUser?.id;
+  if (!userId) return null;
   const path = request.routeOptions?.url ?? request.url;
-  return `${userId}:${request.method}:${path}:${idempotencyKey}`;
+  return `${userId}:${request.method}:${path}:${idempotencyKey}:${hashBody(request.body)}`;
 }
 
 async function _idempotencyPlugin(
@@ -83,7 +99,10 @@ async function _idempotencyPlugin(
     const headerValue = request.headers['idempotency-key'];
     if (!headerValue || typeof headerValue !== 'string' || headerValue.length === 0) return;
 
-    const cached = await store.get(keyFor(request, headerValue));
+    const key = keyFor(request, headerValue);
+    if (!key) return; // un-cacheable (no authenticated identity) — never share a bucket
+
+    const cached = await store.get(key);
     if (cached) {
       reply
         .status(cached.statusCode)
@@ -104,6 +123,9 @@ async function _idempotencyPlugin(
     const status = reply.statusCode;
     if (status < 200 || status >= 300) return payload;
 
+    const key = keyFor(request, headerValue);
+    if (!key) return payload; // un-cacheable (no authenticated identity)
+
     const body =
       typeof payload === 'string'
         ? payload
@@ -112,7 +134,7 @@ async function _idempotencyPlugin(
           : JSON.stringify(payload);
 
     await store.set(
-      keyFor(request, headerValue),
+      key,
       {
         statusCode: status,
         body,

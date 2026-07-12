@@ -13,15 +13,17 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { ApiConfig } from './config.js';
 import { registerErrorHandler } from './middleware/error-handler.js';
 import { auditPlugin } from './plugins/audit-plugin.js';
-import { authPlugin } from './plugins/auth-plugin.js';
+import { authPlugin, InMemoryJtiDenylist, type IJtiDenylist } from './plugins/auth-plugin.js';
 import { corsPlugin } from './plugins/cors-plugin.js';
 import { idempotencyPlugin } from './plugins/idempotency-plugin.js';
+import { ipRateLimiterPlugin } from './plugins/ip-rate-limiter-plugin.js';
 import { metricsPlugin } from './plugins/metrics-plugin.js';
 import { rateLimiterPlugin } from './plugins/rate-limiter-plugin.js';
 import { requestIdPlugin } from './plugins/request-id-plugin.js';
 import { securityHeadersPlugin } from './plugins/security-headers-plugin.js';
 import { swaggerPlugin } from './plugins/swagger-plugin.js';
 import { traceContextPlugin } from './plugins/trace-context-plugin.js';
+import { authRoutes } from './routes/auth-routes.js';
 import { consentRoutes } from './routes/consent-routes.js';
 import { connectorRoutes } from './routes/connector-routes.js';
 import { exportRoutes } from './routes/export-routes.js';
@@ -57,11 +59,12 @@ export interface ServerOpts {
  * Accepts either ServerOpts (DI form) or bare ApiConfig (backward-compat).
  *
  * Plugin registration order:
- *   swagger → securityHeaders → requestId → cors → multipart
- *   → auth → rateLimiter → audit → routes
+ *   swagger → securityHeaders → requestId → trace → metrics → cors → multipart
+ *   → ipRateLimiter → auth → idempotency → rateLimiter → audit → routes
  *
  * swagger phải đứng trước routes để collect schemas.
  * securityHeaders đứng sớm để cover toàn bộ responses.
+ * ipRateLimiter phải đứng TRƯỚC auth để chặn unauth flood / API-key brute-force.
  */
 export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promise<FastifyInstance> {
   const opts: ServerOpts =
@@ -96,6 +99,23 @@ export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promis
 
   const auditService = new AuditService(resolvedAuditSink);
 
+  // ── JWT revocation list (logout) ────────────────────────────────────────────────
+  // Redis-backed when a store is available (survives across replicas); in-memory otherwise.
+  let jtiDenylist: IJtiDenylist;
+  if (opts.redisStore) {
+    const store = opts.redisStore;
+    jtiDenylist = {
+      async isRevoked(jti: string): Promise<boolean> {
+        return (await store.get<boolean>(`jti-denylist:${jti}`)) === true;
+      },
+      async revoke(jti: string, ttlSeconds: number): Promise<void> {
+        await store.set(`jti-denylist:${jti}`, true, ttlSeconds);
+      },
+    };
+  } else {
+    jtiDenylist = new InMemoryJtiDenylist();
+  }
+
   // 0a. Swagger/OpenAPI — trước routes để collect schemas
   await fastify.register(swaggerPlugin);
 
@@ -119,14 +139,23 @@ export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promis
     limits: { fileSize: MAX_UPLOAD_BYTES },
   });
 
+  // 3b. IP-based rate limiter — MUST run before auth so unauthenticated floods and API-key
+  // brute-force attempts are throttled (auth short-circuits 401 before the per-user limiter).
+  await fastify.register(ipRateLimiterPlugin, {
+    maxPerMinute: config.rateLimitPerMinute * 3,
+  });
+
   // 4. Auth — validates JWT/API key
-  await fastify.register(authPlugin, { config });
+  await fastify.register(authPlugin, { config, jtiDenylist });
 
   // 4b. Idempotency-Key (H-11)
   await fastify.register(idempotencyPlugin);
 
-  // 5. Rate limiter
-  await fastify.register(rateLimiterPlugin, { redisUrl: config.redisUrl });
+  // 5. Rate limiter (per authenticated user)
+  await fastify.register(rateLimiterPlugin, {
+    redisUrl: config.redisUrl,
+    maxPerMinute: config.rateLimitPerMinute,
+  });
 
   // 6. Audit — onResponse hook
   await fastify.register(auditPlugin, { config, auditService });
@@ -147,6 +176,12 @@ export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promis
   await fastify.register(summaryRoutes, { config });
 
   await fastify.register(consentRoutes, { auditSink: resolvedAuditSink });
+
+  await fastify.register(authRoutes, {
+    auditService,
+    hmacSecret: config.hmacSecret,
+    jtiDenylist,
+  });
 
   registerErrorHandler(fastify);
 

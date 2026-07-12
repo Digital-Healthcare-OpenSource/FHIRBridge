@@ -10,6 +10,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { ConsentService } from '../services/consent-service.js';
+import { requireScope } from '../plugins/auth-plugin.js';
 import { postConsentRecordSchema } from '../schemas/consent-schemas.js';
 import type { AuditSink } from '../services/audit-service.js';
 
@@ -32,7 +33,7 @@ export async function consentRoutes(
   // POST /api/v1/consent/record
   fastify.post<{ Body: ConsentRecordBody }>(
     '/api/v1/consent/record',
-    { schema: postConsentRecordSchema },
+    { schema: postConsentRecordSchema, preHandler: requireScope('consent:write') },
     async (request: FastifyRequest<{ Body: ConsentRecordBody }>, reply: FastifyReply) => {
       const { type, consentVersionHash, granted } = request.body;
 
