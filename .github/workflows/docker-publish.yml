@@ -48,7 +48,7 @@ jobs:
       # ── Gate: build the native (amd64) image locally and scan it BEFORE any
       # push. A CRITICAL/HIGH vulnerability fails the job so nothing ships.
       - name: Build image for scan (amd64, local)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -71,7 +71,7 @@ jobs:
 
       - name: Build and push
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
