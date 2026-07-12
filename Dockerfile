@@ -55,8 +55,10 @@ USER fhirbridge
 
 EXPOSE 3001
 
-# Healthcheck — the /health route returns 200 even when DB/Redis are degraded
+# Healthcheck — the /health route returns 200 even when DB/Redis are degraded.
+# Shell-form CMD so ${PORT} is expanded at runtime; falls back to 3001 to match
+# the default above. Keep this in sync with the PORT the server actually binds.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3001/api/v1/health > /dev/null || exit 1
+  CMD wget -qO- "http://127.0.0.1:${PORT:-3001}/api/v1/health" > /dev/null || exit 1
 
 CMD ["node", "packages/api/dist/index.js"]

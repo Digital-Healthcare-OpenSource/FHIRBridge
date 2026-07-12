@@ -7,15 +7,22 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-fhirbridge}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      # No default: fail fast if the operator has not set a real password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-fhirbridge_audit}
+    # Bind to loopback only — the audit DB is compliance evidence and must never
+    # be reachable from the LAN. Reach it from the host via 127.0.0.1.
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fhirbridge} -d ${POSTGRES_DB:-fhirbridge_audit}"]
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-fhirbridge} -d ${POSTGRES_DB:-fhirbridge_audit}',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,14 +32,27 @@ services:
     image: redis:7-alpine
     container_name: fhirbridge_redis
     restart: unless-stopped
-    command: redis-server /usr/local/etc/redis/redis.conf
+    # requirepass is injected here (config files cannot read env vars). No
+    # default: fail fast if REDIS_PASSWORD is unset.
+    command:
+      - redis-server
+      - /usr/local/etc/redis/redis.conf
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    environment:
+      # Consumed only by the healthcheck shell below, not by the redis image.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    # Bind to loopback only; the API reaches Redis over the compose network.
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     volumes:
-      - redis_data:/data
+      # tmpfs, not a named volume: cached export/summary records (which can hold
+      # PHI for their 10-min TTL) live in RAM only and never touch durable disk.
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    tmpfs:
+      - /data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD-SHELL', 'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,8 +60,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
 
 networks:
