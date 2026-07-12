@@ -12,7 +12,7 @@ import type { Resource, Reference } from '@fhirbridge/types';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const patientRef: Reference = { reference: 'Patient/patient-ips-001' };
+const patient: Resource = { resourceType: 'Patient', id: 'patient-ips-001' };
 const authorRef: Reference = { reference: 'Practitioner/dr-nguyen-001', display: 'Dr. Nguyen' };
 
 const allergyResource1: Resource = {
@@ -58,6 +58,9 @@ const problemsCode = {
   coding: [{ system: LOINC, code: '11450-4', display: 'Problem list - Reported' }],
 };
 
+// Ba LOINC code bắt buộc theo IPS
+const MANDATORY_CODES = ['10160-0', '48765-2', '11450-4'];
+
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 /**
@@ -73,13 +76,20 @@ function getComposition(bundle: ReturnType<IPSBundleBuilder['build']>): any {
   return first;
 }
 
+/** Trả về LOINC code của mỗi section trong Composition */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sectionCodes(composition: any): string[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return composition.section.map((s: any) => s.code.coding[0].code);
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('IPSBundleBuilder', () => {
   let builder: IPSBundleBuilder;
 
   beforeEach(() => {
-    builder = new IPSBundleBuilder(patientRef, authorRef);
+    builder = new IPSBundleBuilder(patient, authorRef);
   });
 
   // ── Bundle structure ─────────────────────────────────────────────────────────
@@ -98,10 +108,48 @@ describe('IPSBundleBuilder', () => {
     expect(firstEntry?.resource?.resourceType).toBe('Composition');
   });
 
-  it('Composition.subject matches patientRef', () => {
+  it('sets Bundle.identifier with system + urn:uuid value (bdl-9)', () => {
     builder.addSection('Allergies', allergiesCode, [allergyResource1]);
-    const composition = getComposition(builder.build());
-    expect(composition.subject).toEqual(patientRef);
+    const bundle = builder.build();
+    expect(bundle.identifier).toBeDefined();
+    expect(bundle.identifier?.system).toBe('urn:ietf:rfc:3986');
+    expect(bundle.identifier?.value).toMatch(/^urn:uuid:[0-9a-f-]{36}$/);
+  });
+
+  it('stamps IPS profile on Bundle.meta and Composition.meta', () => {
+    builder.addSection('Allergies', allergiesCode, [allergyResource1]);
+    const bundle = builder.build();
+    expect(bundle.meta?.profile).toContain(
+      'http://hl7.org/fhir/uv/ips/StructureDefinition/Bundle-uv-ips',
+    );
+    const composition = getComposition(bundle);
+    expect(composition.meta.profile).toContain(
+      'http://hl7.org/fhir/uv/ips/StructureDefinition/Composition-uv-ips',
+    );
+  });
+
+  // ── Patient entry + subject resolution ───────────────────────────────────────
+
+  it('adds the Patient as a Bundle entry (finding ips-builder:176)', () => {
+    builder.addSection('Allergies', allergiesCode, [allergyResource1]);
+    const bundle = builder.build();
+    const patientEntry = (bundle.entry ?? []).find((e) => e.resource?.resourceType === 'Patient');
+    expect(patientEntry).toBeDefined();
+    expect(patientEntry?.resource?.id).toBe('patient-ips-001');
+    expect(patientEntry?.fullUrl).toMatch(/^urn:uuid:/);
+  });
+
+  it('Composition.subject resolves to the Patient entry via fullUrl', () => {
+    builder.addSection('Allergies', allergiesCode, [allergyResource1]);
+    const bundle = builder.build();
+    const composition = getComposition(bundle);
+    const subjectRef: string = composition.subject.reference;
+    expect(subjectRef).toMatch(/^urn:uuid:/);
+
+    const target = (bundle.entry ?? []).find((e) => e.fullUrl === subjectRef);
+    expect(target).toBeDefined();
+    expect(target?.resource?.resourceType).toBe('Patient');
+    expect(target?.resource?.id).toBe('patient-ips-001');
   });
 
   it('Composition.author uses provided authorRef', () => {
@@ -111,7 +159,7 @@ describe('IPSBundleBuilder', () => {
   });
 
   it('Composition.author defaults to FHIRBridge display when no authorRef provided', () => {
-    const noAuthorBuilder = new IPSBundleBuilder(patientRef);
+    const noAuthorBuilder = new IPSBundleBuilder(patient);
     noAuthorBuilder.addSection('Allergies', allergiesCode, [allergyResource1]);
     const composition = getComposition(noAuthorBuilder.build());
     expect(composition.author[0].display).toMatch(/FHIRBridge/i);
@@ -138,9 +186,62 @@ describe('IPSBundleBuilder', () => {
     expect(() => new Date(composition.date).toISOString()).not.toThrow();
   });
 
+  // ── Narrative (IPS 1..1) ──────────────────────────────────────────────────────
+
+  it('Composition.text is a generated XHTML narrative', () => {
+    builder.addSection('Allergies', allergiesCode, [allergyResource1]);
+    const composition = getComposition(builder.build());
+    expect(composition.text.status).toBe('generated');
+    expect(composition.text.div).toContain('xmlns="http://www.w3.org/1999/xhtml"');
+  });
+
+  it('every section has a generated XHTML narrative', () => {
+    builder.addSection('Allergies', allergiesCode, [allergyResource1]);
+    const composition = getComposition(builder.build());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const section of composition.section as any[]) {
+      expect(section.text.status).toBe('generated');
+      expect(section.text.div).toContain(`xmlns="http://www.w3.org/1999/xhtml"`);
+    }
+  });
+
+  // ── Mandatory IPS sections (Medications/Allergies/Problems 1..1) ──────────────
+
+  it('always emits the 3 mandatory sections even when nothing is added', () => {
+    // Không add section nào — cả 3 mandatory phải xuất hiện (empty)
+    const composition = getComposition(builder.build());
+    const codes = sectionCodes(composition);
+    for (const mandatory of MANDATORY_CODES) {
+      expect(codes).toContain(mandatory);
+    }
+    expect(composition.section).toHaveLength(3);
+  });
+
+  it('empty mandatory sections carry emptyReason "Nil Known" and no entries', () => {
+    const composition = getComposition(builder.build());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const section of composition.section as any[]) {
+      expect(section.emptyReason.coding[0].code).toBe('nilknown');
+      expect(section.entry ?? []).toHaveLength(0);
+    }
+  });
+
+  it('a populated mandatory section is NOT overwritten by the empty placeholder', () => {
+    builder.addSection('Medications', medicationsCode, [medicationResource1]);
+    const composition = getComposition(builder.build());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const medSection = (composition.section as any[]).find(
+      (s) => s.code.coding[0].code === '10160-0',
+    );
+    expect(medSection.entry).toHaveLength(1);
+    expect(medSection.emptyReason).toBeUndefined();
+    // Vẫn chỉ có đúng 1 Medications section
+    expect(sectionCodes(composition).filter((c) => c === '10160-0')).toHaveLength(1);
+  });
+
   // ── Sections ─────────────────────────────────────────────────────────────────
 
-  it('builds correct section count: 2 allergies + 3 medications', () => {
+  it('populated sections keep their entries; missing mandatory ones are appended empty', () => {
     builder.addSection('Allergies', allergiesCode, [allergyResource1, allergyResource2]);
     builder.addSection('Medications', medicationsCode, [
       medicationResource1,
@@ -148,10 +249,15 @@ describe('IPSBundleBuilder', () => {
       medicationResource3,
     ]);
     const composition = getComposition(builder.build());
-    expect(composition.section).toHaveLength(2);
+    // Allergies + Medications populated, Problems appended empty → 3 sections
+    expect(composition.section).toHaveLength(3);
+    const codes = sectionCodes(composition);
+    for (const mandatory of MANDATORY_CODES) {
+      expect(codes).toContain(mandatory);
+    }
   });
 
-  it('section[0] has correct LOINC code for allergies', () => {
+  it('section[0] preserves insertion order (allergies added first)', () => {
     builder.addSection('Allergies', allergiesCode, [allergyResource1, allergyResource2]);
     builder.addSection('Medications', medicationsCode, [medicationResource1]);
     const composition = getComposition(builder.build());
@@ -164,10 +270,8 @@ describe('IPSBundleBuilder', () => {
     const bundle = builder.build();
     const composition = getComposition(bundle);
 
-    // Lấy tất cả fullUrls từ bundle entries (bỏ qua Composition entry đầu)
-    const bundleFullUrls = new Set((bundle.entry ?? []).slice(1).map((e) => e.fullUrl));
+    const bundleFullUrls = new Set((bundle.entry ?? []).map((e) => e.fullUrl));
 
-    // Mọi reference trong section.entry phải có trong bundle
     const sectionRefs: string[] = composition.section[0].entry.map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ref: any) => ref.reference,
@@ -188,7 +292,6 @@ describe('IPSBundleBuilder', () => {
     const bundle = builder.build();
     const composition = getComposition(bundle);
 
-    // Build map fullUrl → resource
     const urlToResource = new Map<string, Resource>();
     for (const entry of bundle.entry ?? []) {
       if (entry.fullUrl && entry.resource) {
@@ -196,19 +299,16 @@ describe('IPSBundleBuilder', () => {
       }
     }
 
-    // Gom tất cả references từ các sections
     const allSectionRefs: string[] = composition.section.flatMap(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (s: any) => s.entry.map((e: any) => e.reference),
+      (s: any) => (s.entry ?? []).map((e: any) => e.reference),
     );
     expect(allSectionRefs).toHaveLength(5);
 
-    // Mỗi reference phải resolve được tới một resource trong bundle
     for (const ref of allSectionRefs) {
       expect(urlToResource.has(ref)).toBe(true);
     }
 
-    // Verify resource IDs của 5 resources
     const resolvedIds = allSectionRefs.map((ref) => urlToResource.get(ref)?.id);
     expect(resolvedIds).toContain('allergy-001');
     expect(resolvedIds).toContain('allergy-002');
@@ -219,41 +319,31 @@ describe('IPSBundleBuilder', () => {
 
   // ── Empty section behavior ───────────────────────────────────────────────────
 
-  it('empty sections are NOT rendered into Composition', () => {
+  it('non-mandatory empty sections are not rendered, but mandatory ones always are', () => {
     builder.addSection('Allergies', allergiesCode, [allergyResource1]);
-    builder.addSection('Medications', medicationsCode, []); // empty — must be skipped
+    builder.addSection('Results', { coding: [{ system: LOINC, code: '30954-2' }] }, []); // empty non-mandatory
     builder.addSection('Problems', problemsCode, [conditionResource]);
     const composition = getComposition(builder.build());
-    // Only Allergies and Problems should be present
-    expect(composition.section).toHaveLength(2);
-    const titles: string[] = composition.section.map((s: { title: string }) => s.title);
-    expect(titles).toContain('Allergies');
-    expect(titles).toContain('Problems');
-    expect(titles).not.toContain('Medications');
-  });
-
-  it('Bundle with all empty sections still builds (Composition with no sections)', () => {
-    builder.addSection('Medications', medicationsCode, []);
-    const bundle = builder.build();
-    expect(bundle.type).toBe('document');
-    const composition = getComposition(bundle);
-    expect(composition.section).toHaveLength(0);
+    const codes = sectionCodes(composition);
+    // Results (empty, non-mandatory) must NOT appear
+    expect(codes).not.toContain('30954-2');
+    // All three mandatory present (Medications appended empty)
+    for (const mandatory of MANDATORY_CODES) {
+      expect(codes).toContain(mandatory);
+    }
   });
 
   // ── Deduplication ────────────────────────────────────────────────────────────
 
   it('same resource added to multiple sections is not duplicated in Bundle entries', () => {
-    // Shared resource (edge case: resource referenced from two sections)
     builder.addSection('Allergies', allergiesCode, [allergyResource1]);
     builder.addSection('Results', { coding: [{ system: LOINC, code: '30954-2' }] }, [
       allergyResource1,
     ]);
     const bundle = builder.build();
-    // entry[0] = Composition, entry[1] = allergyResource1 only once
-    const nonCompositionEntries = (bundle.entry ?? []).filter(
-      (e) => e.resource?.resourceType !== 'Composition',
-    );
-    expect(nonCompositionEntries).toHaveLength(1);
+    // allergyResource1 xuất hiện đúng 1 lần trong entries
+    const allergyEntries = (bundle.entry ?? []).filter((e) => e.resource?.id === 'allergy-001');
+    expect(allergyEntries).toHaveLength(1);
   });
 
   // ── Serialization ────────────────────────────────────────────────────────────

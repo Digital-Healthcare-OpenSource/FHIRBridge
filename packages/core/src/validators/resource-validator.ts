@@ -19,11 +19,20 @@ const URN_UUID_PATTERN =
 /** Relative reference pattern (e.g., Patient/123) */
 const RELATIVE_REF_PATTERN = /^[A-Z][a-zA-Z]+\/[^/\s]+$/;
 
-/** ISO 8601 date pattern (YYYY-MM-DD) */
-const DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+/**
+ * FHIR R4 `date` pattern — allows partial precision: YYYY, YYYY-MM, or YYYY-MM-DD.
+ * Spec: https://hl7.org/fhir/R4/datatypes.html#date
+ * (e.g. Patient.birthDate = '1985' is a valid FHIR date.)
+ */
+const DATE_PATTERN = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/;
 
-/** ISO 8601 datetime pattern */
-const DATETIME_PATTERN = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+/**
+ * FHIR R4 `dateTime` pattern — partial precision (YYYY, YYYY-MM, YYYY-MM-DD) allowed,
+ * but when a time is present it MUST include seconds AND a timezone offset (Z or ±hh:mm).
+ * Spec: https://hl7.org/fhir/R4/datatypes.html#dateTime
+ */
+const DATETIME_PATTERN =
+  /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01])(T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d))?)?)?$/;
 
 /** Known FHIR R4 resource types */
 const KNOWN_RESOURCE_TYPES = new Set([
@@ -47,6 +56,8 @@ const KNOWN_RESOURCE_TYPES = new Set([
   'CareTeam',
   'Goal',
   'ServiceRequest',
+  'DocumentReference',
+  'Specimen',
 ]);
 
 /**
@@ -78,6 +89,43 @@ function validateMedicationChoice(res: Record<string, unknown>): ValidationError
   }
   return null;
 }
+
+/**
+ * Kiểm tra các phần tử bắt buộc (cardinality 1..1) có mặt hay không.
+ * Trả về một ValidationError cho mỗi field thiếu (null/undefined).
+ */
+function requirePresent(
+  res: Record<string, unknown>,
+  resourceType: string,
+  fields: readonly string[],
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  for (const field of fields) {
+    if (res[field] === undefined || res[field] === null) {
+      errors.push({
+        path: field,
+        message: `${resourceType}.${field} is required (FHIR R4 cardinality 1..1)`,
+        severity: 'error',
+      });
+    }
+  }
+  return errors;
+}
+
+/**
+ * Required-element validators cho các resource type chưa có dedicated validator.
+ * Mỗi entry liệt kê field bắt buộc theo FHIR R4 base spec. Được dispatch trong
+ * validateResource() dựa vào resourceType.
+ */
+const REQUIRED_ELEMENTS: Readonly<Record<string, readonly string[]>> = {
+  Observation: ['status', 'code'],
+  Condition: ['subject'],
+  Encounter: ['status', 'class'],
+  DiagnosticReport: ['status', 'code'],
+  Procedure: ['status', 'subject'],
+  AllergyIntolerance: ['patient'],
+  MedicationRequest: ['status', 'intent', 'subject'],
+};
 
 /**
  * Validate a base FHIR resource for common structural requirements.
@@ -148,9 +196,15 @@ export function validateResource(resource: unknown): ValidationResult {
     }
   }
 
-  // ── Resource-specific choice enforcement ────────────────────────────────────
+  // ── Resource-specific required-element dispatch ─────────────────────────────
+  const resourceType = typeof res['resourceType'] === 'string' ? res['resourceType'] : undefined;
+  const requiredFields = resourceType ? REQUIRED_ELEMENTS[resourceType] : undefined;
+  if (resourceType && requiredFields) {
+    errors.push(...requirePresent(res, resourceType, requiredFields));
+  }
+
   // MedicationRequest: medication[x] choice (FHIR R4 §MedicationRequest)
-  if (res['resourceType'] === 'MedicationRequest') {
+  if (resourceType === 'MedicationRequest') {
     const choiceError = validateMedicationChoice(res);
     if (choiceError) errors.push(choiceError);
   }

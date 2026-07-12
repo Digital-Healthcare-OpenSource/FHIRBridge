@@ -20,7 +20,9 @@ const conditionResource = {
   resourceType: 'Condition' as const,
   id: 'condition-001',
   subject: { reference: 'urn:uuid:placeholder' },
-  code: { coding: [{ system: 'http://snomed.info/sct', code: '44054006', display: 'Type 2 diabetes' }] },
+  code: {
+    coding: [{ system: 'http://snomed.info/sct', code: '44054006', display: 'Type 2 diabetes' }],
+  },
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -72,11 +74,12 @@ describe('BundleBuilder', () => {
     expect(bundle.entry).toHaveLength(2);
   });
 
-  it('sets total to the number of entries', () => {
+  it('does NOT set total on a collection bundle (FHIR R4 bdl-1)', () => {
+    // bdl-1: total chỉ dành cho type 'searchset'/'history', không phải 'collection'.
     builder.addResource(patientResource);
     builder.addResource(conditionResource);
     const bundle = builder.build();
-    expect(bundle.total).toBe(2);
+    expect(bundle.total).toBeUndefined();
   });
 
   it('each entry has a fullUrl matching urn:uuid pattern', () => {
@@ -117,7 +120,7 @@ describe('BundleBuilder', () => {
   it('builds an empty bundle when no resources are added', () => {
     const bundle = builder.build();
     expect(bundle.entry).toHaveLength(0);
-    expect(bundle.total).toBe(0);
+    expect(bundle.total).toBeUndefined();
   });
 
   it('build can be called multiple times (snapshot semantics)', () => {

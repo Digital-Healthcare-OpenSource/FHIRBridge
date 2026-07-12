@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateResource } from '../resource-validator.js';
+import { validateResource, patterns } from '../resource-validator.js';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,11 @@ describe('validateResource', () => {
   });
 
   it('returns valid for resource with no id (id is optional)', () => {
-    const result = validateResource({ resourceType: 'Condition' });
+    // Condition requires subject (1..1); include it so we isolate the id-optional check.
+    const result = validateResource({
+      resourceType: 'Condition',
+      subject: { reference: 'Patient/p1' },
+    });
     expect(result.valid).toBe(true);
   });
 
@@ -196,5 +200,116 @@ describe('validateResource', () => {
     });
     const choiceErrors = result.errors.filter((e) => e.path === 'medication[x]');
     expect(choiceErrors).toHaveLength(0);
+  });
+
+  // ── Required-element dispatch (7 previously-uncovered types) ─────────────────
+
+  it('Observation missing status fails validation', () => {
+    const result = validateResource({
+      resourceType: 'Observation',
+      code: { coding: [{ system: 'http://loinc.org', code: '8310-5' }] },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === 'status' && e.severity === 'error')).toBe(true);
+  });
+
+  it('Observation missing code fails validation', () => {
+    const result = validateResource({ resourceType: 'Observation', status: 'final' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === 'code' && e.severity === 'error')).toBe(true);
+  });
+
+  it('Encounter missing class fails validation', () => {
+    const result = validateResource({ resourceType: 'Encounter', status: 'finished' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === 'class' && e.severity === 'error')).toBe(true);
+  });
+
+  it('AllergyIntolerance missing patient fails validation', () => {
+    const result = validateResource({ resourceType: 'AllergyIntolerance' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === 'patient' && e.severity === 'error')).toBe(true);
+  });
+
+  it('Procedure missing status and subject fails validation', () => {
+    const result = validateResource({ resourceType: 'Procedure' });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === 'status')).toBe(true);
+    expect(result.errors.some((e) => e.path === 'subject')).toBe(true);
+  });
+
+  it('DiagnosticReport with status and code passes required-element checks', () => {
+    const result = validateResource({
+      resourceType: 'DiagnosticReport',
+      status: 'final',
+      code: { coding: [{ system: 'http://loinc.org', code: '58410-2' }] },
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('MedicationRequest missing intent fails validation', () => {
+    const result = validateResource({
+      resourceType: 'MedicationRequest',
+      status: 'active',
+      subject: { reference: 'Patient/p1' },
+      medicationCodeableConcept: { text: 'aspirin' },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === 'intent' && e.severity === 'error')).toBe(true);
+  });
+
+  // ── FHIR-correct date / dateTime precision ──────────────────────────────────
+
+  it('accepts a partial FHIR date with year-only precision (1985)', () => {
+    expect(patterns.DATE.test('1985')).toBe(true);
+    expect(patterns.DATE.test('1985-07')).toBe(true);
+    expect(patterns.DATE.test('1985-07-22')).toBe(true);
+    // Patient.birthDate = '1985' must now validate
+    const result = validateResource({ resourceType: 'Patient', birthDate: '1985' });
+    expect(result.errors.some((e) => e.path === 'birthDate')).toBe(false);
+  });
+
+  it('rejects an out-of-range month in a FHIR date', () => {
+    expect(patterns.DATE.test('1985-13')).toBe(false);
+  });
+
+  it('rejects a dateTime that has a time but no timezone', () => {
+    expect(patterns.DATETIME.test('2024-03-15T14:22:33')).toBe(false);
+  });
+
+  it('rejects a dateTime with a time but no seconds', () => {
+    expect(patterns.DATETIME.test('2024-03-15T14:22Z')).toBe(false);
+  });
+
+  it('accepts a fully-specified dateTime with seconds and timezone', () => {
+    expect(patterns.DATETIME.test('2024-03-15T14:22:33+05:30')).toBe(true);
+    expect(patterns.DATETIME.test('2024-03-15T14:22:33Z')).toBe(true);
+  });
+
+  it('accepts a partial dateTime (date only, no time component)', () => {
+    expect(patterns.DATETIME.test('2024')).toBe(true);
+    expect(patterns.DATETIME.test('2024-03-15')).toBe(true);
+  });
+
+  // ── KNOWN_RESOURCE_TYPES covers every type that has a dedicated validator ────
+
+  it('recognizes every resourceType that has a dedicated validator (no unknown-type warning)', () => {
+    const typesWithValidators = [
+      'Patient',
+      'Medication',
+      'Practitioner',
+      'DocumentReference',
+      'CarePlan',
+      'CareTeam',
+      'Immunization',
+      'Specimen',
+    ];
+    for (const resourceType of typesWithValidators) {
+      const result = validateResource({ resourceType });
+      const unknownWarnings = result.errors.filter(
+        (e) => e.path === 'resourceType' && /Unknown resourceType/.test(e.message),
+      );
+      expect(unknownWarnings, `${resourceType} should be a known resourceType`).toHaveLength(0);
+    }
   });
 });
