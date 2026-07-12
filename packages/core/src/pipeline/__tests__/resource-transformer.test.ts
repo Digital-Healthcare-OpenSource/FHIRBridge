@@ -58,10 +58,38 @@ describe('transformToFhir', () => {
   });
 
   describe('date normalization', () => {
-    it('normalizes MM/DD/YYYY to ISO 8601', () => {
-      const raw = { birthDate: '03/15/1990' };
+    it('normalizes DD/MM/YYYY to ISO 8601 (default VI/JP order)', () => {
+      const raw = { birthDate: '15/03/1990' };
       const result = transformToFhir(raw, 'Patient') as Record<string, unknown>;
       expect(result['birthDate']).toBe('1990-03-15');
+    });
+
+    it('normalizes 05/03/1980 as 5 March under DD/MM default', () => {
+      const raw = { birthDate: '05/03/1980' };
+      const result = transformToFhir(raw, 'Patient') as Record<string, unknown>;
+      expect(result['birthDate']).toBe('1980-03-05');
+    });
+
+    it('normalizes slash dates as MM/DD when dateOrder=MDY', () => {
+      const raw = { birthDate: '03/15/1990' };
+      const result = transformToFhir(raw, 'Patient', undefined, 'MDY') as Record<string, unknown>;
+      expect(result['birthDate']).toBe('1990-03-15');
+    });
+
+    it('normalizes DD-MM-YYYY dash to ISO 8601', () => {
+      const raw = { birthDate: '05-03-1980' };
+      const result = transformToFhir(raw, 'Patient') as Record<string, unknown>;
+      expect(result['birthDate']).toBe('1980-03-05');
+    });
+
+    it('rejects an impossible slash date (month > 12)', () => {
+      const raw = { birthDate: '25/13/2020' };
+      expect(() => transformToFhir(raw, 'Patient')).toThrow(/Invalid date/);
+    });
+
+    it('rejects an invalid YYYYMMDD compact date', () => {
+      const raw = { birthDate: '20201399' };
+      expect(() => transformToFhir(raw, 'Patient')).toThrow(/Invalid date/);
     });
 
     it('normalizes YYYYMMDD to ISO 8601', () => {

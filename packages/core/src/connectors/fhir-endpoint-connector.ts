@@ -5,13 +5,17 @@
  */
 
 import type { ConnectorConfig, FhirEndpointConfig } from '@fhirbridge/types';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const FhirClient = require('fhir-kit-client');
+// ESM default import (Node CJS interop) — KHÔNG dùng createRequire ở đây:
+// require() né mất module registry của vitest nên client không mock được trong test.
+import FhirClient from 'fhir-kit-client';
 
 import type { HisConnector, RawRecord, ConnectionStatus } from './his-connector-interface.js';
 import { ConnectorError } from './his-connector-interface.js';
 import { withRetry } from './retry-handler.js';
+import { validateBaseUrlWithDns } from '../security/ssrf-validator.js';
+
+/** Hard cap on paginated pages followed — chặn vòng lặp next-link vô hạn. */
+const MAX_PAGES = 1000;
 
 type FhirBundle = {
   resourceType: string;
@@ -29,6 +33,13 @@ export class FhirEndpointConnector implements HisConnector {
   async connect(config: ConnectorConfig): Promise<void> {
     if (config.type !== 'fhir-endpoint') {
       throw new ConnectorError('Expected fhir-endpoint config', 'CONFIG_MISMATCH');
+    }
+
+    // SSRF: validate every URL-bearing field centrally, with DNS resolution,
+    // before any outbound fetch (baseUrl + OAuth tokenEndpoint).
+    await assertUrlAllowed(config.baseUrl, 'baseUrl');
+    if (config.tokenEndpoint) {
+      await assertUrlAllowed(config.tokenEndpoint, 'tokenEndpoint');
     }
 
     this.config = config;
@@ -71,14 +82,26 @@ export class FhirEndpointConnector implements HisConnector {
     }
 
     const pageCount = this.config?.pageCount ?? 100;
-    const source = `fhir-endpoint:${this.config?.baseUrl ?? 'unknown'}`;
+    const baseUrl = this.config?.baseUrl ?? '';
+    const source = `fhir-endpoint:${baseUrl || 'unknown'}`;
 
     // Fetch Patient/$everything with pagination
     let nextUrl: string | undefined = undefined;
     let isFirstPage = true;
+    let pagesFollowed = 0;
 
     while (isFirstPage || nextUrl) {
       isFirstPage = false;
+
+      // SSRF: a server-supplied `next` link is attacker-influenceable — re-validate
+      // it (DNS-aware) AND require same-origin as the connected baseUrl before fetch.
+      if (nextUrl) {
+        if (++pagesFollowed > MAX_PAGES) {
+          throw new ConnectorError('Pagination page limit exceeded', 'PAGE_LIMIT');
+        }
+        assertSameOrigin(nextUrl, baseUrl);
+        await assertUrlAllowed(nextUrl, 'pagination next-link');
+      }
 
       const bundle: FhirBundle = await withRetry(() => {
         if (nextUrl) {
@@ -124,6 +147,9 @@ export class FhirEndpointConnector implements HisConnector {
 
   /** Exchange client credentials for an OAuth2 access token */
   private async authenticate(config: FhirEndpointConfig): Promise<void> {
+    // Defense in depth: re-validate tokenEndpoint immediately before fetch.
+    await assertUrlAllowed(config.tokenEndpoint!, 'tokenEndpoint');
+
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
       client_id: config.clientId!,
@@ -146,7 +172,40 @@ export class FhirEndpointConnector implements HisConnector {
       return res.json() as Promise<{ access_token: string }>;
     });
 
-    // Inject token — stored in memory only, never logged
-    (this.client as Record<string, unknown>)['bearer'] = response.access_token;
+    // Inject token qua setter chính thức của fhir-kit-client — stored in
+    // memory only, never logged. (Bản cũ set `client['bearer']` — property
+    // không tồn tại nên token chưa bao giờ được gắn vào request.)
+    if (this.client) {
+      this.client.bearerToken = response.access_token;
+    }
+  }
+}
+
+/**
+ * Run the DNS-aware SSRF validator on a URL; throw ConnectorError if blocked.
+ * Rejects private/loopback/link-local/cloud-metadata and decimal/hex IP encodings.
+ */
+async function assertUrlAllowed(url: string, field: string): Promise<void> {
+  const result = await validateBaseUrlWithDns(url);
+  if (!result.ok) {
+    throw new ConnectorError(`Blocked ${field}: ${result.reason}`, 'SSRF_BLOCKED');
+  }
+}
+
+/** Require that `url` shares the same origin as the connected `baseUrl`. */
+function assertSameOrigin(url: string, baseUrl: string): void {
+  let target: URL;
+  let base: URL;
+  try {
+    target = new URL(url);
+    base = new URL(baseUrl);
+  } catch {
+    throw new ConnectorError('Malformed pagination or base URL', 'INVALID_URL');
+  }
+  if (target.origin !== base.origin) {
+    throw new ConnectorError(
+      `Cross-origin pagination link rejected (${target.origin} != ${base.origin})`,
+      'CROSS_ORIGIN',
+    );
   }
 }

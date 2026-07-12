@@ -16,6 +16,13 @@ export type RawRecord = Record<string, unknown>;
 export type MappingConfig = Record<string, string>;
 
 /**
+ * Order of a slash-separated date (`d/m/y` vs `m/d/y`).
+ * Default is `DMY` because FHIRBridge targets VI/JP HIS exports where
+ * `DD/MM/YYYY` is the norm; pass `MDY` for US-format sources.
+ */
+export type SlashDateOrder = 'DMY' | 'MDY';
+
+/**
  * Transform raw HIS data into a FHIR Resource.
  *
  * Default behavior: direct field-name match.
@@ -24,18 +31,22 @@ export type MappingConfig = Record<string, string>;
  * @param rawData - Source record from HIS or CSV
  * @param resourceType - Target FHIR resource type (e.g., 'Patient')
  * @param mappingConfig - Optional field remapping
+ * @param dateOrder - Slash-date interpretation order (default `DMY` for VI/JP)
+ * @throws {Error} when a recognized date has an impossible month/day (fail-fast,
+ *   never emit a wrong clinical date)
  */
 export function transformToFhir(
   rawData: RawRecord,
   resourceType: string,
   mappingConfig?: MappingConfig,
+  dateOrder: SlashDateOrder = 'DMY',
 ): Resource {
   const result: RawRecord = { resourceType };
 
   if (!mappingConfig) {
     // Default: direct field-name copy with date normalization
     for (const [key, value] of Object.entries(rawData)) {
-      result[key] = normalizeValue(key, value);
+      result[key] = normalizeValue(key, value, dateOrder);
     }
     return result as unknown as Resource;
   }
@@ -44,7 +55,7 @@ export function transformToFhir(
   for (const [sourceField, fhirPath] of Object.entries(mappingConfig)) {
     if (!(sourceField in rawData)) continue;
 
-    const value = normalizeValue(fhirPath, rawData[sourceField]);
+    const value = normalizeValue(fhirPath, rawData[sourceField], dateOrder);
     setNestedValue(result, fhirPath, value);
   }
 
@@ -55,13 +66,13 @@ export function transformToFhir(
  * Normalize a field value based on its FHIR path.
  * Handles date format normalization and boolean coercion.
  */
-function normalizeValue(fieldPath: string, value: unknown): unknown {
+function normalizeValue(fieldPath: string, value: unknown, dateOrder: SlashDateOrder): unknown {
   if (value === null || value === undefined) return undefined;
 
   // Normalize date fields to ISO 8601
   const dateFields = ['birthDate', 'recordedDate', 'onsetDateTime', 'authoredOn'];
   if (dateFields.some((f) => fieldPath.endsWith(f)) && typeof value === 'string') {
-    return normalizeDate(value);
+    return normalizeDate(value, dateOrder);
   }
 
   // Coerce boolean strings
@@ -73,28 +84,72 @@ function normalizeValue(fieldPath: string, value: unknown): unknown {
 
 /**
  * Normalize a date string to ISO 8601 YYYY-MM-DD.
- * Handles common formats: MM/DD/YYYY, DD-MM-YYYY, YYYYMMDD.
+ * Handles common formats: slash (order per `dateOrder`, default DD/MM/YYYY),
+ * DD-MM-YYYY dash, and YYYYMMDD compact.
+ *
+ * Impossible dates (month > 12, day > 31, or an invalid YYYYMMDD like
+ * `20201399`) are REJECTED by throwing rather than emitting a bad FHIR date.
+ * Unrecognized free-text formats are returned unchanged.
  */
-function normalizeDate(dateStr: string): string {
+function normalizeDate(dateStr: string, dateOrder: SlashDateOrder = 'DMY'): string {
   // Already ISO 8601
   if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr;
 
-  // MM/DD/YYYY
-  const mdyMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (mdyMatch) {
-    const [, m, d, y] = mdyMatch;
-    return `${y}-${m!.padStart(2, '0')}-${d!.padStart(2, '0')}`;
+  // Slash format — order depends on dateOrder (default DD/MM/YYYY for VI/JP)
+  const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, first, second, y] = slashMatch;
+    const { day, month } = resolveDayMonth(first!, second!, dateOrder);
+    return buildIsoDate(y!, month, day, dateStr);
   }
 
-  // YYYYMMDD
+  // Dash format — same order resolution as slash (DD-MM-YYYY mặc định)
+  const dmyMatch = dateStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmyMatch) {
+    const [, first, second, y] = dmyMatch;
+    const { day, month } = resolveDayMonth(first!, second!, dateOrder);
+    return buildIsoDate(y!, month, day, dateStr);
+  }
+
+  // YYYYMMDD compact
   const compactMatch = dateStr.match(/^(\d{4})(\d{2})(\d{2})$/);
   if (compactMatch) {
     const [, y, m, d] = compactMatch;
-    return `${y}-${m}-${d}`;
+    return buildIsoDate(y!, m!, d!, dateStr);
   }
 
   // Return as-is if unrecognized
   return dateStr;
+}
+
+/**
+ * Resolve day/month for a two-number date per `dateOrder`, nhưng tự
+ * disambiguate khi cách đọc theo order cho ra tháng > 12 mà cách đọc ngược lại
+ * hợp lệ (vd `07/22/1985` dưới DMY → tháng 22 vô lý → hiểu là 22 July).
+ * Chỉ giá trị mơ hồ (cả hai ≤ 12) mới tin hoàn toàn vào `dateOrder`.
+ * Cả hai cách đọc đều vô lý → để buildIsoDate throw.
+ */
+function resolveDayMonth(
+  first: string,
+  second: string,
+  dateOrder: SlashDateOrder,
+): { day: string; month: string } {
+  let day = dateOrder === 'DMY' ? first : second;
+  let month = dateOrder === 'DMY' ? second : first;
+  if (Number(month) > 12 && Number(day) <= 12) {
+    [day, month] = [month, day];
+  }
+  return { day, month };
+}
+
+/** Validate month/day ranges and zero-pad; throw on an impossible date. */
+function buildIsoDate(year: string, month: string, day: string, original: string): string {
+  const mm = Number(month);
+  const dd = Number(day);
+  if (!Number.isInteger(mm) || !Number.isInteger(dd) || mm < 1 || mm > 12 || dd < 1 || dd > 31) {
+    throw new Error(`Invalid date: ${original}`);
+  }
+  return `${year}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
 }
 
 /**

@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { ExcelConnector } from '../excel-connector.js';
 import type { FileImportConfig } from '@fhirbridge/types';
 
@@ -51,6 +52,23 @@ describe('ExcelConnector', () => {
         mapping: [],
       }),
     ).rejects.toThrow();
+  });
+
+  it('rejects a file exceeding the compressed-size ceiling (zip-bomb guard)', async () => {
+    // Sparse 51 MB file — logical size only, no real bytes written to disk.
+    const bigPath = path.join(os.tmpdir(), `fhirbridge-xlsx-bomb-${Date.now()}.xlsx`);
+    const fd = fs.openSync(bigPath, 'w');
+    fs.ftruncateSync(fd, 51 * 1024 * 1024);
+    fs.closeSync(fd);
+
+    try {
+      const connector = new ExcelConnector();
+      await expect(
+        connector.connect({ type: 'excel', filePath: bigPath, mapping: [] }),
+      ).rejects.toThrow(/limit/);
+    } finally {
+      fs.rmSync(bigPath, { force: true });
+    }
   });
 
   it('testConnection returns connected=false when not yet connected', async () => {
