@@ -131,6 +131,12 @@ function deidentifyResource(
   const parentIsAttachment = 'contentType' in resource;
 
   for (const [key, value] of Object.entries(resource)) {
+    // Prototype-pollution guard: key đến từ bundle remote (attacker-influenceable).
+    // Không có element FHIR hợp lệ nào tên như vậy → drop hẳn, không copy sang result.
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
+
     // Skip null/undefined
     if (value === null || value === undefined) {
       result[key] = value;
