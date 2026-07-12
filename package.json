@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.1",
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "^1.61.1",
     "@types/jsonwebtoken": "^9.0.10",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
@@ -61,7 +61,7 @@
     "husky": "^9.1.6",
     "jsonwebtoken": "^9.0.3",
     "lint-staged": "^15.2.10",
-    "prettier": "^3.3.3",
+    "prettier": "^3.9.5",
     "turbo": "^2.9.14",
     "typescript": "^5.5.4",
     "vitest": "^3.2.6"
