@@ -20,7 +20,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "devDependencies": {
-    "@types/fhir": "^0.0.41",
+    "@types/fhir": "^0.0.44",
     "typescript": "*",
     "vitest": "*"
   },
