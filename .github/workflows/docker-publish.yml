@@ -18,6 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # OCI references must be lowercase; the org name is mixed-case
+      # (Digital-Healthcare-OpenSource), which cosign rejects when interpolated
+      # raw. metadata-action lowercases internally — cosign does not.
+      - name: Compute lowercase image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fhirbridge-api" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
@@ -35,7 +42,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository_owner }}/fhirbridge-api
+          images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -90,6 +97,6 @@ jobs:
       - name: Sign image (keyless / Sigstore)
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.image.outputs.name }}
         run: |
-          cosign sign --yes \
-            "ghcr.io/${{ github.repository_owner }}/fhirbridge-api@${DIGEST}"
+          cosign sign --yes "${IMAGE}@${DIGEST}"
