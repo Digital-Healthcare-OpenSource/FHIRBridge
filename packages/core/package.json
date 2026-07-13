@@ -29,7 +29,7 @@
     "openai": "^6.45.0",
     "pdfkit": "^0.18.0",
     "unzipper": "^0.12.5",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.1"
   },
   "devDependencies": {
     "@types/pdfkit": "^0.17.6",
