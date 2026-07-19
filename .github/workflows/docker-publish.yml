@@ -16,7 +16,7 @@ jobs:
       id-token: write # keyless cosign signing (OIDC)
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # OCI references must be lowercase; the org name is mixed-case
       # (Digital-Healthcare-OpenSource), which cosign rejects when interpolated
