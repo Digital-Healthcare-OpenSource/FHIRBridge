@@ -1,19 +1,18 @@
 {
-  "_TODO": "JA translation v1.1 — placeholder content is VI text",
   "modal": {
-    "title": "Dữ liệu y tế của bạn sẽ được xử lý ngoài khu vực (Cross-Border Data Processing)",
-    "destination_label": "Máy chủ đích (Destination)",
-    "destination_value": "Hoa Kỳ — máy chủ Anthropic / OpenAI (United States)",
-    "provider_label": "Nhà cung cấp AI (Provider)",
-    "data_label": "Dữ liệu được gửi đi (Data transferred)",
-    "data_value": "Gói FHIR bundle đã de-identify: PHI được HMAC-SHA256 hash trước khi rời hệ thống.",
-    "retention_label": "Chính sách lưu trữ (Retention)",
-    "retention_value": "Nhà cung cấp AI giữ request payload theo Terms of Service của họ. FHIRBridge không cache dữ liệu bệnh nhân.",
-    "rights_label": "Quyền của bạn (Your rights)",
-    "rights_value": "Bạn có thể từ chối. Nếu tổ chức yêu cầu dữ liệu ở lại trong nước, hãy dùng self-hosted LLM.",
-    "self_host_link": "Hướng dẫn cấu hình self-hosted LLM →",
-    "remember_label": "Nhớ lựa chọn cho session này (24 giờ)",
-    "accept_button": "Đồng ý và tiếp tục",
-    "decline_button": "Từ chối"
+    "title": "越境データ処理に関する通知",
+    "destination_label": "送信先",
+    "destination_value": "米国 — Anthropic / OpenAI のサーバー",
+    "provider_label": "AI プロバイダー",
+    "data_label": "送信されるデータ",
+    "data_value": "非識別化された FHIR バンドル: PHI はシステム外部へ送信される前に HMAC-SHA256 でハッシュ化されます。",
+    "retention_label": "保持ポリシー",
+    "retention_value": "AI プロバイダーは、各社の利用規約に従ってリクエストのペイロードを保持します。FHIRBridge は患者データをキャッシュしません。",
+    "rights_label": "お客様の権利",
+    "rights_value": "拒否することができます。所属組織がデータを国内に保持することを求める場合は、セルフホスト型 LLM をご利用ください。",
+    "self_host_link": "セルフホスト型 LLM の設定ガイド →",
+    "remember_label": "このセッション中（24 時間）は選択を記憶する",
+    "accept_button": "同意して続行",
+    "decline_button": "拒否する"
   }
 }

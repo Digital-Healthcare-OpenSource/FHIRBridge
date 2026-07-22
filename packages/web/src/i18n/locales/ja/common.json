@@ -1,28 +1,117 @@
 {
-  "_TODO": "JA translation v1.1 — placeholder content is VI text",
   "nav": {
-    "dashboard": "Dashboard",
-    "export": "Xuất dữ liệu",
-    "import": "Nhập dữ liệu",
-    "settings": "Cài đặt",
-    "summary": "Tóm tắt AI"
+    "dashboard": "ダッシュボード",
+    "export": "データエクスポート",
+    "import": "データインポート",
+    "settings": "設定",
+    "summary": "AI 要約"
   },
   "status": {
-    "checking": "Đang kiểm tra…",
-    "api_online": "API online",
-    "api_offline": "API offline"
+    "checking": "確認中…",
+    "api_online": "API オンライン",
+    "api_offline": "API オフライン"
   },
   "language": {
-    "label": "Ngôn ngữ",
+    "label": "言語",
     "vi": "Tiếng Việt",
-    "en": "English",
-    "ja": "日本語"
+    "en": "English"
   },
   "action": {
-    "cancel": "Hủy",
-    "confirm": "Xác nhận",
-    "close": "Đóng",
-    "save": "Lưu",
-    "retry": "Thử lại"
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "close": "閉じる",
+    "save": "保存",
+    "retry": "再試行",
+    "back": "戻る",
+    "next": "次へ",
+    "try_again": "もう一度試す"
+  },
+  "toast": {
+    "dismiss": "通知を閉じる"
+  },
+  "dropzone": {
+    "instruction": "ドラッグ＆ドロップ、またはクリックしてアップロード",
+    "drop_here": "ここにファイルをドロップ",
+    "hint": "CSV、XLSX または FHIR JSON · 最大 {{size}}",
+    "input_label": "ファイルアップロード",
+    "remove_label": "ファイルを削除"
+  },
+  "wizard": {
+    "title": "FHIR Bundle をエクスポート",
+    "description": "手順に従って患者データをエクスポートします",
+    "steps_aria": "エクスポートウィザードの手順",
+    "step": {
+      "connector": "コネクタ",
+      "configure": "設定",
+      "patient": "患者",
+      "options": "オプション",
+      "review": "確認",
+      "progress": "進行状況"
+    },
+    "select_source": "データソースを選択",
+    "source_fhir_title": "FHIR エンドポイント",
+    "source_fhir_desc": "FHIR R4 サーバーに接続します",
+    "source_file_title": "ファイルアップロード",
+    "source_file_desc": "CSV、XLSX または FHIR JSON をアップロード",
+    "fhir_connection": "FHIR 接続",
+    "upload_file": "ファイルをアップロード",
+    "uploading": "アップロード中… {{progress}}%",
+    "file_uploaded": "ファイルのアップロードが完了しました。",
+    "patient_id": "患者 ID",
+    "patient_identifier": "患者識別子",
+    "patient_placeholder": "例: patient-123",
+    "output_options": "出力オプション",
+    "format": "形式",
+    "format_json": "FHIR Bundle JSON",
+    "format_ndjson": "NDJSON",
+    "generate_summary": "エクスポート後に AI 要約を生成する",
+    "review": "確認",
+    "review_source": "ソース",
+    "review_fhir": "FHIR: {{url}}",
+    "review_file": "ファイルアップロード",
+    "review_patient": "患者 ID",
+    "review_format": "形式",
+    "review_summary": "要約を含める",
+    "yes": "はい",
+    "no": "いいえ",
+    "exporting": "エクスポート中…",
+    "start_export": "エクスポートを開始",
+    "back_to_dashboard": "ダッシュボードに戻る",
+    "new_export": "新規エクスポート"
+  },
+  "import": {
+    "title": "ファイルをインポート",
+    "description": "CSV、XLSX または FHIR JSON をアップロードし、FHIR R4 にマッピングします",
+    "preview": "プレビュー",
+    "rows_columns": "{{rows}} 行 · {{columns}} 列",
+    "map_columns": "列を FHIR にマッピング",
+    "start_import": "インポートを開始",
+    "processing": "インポートを処理中…",
+    "started": "インポートを開始しました",
+    "job_id": "ジョブ ID: {{id}}",
+    "import_another": "別のファイルをインポート",
+    "failed": "インポートに失敗しました"
+  },
+  "progress": {
+    "label": "進行状況",
+    "step_connecting": "ソースに接続中",
+    "step_fetching": "患者データを取得中",
+    "step_mapping": "FHIR R4 にマッピング中",
+    "step_bundling": "バンドルを作成中",
+    "step_complete": "完了",
+    "error_generic": "エクスポート中にエラーが発生しました"
+  },
+  "mapper": {
+    "source_column": "ソース列",
+    "fhir_path": "FHIR パス",
+    "skip": "— スキップ —",
+    "map_aria": "{{col}} を FHIR パスにマッピング",
+    "duplicate_warning": "2 つ以上の列が同じ FHIR パス（{{paths}}）にマッピングされています。保持される値は 1 つのみです。",
+    "identifier_required": "続行するには、少なくとも患者識別子（例: Patient.id）をマッピングしてください。"
+  },
+  "export_result": {
+    "complete": "エクスポート完了",
+    "patient_id_label": "患者 ID",
+    "download": "FHIR Bundle をダウンロード (JSON)"
   }
 }
