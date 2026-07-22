@@ -290,6 +290,13 @@ rejects a Korean-market grant that does not acknowledge all five. The resident
 registration number (주민등록번호) is additionally protected: RRN values detected at
 ingest are HMAC-hashed or masked and never flow through the pipeline raw (Art. 24-2).
 
+**Access log (접속기록):** set `AUDIT_PROFILE=kr` to enrich every audit row with
+`patientRefHash` (HMAC of the accessed patient id — never raw) and `sourceIp`,
+per the KR 안전성 확보조치 access-log requirement (who / when / whose record /
+from where). Keep audit rows **≥ 2 years** (`AUDIT_RETENTION_DAYS=730` or more)
+and review the log periodically. Note: `sourceIp` is personal data under GDPR —
+the field only exists under the KR profile; leave `AUDIT_PROFILE` unset elsewhere.
+
 **Recommendation for Korean deployments:** as with Japan, prefer running with AI
 summaries disabled or with an in-country/self-hosted provider. The built-in consent
 recording captures operator consent, not patient consent — your DPO decides the
