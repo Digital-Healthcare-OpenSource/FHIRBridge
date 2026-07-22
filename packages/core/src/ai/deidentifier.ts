@@ -139,6 +139,12 @@ function deidentifyResource(
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
       continue;
     }
+    // Property-injection guard: chỉ cho phép element name dạng FHIR hợp lệ
+    // (ASCII alphanumeric, tùy chọn prefix '_' cho primitive extension).
+    // Key lạ bị drop — deidentifier là sanitizer, bớt dữ liệu = an toàn hơn.
+    if (!/^_?[A-Za-z][A-Za-z0-9]*$/.test(key)) {
+      continue;
+    }
 
     // Skip null/undefined
     if (value === null || value === undefined) {
