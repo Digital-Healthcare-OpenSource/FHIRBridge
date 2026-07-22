@@ -17,7 +17,7 @@ export function registerSummarizeCommand(program: Command): void {
     .description('Generate AI clinical summary from a FHIR bundle')
     .option('--input <path>', 'Path to FHIR bundle JSON file')
     .option('--provider <claude|openai|gemini>', 'AI provider')
-    .option('--language <en|vi|ja|zh>', 'Summary language')
+    .option('--language <en|vi|ja|ko|zh>', 'Summary language')
     .option('--detail <brief|standard|detailed>', 'Detail level', 'standard')
     .option('--output <path>', 'Output file path (default: stdout)')
     .option('--format <markdown|composition>', 'Output format', 'markdown')
@@ -53,11 +53,9 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
 
   const providerOpts = await promptProviderOptions({
     provider: (opts.provider ?? config.defaultProvider) as
-      | 'claude'
-      | 'openai'
-      | 'gemini'
-      | undefined,
-    language: (opts.language ?? config.defaultLanguage) as 'en' | 'vi' | 'ja' | 'zh' | undefined,
+      'claude' | 'openai' | 'gemini' | undefined,
+    language: (opts.language ?? config.defaultLanguage) as
+      'en' | 'vi' | 'ja' | 'ko' | 'zh' | undefined,
     detail: opts.detail as 'brief' | 'standard' | 'detailed' | undefined,
   });
 

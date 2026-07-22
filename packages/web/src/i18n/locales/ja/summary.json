@@ -1,15 +1,22 @@
 {
-  "_TODO": "JA translation v1.1 — placeholder content is VI text",
   "section": {
-    "title": "Tóm tắt AI",
-    "generate_button": "Tạo tóm tắt",
-    "regenerate_button": "Tạo lại",
-    "copy_button": "Sao chép",
-    "copied": "Đã sao chép!",
-    "loading": "Đang tạo tóm tắt…",
-    "empty": "Chưa có tóm tắt. Nhấn \"Tạo tóm tắt\" để bắt đầu.",
-    "provider_label": "Nhà cung cấp AI",
-    "model_label": "Mô hình",
-    "language_label": "Ngôn ngữ tóm tắt"
+    "title": "AI 要約",
+    "generate_button": "要約を生成",
+    "regenerate_button": "再生成",
+    "copy_button": "コピー",
+    "copied": "コピーしました！",
+    "loading": "要約を生成中…",
+    "empty": "まだ要約はありません。「要約を生成」をクリックして開始してください。",
+    "provider_label": "AI プロバイダー",
+    "model_label": "モデル",
+    "language_label": "要約の言語"
+  },
+  "disclaimer": {
+    "label": "AI により生成された要約",
+    "body": "— この内容は AI モデルによって生成されたものであり、誤りが含まれる可能性があります。臨床情報は必ず有資格の医療従事者にご確認ください。"
+  },
+  "actions": {
+    "download_markdown": "Markdown をダウンロード",
+    "download_pdf": "PDF をダウンロード"
   }
 }

@@ -13,7 +13,7 @@ import type { AuditService } from './audit-service.js';
 import { JobRecordStore } from './job-record-store.js';
 
 export interface SummaryRequestOptions {
-  language?: 'en' | 'vi' | 'ja';
+  language?: 'en' | 'vi' | 'ja' | 'ko';
   provider?: 'claude' | 'openai';
   detailLevel?: 'brief' | 'standard' | 'detailed';
 }

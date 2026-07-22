@@ -1,17 +1,21 @@
 {
-  "_TODO": "JA translation v1.1 — placeholder content is VI text",
-  "generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
-  "network": "Không thể kết nối đến máy chủ. Kiểm tra kết nối mạng.",
-  "unauthorized": "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.",
-  "forbidden": "Bạn không có quyền thực hiện thao tác này.",
-  "not_found": "Không tìm thấy tài nguyên yêu cầu.",
-  "rate_limited": "Quá nhiều yêu cầu. Vui lòng chờ trước khi thử lại.",
-  "quota_exceeded": "Bạn đã dùng hết giới hạn xuất dữ liệu tháng này. Nâng cấp gói để tiếp tục.",
-  "export_failed": "Xuất dữ liệu thất bại. Kiểm tra kết nối HIS và thử lại.",
-  "ai_unavailable": "Dịch vụ AI tạm thời không khả dụng. Thử lại sau.",
+  "generic": "エラーが発生しました。もう一度お試しください。",
+  "network": "サーバーに接続できません。ネットワーク接続をご確認ください。",
+  "unauthorized": "セッションの有効期限が切れました。再度ログインしてください。",
+  "forbidden": "この操作を実行する権限がありません。",
+  "not_found": "要求されたリソースが見つかりませんでした。",
+  "rate_limited": "リクエストが多すぎます。しばらく待ってから再度お試しください。",
+  "quota_exceeded": "今月のエクスポート上限に達しました。続行するにはプランをアップグレードしてください。",
+  "export_failed": "エクスポートに失敗しました。HIS 接続を確認して再試行してください。",
+  "ai_unavailable": "AI サービスは一時的にご利用いただけません。しばらくしてからお試しください。",
+  "upload_failed": "アップロードに失敗しました",
+  "import_failed": "インポートに失敗しました",
+  "download_failed": "ダウンロードに失敗しました。もう一度お試しください。",
+  "markdown_download_failed": "Markdown のダウンロードに失敗しました。もう一度お試しください。",
+  "file_rejected": "ファイルが拒否されました: {{reason}}",
   "validation": {
-    "required": "Trường này là bắt buộc.",
-    "invalid_url": "URL không hợp lệ.",
-    "invalid_date": "Ngày không hợp lệ."
+    "required": "この項目は必須です。",
+    "invalid_url": "URL が無効です。",
+    "invalid_date": "日付が無効です。"
   }
 }

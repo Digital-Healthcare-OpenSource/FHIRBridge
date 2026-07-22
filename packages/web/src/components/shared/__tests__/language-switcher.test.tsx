@@ -4,7 +4,7 @@
  * - Default renders VI selected
  * - Switch to EN updates i18n.language
  * - Persistence: localStorage written on change
- * - Chỉ VI + EN được render; JA cố tình vắng mặt cho tới khi có bản dịch thật
+ * - Cả 4 locale thị trường (VI / EN / JA / KO) đều được render
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -33,13 +33,22 @@ describe('LanguageSwitcher', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
-  it('shows VI and EN options; JA absent until real translations exist', () => {
+  it('shows all 4 market locales: VI, EN, JA, KO', () => {
     renderSwitcher();
     expect(screen.getByRole('option', { name: 'Tiếng Việt' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'English' })).toBeInTheDocument();
-    // JA bị loại chủ đích — locales/ja/* còn là placeholder tiếng Việt;
-    // hiện 日本語 mà nội dung là tiếng Việt sẽ đánh lừa clinician Nhật.
-    expect(screen.queryByRole('option', { name: '日本語' })).toBeNull();
+    expect(screen.getByRole('option', { name: '日本語' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '한국어' })).toBeInTheDocument();
+    expect(screen.getAllByRole('option')).toHaveLength(4);
+  });
+
+  it('selecting KO calls i18n.changeLanguage("ko")', async () => {
+    renderSwitcher();
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'ko' } });
+    await waitFor(() => {
+      expect(i18n.language).toBe('ko');
+    });
   });
 
   it('VI is selected by default', async () => {

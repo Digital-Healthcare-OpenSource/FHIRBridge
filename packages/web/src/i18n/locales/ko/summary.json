@@ -1,0 +1,22 @@
+{
+  "section": {
+    "title": "AI 요약",
+    "generate_button": "요약 생성",
+    "regenerate_button": "다시 생성",
+    "copy_button": "복사",
+    "copied": "복사되었습니다!",
+    "loading": "요약 생성 중…",
+    "empty": "아직 요약이 없습니다. \"요약 생성\"을 클릭하여 시작하세요.",
+    "provider_label": "AI 제공업체",
+    "model_label": "모델",
+    "language_label": "요약 언어"
+  },
+  "disclaimer": {
+    "label": "AI가 생성한 요약",
+    "body": "— 이 내용은 AI 모델이 생성한 것으로 오류가 포함될 수 있습니다. 임상 정보는 반드시 자격을 갖춘 의료 전문가에게 확인하십시오."
+  },
+  "actions": {
+    "download_markdown": "Markdown 다운로드",
+    "download_pdf": "PDF 다운로드"
+  }
+}

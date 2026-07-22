@@ -203,7 +203,7 @@ export interface ExportOptions {
   /** Include AI-generated summary */
   includeSummary?: boolean;
   /** Target locale for summary */
-  locale?: 'en' | 'vi' | 'ja';
+  locale?: 'en' | 'vi' | 'ja' | 'ko';
 }
 
 export type ExportFormat = 'fhir-json' | 'fhir-ndjson' | 'csv' | 'pdf';
@@ -215,7 +215,7 @@ export interface SummaryOptions {
   /** De-identified FHIR bundle (no real patient data) */
   bundle: FhirBundle;
   /** Target language for summary */
-  locale?: 'en' | 'vi' | 'ja';
+  locale?: 'en' | 'vi' | 'ja' | 'ko';
   /** AI provider to use */
   provider?: 'anthropic' | 'openai';
   /** Detail level */

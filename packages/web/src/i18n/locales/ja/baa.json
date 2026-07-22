@@ -1,18 +1,17 @@
 {
-  "_TODO": "JA translation v1.1 — placeholder content is VI text",
   "modal": {
-    "title": "Lưu ý quan trọng: AI Summary và HIPAA",
+    "title": "重要なお知らせ: AI 要約と HIPAA",
     "title_sub": "Important Notice: AI Summary & HIPAA",
-    "close_aria": "Hủy và đóng (Cancel)",
+    "close_aria": "キャンセルして閉じる",
     "bullets": [
-      "Anthropic (Claude) và OpenAI (GPT) hiện KHÔNG có BAA HIPAA với FHIRBridge hosted.",
-      "Tính năng AI Summary hosted chỉ dành cho cá nhân tự xuất dữ liệu của mình (self-directed consumer).",
-      "Nếu bạn là HIPAA-covered entity hoặc business associate, hãy self-host FHIRBridge với BAA của chính bạn (Azure OpenAI / AWS Bedrock)."
+      "Anthropic (Claude) および OpenAI (GPT) は現在、FHIRBridge ホスト版に関して HIPAA BAA を締結していません。",
+      "ホスト版の AI 要約機能は、ご自身のデータをエクスポートする個人（自己の判断による消費者利用）のみを対象としています。",
+      "HIPAA covered entity または business associate に該当する場合は、ご自身の BAA（Azure OpenAI / AWS Bedrock）を用いて FHIRBridge をセルフホストしてください。"
     ],
-    "docs_link_prefix": "Xem thêm:",
+    "docs_link_prefix": "詳細:",
     "docs_link_label": "BAA Strategy & Self-hosting Guide",
-    "checkbox_label": "Tôi xác nhận đã đọc và đồng ý — Tôi không phải HIPAA-covered entity đang xử lý PHI thương mại.",
-    "cancel_button": "Hủy",
-    "confirm_button": "Đồng ý, bật AI Summary"
+    "checkbox_label": "上記を読み、同意したことを確認します — 私は商用の PHI を処理する HIPAA covered entity ではありません。",
+    "cancel_button": "キャンセル",
+    "confirm_button": "同意して AI 要約を有効化"
   }
 }
