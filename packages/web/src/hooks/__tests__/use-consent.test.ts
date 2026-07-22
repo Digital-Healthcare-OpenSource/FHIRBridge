@@ -189,6 +189,64 @@ describe('useConsent', () => {
     });
   });
 
+  it('PIPA: sau khi decline, requestConsent tiếp theo trả false ngay (AI summary disabled cho session)', async () => {
+    const { result } = renderHook(() => useConsent());
+
+    act(() => {
+      void result.current.requestConsent();
+    });
+    await waitFor(() => expect(result.current.modalOpen).toBe(true));
+
+    await act(async () => {
+      result.current.handleModalDecline();
+    });
+    await waitFor(() => expect(result.current.modalOpen).toBe(false));
+
+    // Lần 2: không mở modal, resolve false ngay
+    let second: boolean | undefined;
+    await act(async () => {
+      second = await result.current.requestConsent();
+    });
+    expect(second).toBe(false);
+    expect(result.current.modalOpen).toBe(false);
+  });
+
+  it('PIPA: locale ko → consent body gửi market=kr + đủ 5 mục disclosures', async () => {
+    const { default: i18n } = await import('../../i18n');
+    await i18n.changeLanguage('ko');
+    try {
+      const { result } = renderHook(() => useConsent());
+
+      act(() => {
+        void result.current.requestConsent();
+      });
+      await waitFor(() => expect(result.current.modalOpen).toBe(true));
+
+      await act(async () => {
+        result.current.handleModalAccept(false);
+      });
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledWith(
+          '/v1/consent/record',
+          expect.objectContaining({
+            granted: true,
+            market: 'kr',
+            disclosures: {
+              dataCategories: true,
+              destinationAndMethod: true,
+              recipientContact: true,
+              purposeAndRetention: true,
+              refusalAndConsequences: true,
+            },
+          }),
+        );
+      });
+    } finally {
+      await i18n.changeLanguage('vi');
+    }
+  });
+
   it('revokeConsent removes record from localStorage', async () => {
     // Pre-populate a consent record
     localStorageStore['fhirbridge.consent.crossborder'] = JSON.stringify({

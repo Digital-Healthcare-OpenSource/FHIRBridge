@@ -15,12 +15,19 @@ import type { IRedisStore } from './redis-store.js';
 
 export type ConsentType = 'crossborder_ai';
 
+/** Thị trường có yêu cầu consent đặc thù (KR: PIPA Art. 28-8). */
+export type ConsentMarket = 'kr';
+
 export interface RecordConsentParams {
   /** Raw user ID từ JWT/API key — sẽ được hash keyed-HMAC trong service */
   userId: string;
   consentType: ConsentType;
   consentVersionHash: string;
   granted: boolean;
+  /** Thị trường deployment — 'kr' kích hoạt yêu cầu 5 mục PIPA (validate ở schema) */
+  market?: ConsentMarket;
+  /** Ack 5 mục disclosure PIPA Art. 28-8 — chỉ boolean, không PHI */
+  disclosures?: Readonly<Record<string, boolean>>;
 }
 
 /** Trạng thái consent được persist (không chứa PHI, chỉ hashed key). */
@@ -64,7 +71,7 @@ export class ConsentService {
    * action = 'consent_grant' nếu granted=true, 'consent_revoke' nếu false.
    */
   async recordConsent(params: RecordConsentParams): Promise<void> {
-    const { userId, consentType, consentVersionHash, granted } = params;
+    const { userId, consentType, consentVersionHash, granted, market, disclosures } = params;
 
     const userIdHash = this.hashUserId(userId);
 
@@ -85,6 +92,9 @@ export class ConsentService {
       metadata: {
         consentType,
         versionHash: consentVersionHash,
+        // PIPA: ghi lại thị trường + trạng thái ack 5 mục (boolean, không PHI)
+        ...(market ? { market } : {}),
+        ...(disclosures ? { disclosures } : {}),
       },
     });
   }
