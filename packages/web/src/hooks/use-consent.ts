@@ -14,13 +14,35 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { apiClient } from '../api/api-client';
+import i18n from '../i18n';
 
 // ---------------------------------------------------------------------------
 // Consent text dùng để tính version hash (phải khớp nội dung modal)
+// v2: bổ sung đủ 5 mục PIPA Art. 28-8 (method, recipient contact, purpose,
+// refusal consequences) — hash đổi → mọi consent v1 cũ tự hết hiệu lực.
 // ---------------------------------------------------------------------------
-const CONSENT_TEXT_V1 =
-  'FHIRBridge cross-border AI consent v1: data processed in US by Anthropic/OpenAI; ' +
-  'PHI HMAC-hashed; provider retains per ToS; FHIRBridge does not cache; user may decline.';
+const CONSENT_TEXT_V2 =
+  'FHIRBridge cross-border AI consent v2 (PIPA Art.28-8 complete): ' +
+  'de-identified FHIR bundle transferred to US via TLS API call; ' +
+  'recipient Anthropic/OpenAI (privacy contact per provider site); ' +
+  'purpose: clinical summary generation; provider retains per ToS; ' +
+  'FHIRBridge does not cache; user may decline — declining disables AI summary ' +
+  'for the session, export unaffected.';
+
+// PIPA Art. 28-8: 5 mục disclosure — modal render đủ cho MỌI locale, gửi ack
+// kèm market='kr' khi UI đang chạy locale tiếng Hàn.
+const PIPA_DISCLOSURES = {
+  dataCategories: true,
+  destinationAndMethod: true,
+  recipientContact: true,
+  purposeAndRetention: true,
+  refusalAndConsequences: true,
+} as const;
+
+/** Deployment đang phục vụ thị trường KR? — suy từ UI locale hiện tại. */
+function isKrMarket(): boolean {
+  return (i18n.language ?? '').toLowerCase().startsWith('ko');
+}
 
 /** 24 giờ tính bằng ms */
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -82,7 +104,7 @@ let _versionHashCache: string | null = null;
 
 async function getVersionHash(): Promise<string> {
   if (_versionHashCache) return _versionHashCache;
-  _versionHashCache = await sha256Hex(CONSENT_TEXT_V1);
+  _versionHashCache = await sha256Hex(CONSENT_TEXT_V2);
   return _versionHashCache;
 }
 
@@ -135,6 +157,8 @@ async function recordConsentApi(consentVersionHash: string, granted: boolean): P
       type: 'crossborder_ai',
       consentVersionHash,
       granted,
+      // PIPA Art. 28-8: locale KO → gửi market + ack đủ 5 mục disclosure
+      ...(isKrMarket() ? { market: 'kr', disclosures: PIPA_DISCLOSURES } : {}),
     });
   } catch {
     // Không block UI nếu audit call fail — lỗi sẽ được log phía server
@@ -151,6 +175,9 @@ export function useConsent(): UseConsentReturn {
   const [consentVersion, setConsentVersion] = useState<string>('');
   // Grant "không remember": chỉ sống trong session React state, KHÔNG persist.
   const [sessionGranted, setSessionGranted] = useState(false);
+  // PIPA: đã từ chối trong session này → AI summary disabled, không hỏi lại
+  // cho tới khi reload (export và tính năng khác không ảnh hưởng).
+  const [sessionDeclined, setSessionDeclined] = useState(false);
 
   // Promise resolver để bridge giữa async requestConsent() và UI callbacks
   const resolverRef = useRef<((granted: boolean) => void) | null>(null);
@@ -179,6 +206,9 @@ export function useConsent(): UseConsentReturn {
   })();
 
   const requestConsent = useCallback(async (): Promise<boolean> => {
+    // Đã decline trong session → không mở lại modal, AI summary vẫn disabled
+    if (sessionDeclined) return false;
+
     // Kiểm tra có consent hợp lệ chưa
     const alreadyGranted = await checkExisting();
     if (alreadyGranted) return true;
@@ -188,11 +218,14 @@ export function useConsent(): UseConsentReturn {
     return new Promise<boolean>((resolve) => {
       resolverRef.current = resolve;
     });
-  }, [checkExisting]);
+  }, [checkExisting, sessionDeclined]);
 
   const handleModalAccept = useCallback(
     (rememberSession: boolean) => {
       setModalOpen(false);
+
+      // Accept xoá trạng thái declined của session (user đổi ý)
+      setSessionDeclined(false);
 
       // Tính version hash và ghi consent
       void (async () => {
@@ -224,6 +257,8 @@ export function useConsent(): UseConsentReturn {
 
   const handleModalDecline = useCallback(() => {
     setModalOpen(false);
+    // PIPA: decline → disable AI summary cho session, không hỏi lại
+    setSessionDeclined(true);
 
     void (async () => {
       const version = await ensureVersion();

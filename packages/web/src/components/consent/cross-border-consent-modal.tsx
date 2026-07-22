@@ -125,8 +125,14 @@ export function CrossBorderConsentModal({
           {/* Destination */}
           <InfoRow label={t('modal.destination_label')} value={t('modal.destination_value')} />
 
-          {/* Provider — dynamic từ props */}
-          <InfoRow label={t('modal.provider_label')} value={providerName} />
+          {/* Provider — dynamic từ props + contact (PIPA mục 3: bên nhận + contact) */}
+          <InfoRow
+            label={t('modal.provider_label')}
+            value={`${providerName} — ${t('modal.provider_contact_value')}`}
+          />
+
+          {/* Purpose (PIPA mục 4a: mục đích sử dụng của bên nhận) */}
+          <InfoRow label={t('modal.purpose_label')} value={t('modal.purpose_value')} />
 
           {/* Data transferred */}
           <InfoRow label={t('modal.data_label')} value={t('modal.data_value')} />

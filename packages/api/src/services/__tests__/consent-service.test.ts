@@ -125,4 +125,46 @@ describe('ConsentService — persisted consent state', () => {
     const svc = new ConsentService(new CapturingAuditSink(), undefined, SECRET);
     expect(await svc.hasConsent('u', 'crossborder_ai')).toBe(false);
   });
+
+  it('PIPA: market + disclosures được ghi vào audit metadata (không PHI)', async () => {
+    const sink = new CapturingAuditSink();
+    const svc = new ConsentService(sink, undefined, SECRET);
+
+    const disclosures = {
+      dataCategories: true,
+      destinationAndMethod: true,
+      recipientContact: true,
+      purposeAndRetention: true,
+      refusalAndConsequences: true,
+    };
+
+    await svc.recordConsent({
+      userId: 'kr-operator',
+      consentType: 'crossborder_ai',
+      consentVersionHash: 'v2',
+      granted: true,
+      market: 'kr',
+      disclosures,
+    });
+
+    const entry = sink.entries[0]!;
+    expect(entry.metadata).toMatchObject({ market: 'kr', disclosures });
+    // Không leak raw user id qua metadata/userIdHash
+    expect(JSON.stringify(entry)).not.toContain('kr-operator');
+  });
+
+  it('metadata không chứa market/disclosures khi không truyền (non-KR)', async () => {
+    const sink = new CapturingAuditSink();
+    const svc = new ConsentService(sink, undefined, SECRET);
+
+    await svc.recordConsent({
+      userId: 'u',
+      consentType: 'crossborder_ai',
+      consentVersionHash: 'v2',
+      granted: true,
+    });
+
+    expect(sink.entries[0]!.metadata).not.toHaveProperty('market');
+    expect(sink.entries[0]!.metadata).not.toHaveProperty('disclosures');
+  });
 });

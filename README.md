@@ -279,6 +279,22 @@ or ensure your provider contract keeps inference in-country before enabling them
 The built-in consent recording captures operator consent, not patient consent — the
 operator remains the data controller. This is engineering guidance, not legal advice.
 
+### Data residency — Korea (PIPA)
+
+Under Korea's PIPA, transferring personal information overseas requires consent that
+discloses **five items** (Art. 28-8): the data being transferred, the destination
+country and transfer method, the recipient's name and contact, the recipient's
+purpose of use and retention period, and how to refuse plus the consequences of
+refusal. FHIRBridge's consent modal presents all five items, and the consent API
+rejects a Korean-market grant that does not acknowledge all five. The resident
+registration number (주민등록번호) is additionally protected: RRN values detected at
+ingest are HMAC-hashed or masked and never flow through the pipeline raw (Art. 24-2).
+
+**Recommendation for Korean deployments:** as with Japan, prefer running with AI
+summaries disabled or with an in-country/self-hosted provider. The built-in consent
+recording captures operator consent, not patient consent — your DPO decides the
+patient-consent process. This is engineering guidance, not legal advice.
+
 ## Testing
 
 Roughly 1100 unit + integration tests pass on every commit.

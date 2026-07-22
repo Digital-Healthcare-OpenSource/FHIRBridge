@@ -18,6 +18,9 @@ interface ConsentRecordBody {
   type: 'crossborder_ai';
   consentVersionHash: string;
   granted: boolean;
+  /** PIPA Art. 28-8: 'kr' yêu cầu ack đủ 5 mục disclosure (schema enforce) */
+  market?: 'kr';
+  disclosures?: Record<string, boolean>;
 }
 
 export interface ConsentRoutesOpts {
@@ -35,7 +38,7 @@ export async function consentRoutes(
     '/api/v1/consent/record',
     { schema: postConsentRecordSchema, preHandler: requireScope('consent:write') },
     async (request: FastifyRequest<{ Body: ConsentRecordBody }>, reply: FastifyReply) => {
-      const { type, consentVersionHash, granted } = request.body;
+      const { type, consentVersionHash, granted, market, disclosures } = request.body;
 
       // authUser set bởi authPlugin; fallback 'anonymous' không bao giờ xảy ra
       // vì route này không nằm trong PUBLIC_PATHS
@@ -46,6 +49,8 @@ export async function consentRoutes(
         consentType: type,
         consentVersionHash,
         granted,
+        market,
+        disclosures,
       });
 
       return reply.status(204).send();
