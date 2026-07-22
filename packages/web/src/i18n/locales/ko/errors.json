@@ -1,0 +1,21 @@
+{
+  "generic": "오류가 발생했습니다. 다시 시도해 주세요.",
+  "network": "서버에 연결할 수 없습니다. 네트워크 연결을 확인해 주세요.",
+  "unauthorized": "세션이 만료되었습니다. 다시 로그인해 주세요.",
+  "forbidden": "이 작업을 수행할 권한이 없습니다.",
+  "not_found": "요청한 리소스를 찾을 수 없습니다.",
+  "rate_limited": "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  "quota_exceeded": "이번 달 내보내기 한도에 도달했습니다. 계속하려면 요금제를 업그레이드하세요.",
+  "export_failed": "내보내기에 실패했습니다. HIS 연결을 확인한 후 다시 시도해 주세요.",
+  "ai_unavailable": "AI 서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  "upload_failed": "업로드 실패",
+  "import_failed": "가져오기 실패",
+  "download_failed": "다운로드에 실패했습니다. 다시 시도해 주세요.",
+  "markdown_download_failed": "Markdown 다운로드에 실패했습니다. 다시 시도해 주세요.",
+  "file_rejected": "파일이 거부되었습니다: {{reason}}",
+  "validation": {
+    "required": "필수 입력 항목입니다.",
+    "invalid_url": "유효하지 않은 URL입니다.",
+    "invalid_date": "유효하지 않은 날짜입니다."
+  }
+}

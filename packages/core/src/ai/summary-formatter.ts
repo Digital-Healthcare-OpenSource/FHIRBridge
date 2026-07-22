@@ -83,6 +83,19 @@ const HEADINGS: Record<SummaryLanguage, Headings> = {
     excludedNote: (types) =>
       `⚠️ ${types.length}件のリソースタイプは要約されませんでした（セクション未対応）: ${types.join(', ')}。`,
   },
+  ko: {
+    title: '환자 요약 보고서',
+    clinicalNarrative: '임상 기술',
+    sectionDetails: '섹션 상세',
+    disclaimerHeading: '면책 조항',
+    endOfSummary: 'AI 생성 요약 끝',
+    yes: '예',
+    no: '아니오',
+    resourcesSummarized: (n) => `리소스 ${n}건 요약됨`,
+    truncatedWarning: '⚠️ 이 섹션은 모델의 토큰 한도에 도달하여 잘렸으며 불완전할 수 있습니다.',
+    excludedNote: (types) =>
+      `⚠️ 리소스 유형 ${types.length}건은 요약되지 않았습니다(섹션 매핑 없음): ${types.join(', ')}.`,
+  },
 };
 
 /** Localized clinician-review disclaimers. */
@@ -90,6 +103,7 @@ const DISCLAIMERS: Record<SummaryLanguage, string> = {
   en: '⚠️ Disclaimer: This is an AI-generated summary derived from de-identified data. It may contain errors or omissions and must be reviewed by a qualified clinician and verified against the source medical records before any clinical use.',
   vi: '⚠️ Tuyên bố miễn trừ: Đây là bản tóm tắt do AI tạo ra từ dữ liệu đã ẩn danh. Bản tóm tắt có thể chứa sai sót hoặc thiếu sót và phải được bác sĩ có chuyên môn xem xét, đối chiếu với hồ sơ bệnh án gốc trước khi sử dụng trong lâm sàng.',
   ja: '⚠️ 免責事項: これは匿名化されたデータからAIが生成した要約です。誤りや欠落が含まれる可能性があり、臨床使用の前に有資格の臨床医が確認し、元の診療記録と照合する必要があります。',
+  ko: '⚠️ 면책 조항: 본 문서는 비식별화된 데이터를 바탕으로 AI가 생성한 요약입니다. 오류나 누락이 포함될 수 있으므로, 임상적으로 사용하기 전에 반드시 자격을 갖춘 의료인이 검토하고 원본 진료 기록과 대조하여 확인해야 합니다.',
 };
 
 /**

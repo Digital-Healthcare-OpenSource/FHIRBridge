@@ -12,7 +12,7 @@ import { warn } from '../utils/logger.js';
 export const CONFIG_PATH = join(homedir(), '.fhirbridgerc.json');
 
 export type SupportedProvider = 'claude' | 'openai' | 'gemini';
-export type SupportedLanguage = 'en' | 'vi' | 'ja' | 'zh';
+export type SupportedLanguage = 'en' | 'vi' | 'ja' | 'ko' | 'zh';
 
 export interface ConnectorProfile {
   type: 'fhir-endpoint' | 'epic' | 'cerner' | 'csv';
@@ -44,7 +44,9 @@ export function loadConfig(): FhirbridgeConfig {
     const stat = statSync(CONFIG_PATH);
     const mode = stat.mode & 0o777;
     if (mode & 0o044) {
-      warn(`Config file ${CONFIG_PATH} may be readable by others (mode: ${mode.toString(8)}). Consider: chmod 600 ~/.fhirbridgerc.json`);
+      warn(
+        `Config file ${CONFIG_PATH} may be readable by others (mode: ${mode.toString(8)}). Consider: chmod 600 ~/.fhirbridgerc.json`,
+      );
     }
 
     const raw = readFileSync(CONFIG_PATH, 'utf8');
@@ -61,7 +63,11 @@ export function saveConfig(config: FhirbridgeConfig): void {
   const json = JSON.stringify(config, null, 2);
   writeFileSync(CONFIG_PATH, json, { encoding: 'utf8', mode: 0o600 });
   // Ensure permissions even on existing files
-  try { chmodSync(CONFIG_PATH, 0o600); } catch { /* ignore */ }
+  try {
+    chmodSync(CONFIG_PATH, 0o600);
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Get a single config key value. */
@@ -71,10 +77,7 @@ export function getConfigValue(key: keyof FhirbridgeConfig): unknown {
 }
 
 /** Set a top-level config key (not profiles). */
-export function setConfigValue(
-  key: 'defaultProvider' | 'defaultLanguage',
-  value: string,
-): void {
+export function setConfigValue(key: 'defaultProvider' | 'defaultLanguage', value: string): void {
   const config = loadConfig();
   (config as unknown as Record<string, unknown>)[key] = value;
   saveConfig(config);
@@ -86,6 +89,8 @@ export function warnIfApiKeyInConfig(profile: ConnectorProfile): void {
     warn('API key stored in config file. Consider using FHIRBRIDGE_API_KEY env var instead.');
   }
   if (profile.clientSecret) {
-    warn('Client secret stored in config file. Consider using FHIRBRIDGE_CLIENT_SECRET env var instead.');
+    warn(
+      'Client secret stored in config file. Consider using FHIRBRIDGE_CLIENT_SECRET env var instead.',
+    );
   }
 }

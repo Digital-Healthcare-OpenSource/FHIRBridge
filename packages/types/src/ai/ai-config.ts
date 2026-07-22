@@ -13,7 +13,7 @@ export type SummaryOutputFormat = 'markdown' | 'pdf' | 'composition';
 export type SummaryDetailLevel = 'brief' | 'standard' | 'detailed';
 
 /** Supported summary languages */
-export type SummaryLanguage = 'en' | 'vi' | 'ja';
+export type SummaryLanguage = 'en' | 'vi' | 'ja' | 'ko';
 
 /**
  * Configuration for an AI provider adapter.

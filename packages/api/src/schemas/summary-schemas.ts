@@ -10,9 +10,13 @@ export const summaryGenerateRequestSchema = {
     summaryConfig: {
       type: 'object',
       properties: {
-        language: { type: 'string', enum: ['en', 'vi', 'ja'], default: 'en' },
+        language: { type: 'string', enum: ['en', 'vi', 'ja', 'ko'], default: 'en' },
         provider: { type: 'string', enum: ['claude', 'openai'], default: 'claude' },
-        detailLevel: { type: 'string', enum: ['brief', 'standard', 'detailed'], default: 'standard' },
+        detailLevel: {
+          type: 'string',
+          enum: ['brief', 'standard', 'detailed'],
+          default: 'standard',
+        },
       },
       additionalProperties: true,
     },

@@ -1,5 +1,5 @@
 /**
- * LanguageSwitcher — dropdown chọn ngôn ngữ VI / EN / JA.
+ * LanguageSwitcher — dropdown chọn ngôn ngữ VI / EN / JA / KO.
  *
  * - Hiển thị ngôn ngữ hiện tại được highlight
  * - Persist lựa chọn vào localStorage (key: fhirbridge.lang)

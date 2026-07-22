@@ -1,0 +1,117 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "export": "데이터 내보내기",
+    "import": "데이터 가져오기",
+    "settings": "설정",
+    "summary": "AI 요약"
+  },
+  "status": {
+    "checking": "확인 중…",
+    "api_online": "API 온라인",
+    "api_offline": "API 오프라인"
+  },
+  "language": {
+    "label": "언어",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "action": {
+    "cancel": "취소",
+    "confirm": "확인",
+    "close": "닫기",
+    "save": "저장",
+    "retry": "다시 시도",
+    "back": "이전",
+    "next": "다음",
+    "try_again": "다시 시도"
+  },
+  "toast": {
+    "dismiss": "알림 닫기"
+  },
+  "dropzone": {
+    "instruction": "드래그 앤 드롭하거나 클릭하여 업로드",
+    "drop_here": "여기에 파일을 놓으세요",
+    "hint": "CSV, XLSX 또는 FHIR JSON · 최대 {{size}}",
+    "input_label": "파일 업로드",
+    "remove_label": "파일 제거"
+  },
+  "wizard": {
+    "title": "FHIR Bundle 내보내기",
+    "description": "단계에 따라 환자 데이터를 내보냅니다",
+    "steps_aria": "내보내기 마법사 단계",
+    "step": {
+      "connector": "커넥터",
+      "configure": "구성",
+      "patient": "환자",
+      "options": "옵션",
+      "review": "검토",
+      "progress": "진행 상황"
+    },
+    "select_source": "데이터 소스 선택",
+    "source_fhir_title": "FHIR Endpoint",
+    "source_fhir_desc": "FHIR R4 서버에 연결합니다",
+    "source_file_title": "파일 업로드",
+    "source_file_desc": "CSV, XLSX 또는 FHIR JSON 업로드",
+    "fhir_connection": "FHIR 연결",
+    "upload_file": "파일 업로드",
+    "uploading": "업로드 중… {{progress}}%",
+    "file_uploaded": "파일을 업로드했습니다.",
+    "patient_id": "환자 ID",
+    "patient_identifier": "환자 식별자",
+    "patient_placeholder": "예: patient-123",
+    "output_options": "출력 옵션",
+    "format": "형식",
+    "format_json": "FHIR Bundle JSON",
+    "format_ndjson": "NDJSON",
+    "generate_summary": "내보내기 후 AI 요약 생성",
+    "review": "검토",
+    "review_source": "소스",
+    "review_fhir": "FHIR: {{url}}",
+    "review_file": "파일 업로드",
+    "review_patient": "환자 ID",
+    "review_format": "형식",
+    "review_summary": "요약 포함",
+    "yes": "예",
+    "no": "아니오",
+    "exporting": "내보내는 중…",
+    "start_export": "내보내기 시작",
+    "back_to_dashboard": "Dashboard로 돌아가기",
+    "new_export": "새 내보내기"
+  },
+  "import": {
+    "title": "파일 가져오기",
+    "description": "CSV, XLSX 또는 FHIR JSON을 업로드하여 FHIR R4로 매핑합니다",
+    "preview": "미리보기",
+    "rows_columns": "{{rows}}행 · {{columns}}열",
+    "map_columns": "열을 FHIR에 매핑",
+    "start_import": "가져오기 시작",
+    "processing": "가져오기 처리 중…",
+    "started": "가져오기를 시작했습니다",
+    "job_id": "작업 ID: {{id}}",
+    "import_another": "다른 파일 가져오기",
+    "failed": "가져오기 실패"
+  },
+  "progress": {
+    "label": "진행 상황",
+    "step_connecting": "소스에 연결 중",
+    "step_fetching": "환자 데이터 조회 중",
+    "step_mapping": "FHIR R4로 매핑 중",
+    "step_bundling": "번들 생성 중",
+    "step_complete": "완료",
+    "error_generic": "내보내기 중 오류가 발생했습니다"
+  },
+  "mapper": {
+    "source_column": "원본 열",
+    "fhir_path": "FHIR 경로",
+    "skip": "— 건너뛰기 —",
+    "map_aria": "{{col}}을(를) FHIR 경로에 매핑",
+    "duplicate_warning": "둘 이상의 열이 동일한 FHIR 경로({{paths}})에 매핑되어 있습니다. 값은 하나만 유지됩니다.",
+    "identifier_required": "계속하려면 환자 식별자(예: Patient.id)를 하나 이상 매핑하세요."
+  },
+  "export_result": {
+    "complete": "내보내기 완료",
+    "patient_id_label": "환자 ID",
+    "download": "FHIR Bundle 다운로드 (JSON)"
+  }
+}

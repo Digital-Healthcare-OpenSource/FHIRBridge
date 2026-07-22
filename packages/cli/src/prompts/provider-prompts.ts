@@ -6,7 +6,7 @@ import { select } from '@inquirer/prompts';
 
 export interface ProviderPromptResult {
   provider: 'claude' | 'openai' | 'gemini';
-  language: 'en' | 'vi' | 'ja' | 'zh';
+  language: 'en' | 'vi' | 'ja' | 'ko' | 'zh';
   detail: 'brief' | 'standard' | 'detailed';
 }
 
@@ -40,15 +40,16 @@ export async function promptProviderOptions(
     }))) as 'claude' | 'openai' | 'gemini';
 
   const language = (existing.language ??
-    (await select<'en' | 'vi' | 'ja' | 'zh'>({
+    (await select<'en' | 'vi' | 'ja' | 'ko' | 'zh'>({
       message: 'Summary language:',
       choices: [
         { name: 'English', value: 'en' },
         { name: 'Vietnamese', value: 'vi' },
         { name: 'Japanese', value: 'ja' },
+        { name: 'Korean', value: 'ko' },
         { name: 'Chinese (Simplified)', value: 'zh' },
       ],
-    }))) as 'en' | 'vi' | 'ja' | 'zh';
+    }))) as 'en' | 'vi' | 'ja' | 'ko' | 'zh';
 
   const detail = (existing.detail ??
     (await select<'brief' | 'standard' | 'detailed'>({

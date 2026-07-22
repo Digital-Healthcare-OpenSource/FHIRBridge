@@ -1,0 +1,17 @@
+{
+  "modal": {
+    "title": "중요 고지: AI 요약 및 HIPAA",
+    "title_sub": "Important Notice: AI Summary & HIPAA",
+    "close_aria": "취소하고 닫기",
+    "bullets": [
+      "Anthropic(Claude)과 OpenAI(GPT)는 현재 FHIRBridge hosted와 HIPAA BAA를 체결하고 있지 않습니다.",
+      "hosted AI 요약 기능은 본인의 데이터를 직접 내보내는 개인(self-directed consumer use)만을 위한 기능입니다.",
+      "귀하가 HIPAA covered entity 또는 business associate에 해당하는 경우, 귀하가 직접 체결한 BAA(Azure OpenAI / AWS Bedrock)와 함께 FHIRBridge를 자체 호스팅하십시오."
+    ],
+    "docs_link_prefix": "자세히 보기:",
+    "docs_link_label": "BAA Strategy & Self-hosting Guide",
+    "checkbox_label": "위 내용을 읽고 이에 동의합니다 — 본인은 상업적 PHI를 처리하는 HIPAA covered entity가 아닙니다.",
+    "cancel_button": "취소",
+    "confirm_button": "동의하고 AI 요약 사용"
+  }
+}

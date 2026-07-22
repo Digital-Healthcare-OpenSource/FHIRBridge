@@ -1,7 +1,7 @@
 /**
  * Structured prompt templates for the AI summary engine.
  * Each section type has a system prompt and a user prompt template.
- * Supports English (en), Vietnamese (vi), and Japanese (ja).
+ * Supports English (en), Vietnamese (vi), Japanese (ja), and Korean (ko).
  */
 
 import type { SummaryDetailLevel, SummaryLanguage } from '@fhirbridge/types';
@@ -43,6 +43,7 @@ const LANGUAGE_NAMES: Record<SummaryLanguage, string> = {
   en: 'English',
   vi: 'Vietnamese (Tiếng Việt)',
   ja: 'Japanese (日本語)',
+  ko: 'Korean (한국어)',
 };
 
 /**
@@ -54,6 +55,7 @@ const LANGUAGE_INSTRUCTIONS: Record<SummaryLanguage, string> = {
   en: 'Respond in clear, professional English. Keep medication names, clinical codes, and dosage values/units EXACTLY as they appear in the data; translate only the surrounding narrative.',
   vi: 'Phản hồi bằng tiếng Việt rõ ràng, chuyên nghiệp. Sử dụng thuật ngữ y tế chuẩn. Giữ nguyên CHÍNH XÁC tên thuốc, mã lâm sàng và giá trị/đơn vị liều lượng như trong dữ liệu; chỉ dịch phần diễn giải xung quanh.',
   ja: '明確かつ専門的な日本語で回答してください。標準的な医療用語を使用してください。薬剤名、臨床コード、用量の数値と単位はデータのとおり正確に保持し、周囲の説明文のみを翻訳してください。',
+  ko: '명확하고 전문적인 한국어로 답변하십시오. 표준 의학 용어를 사용하십시오. 약물명, 임상 코드, 용량의 수치와 단위는 데이터에 나타난 그대로 정확히 유지하고, 주변 설명문만 번역하십시오.',
 };
 
 /**
