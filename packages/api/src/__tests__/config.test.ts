@@ -103,6 +103,14 @@ describe('loadConfig — newly validated env vars', () => {
     expect(loadConfig().auditRetentionDays).toBe(30);
   });
 
+  it('AUDIT_PROFILE: mặc định undefined, nhận kr, reject giá trị lạ', () => {
+    expect(loadConfig().auditProfile).toBeUndefined();
+    process.env['AUDIT_PROFILE'] = 'kr';
+    expect(loadConfig().auditProfile).toBe('kr');
+    process.env['AUDIT_PROFILE'] = 'eu';
+    expect(() => loadConfig()).toThrow(/auditProfile/);
+  });
+
   it('rejects an invalid ERROR_DOCS_BASE_URL', () => {
     process.env['ERROR_DOCS_BASE_URL'] = 'not-a-url';
     expect(() => loadConfig()).toThrow(/errorDocsBaseUrl/);

@@ -77,6 +77,11 @@ const ApiConfigSchema = z
 
     // Audit retention window (days). Default 90 — tune to your compliance retention policy.
     auditRetentionDays: z.coerce.number().int().positive().default(90),
+
+    // KR 개인정보 안전성 확보조치 (access log 접속기록): 'kr' bật thêm
+    // patientRefHash + sourceIp trong audit metadata. Mặc định (undefined) giữ
+    // nguyên hành vi hiện tại — IP là personal data dưới GDPR nên chỉ bật theo profile.
+    auditProfile: z.enum(['default', 'kr']).optional(),
   })
   .superRefine((data, ctx) => {
     // HMAC_SECRET must differ from JWT_SECRET to prevent key reuse
@@ -162,6 +167,7 @@ export function loadConfig(): ApiConfig {
     aiProvider: process.env['AI_PROVIDER'],
     errorDocsBaseUrl: process.env['ERROR_DOCS_BASE_URL'],
     auditRetentionDays: process.env['AUDIT_RETENTION_DAYS'],
+    auditProfile: process.env['AUDIT_PROFILE'],
   };
 
   const result = ApiConfigSchema.safeParse(raw);

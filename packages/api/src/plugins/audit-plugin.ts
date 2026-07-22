@@ -41,12 +41,36 @@ async function _auditPlugin(
           statusCode: reply.statusCode,
           durationMs,
           requestId: (request as FastifyRequest & { id?: string }).id,
+          // KR 접속기록 (안전성 확보조치): record của chủ thể nào + từ đâu.
+          // Chỉ bật với AUDIT_PROFILE=kr — IP là personal data dưới GDPR.
+          ...(config.auditProfile === 'kr' ? krAccessFields(request, config.hmacSecret) : {}),
         },
       })
       .catch(() => {
         // Swallow audit errors — never break the API
       });
   });
+}
+
+/**
+ * KR access-log fields (개인정보 안전성 확보조치): ai truy cập record của chủ thể
+ * nào, từ đâu. patientRefHash là HMAC 16-hex — KHÔNG BAO GIỜ raw patient id.
+ */
+function krAccessFields(request: FastifyRequest, hmacSecret: string): Record<string, unknown> {
+  const body = request.body as { patientId?: unknown } | null | undefined;
+  const patientId =
+    typeof body?.patientId === 'string' && body.patientId ? body.patientId : undefined;
+  return {
+    sourceIp: request.ip,
+    ...(patientId
+      ? {
+          patientRefHash: createHmac('sha256', hmacSecret)
+            .update(patientId)
+            .digest('hex')
+            .slice(0, 16),
+        }
+      : {}),
+  };
 }
 
 export const auditPlugin = skipOverride(_auditPlugin);

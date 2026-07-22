@@ -86,6 +86,68 @@ describe('Audit plugin — onResponse hook', () => {
   });
 });
 
+describe('Audit plugin — KR access log (접속기록, AUDIT_PROFILE=kr)', () => {
+  let krApp: FastifyInstance;
+  let krCalls: AuditPayload[];
+
+  beforeAll(async () => {
+    const { service, calls } = buildMockAuditService();
+    krCalls = calls;
+    krApp = Fastify({ logger: false });
+    krApp.decorateRequest('authUser', null);
+    await krApp.register(auditPlugin, {
+      config: { ...mockConfig, auditProfile: 'kr' },
+      auditService: service,
+    });
+    krApp.post('/api/v1/export', async () => ({ ok: true }));
+    await krApp.ready();
+  });
+
+  afterAll(async () => {
+    await krApp.close();
+  });
+
+  it('ghi patientRefHash (HMAC 16-hex) + sourceIp — KHÔNG BAO GIỜ raw patient id', async () => {
+    krCalls.length = 0;
+    await krApp.inject({
+      method: 'POST',
+      url: '/api/v1/export',
+      payload: { patientId: 'patient-kr-001' },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const last = krCalls[krCalls.length - 1]!;
+    const expectedHash = createHmac('sha256', mockConfig.hmacSecret)
+      .update('patient-kr-001')
+      .digest('hex')
+      .slice(0, 16);
+    expect(last.metadata).toMatchObject({ patientRefHash: expectedHash });
+    expect(last.metadata?.['sourceIp']).toBeTruthy();
+    // Zero-PHI invariant: raw patient id không xuất hiện ở bất kỳ đâu trong payload
+    expect(JSON.stringify(last)).not.toContain('patient-kr-001');
+  });
+
+  it('request không có patientId → chỉ có sourceIp, không có patientRefHash', async () => {
+    krCalls.length = 0;
+    await krApp.inject({ method: 'POST', url: '/api/v1/export', payload: {} });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const last = krCalls[krCalls.length - 1]!;
+    expect(last.metadata?.['sourceIp']).toBeTruthy();
+    expect(last.metadata).not.toHaveProperty('patientRefHash');
+  });
+
+  it('profile mặc định: metadata KHÔNG chứa sourceIp/patientRefHash (hành vi cũ giữ nguyên)', async () => {
+    auditCalls.length = 0;
+    await app.inject({ method: 'GET', url: '/api/v1/data' });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const last = auditCalls[auditCalls.length - 1]!;
+    expect(last.metadata).not.toHaveProperty('sourceIp');
+    expect(last.metadata).not.toHaveProperty('patientRefHash');
+  });
+});
+
 describe('Audit plugin — user ID hashing', () => {
   it('hashes anonymous user ID — does not log raw "anonymous"', async () => {
     auditCalls.length = 0;
