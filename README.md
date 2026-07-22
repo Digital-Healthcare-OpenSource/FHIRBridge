@@ -242,7 +242,9 @@ operational contract:
   audit DB, retention per jurisdiction (US ~6 yr, VN/JP per local rule), the
   append-only purge path, and a restore drill.
 - **[Upgrading](docs/operations/upgrading.md)** — `init.sql` runs on first boot only;
-  the schema-migration gap and how to close it with a migration runner.
+  apply schema changes to an existing database with the built-in runner:
+  `pnpm --filter @fhirbridge/api migrate` (DDL-capable `DATABASE_URL`, idempotent,
+  checksum drift detection, advisory-locked for multi-replica).
 - **[Scaling](docs/operations/scaling.md)** — single-replica by default; running
   multiple replicas **requires `REDIS_URL`** (exports, summaries, idempotency, and
   rate limiting are otherwise per-process), plus per-replica `/metrics` scraping.

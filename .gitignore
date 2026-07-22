@@ -53,10 +53,13 @@ tests/fixtures/synthea/*.ndjson
 # Docker volumes
 docker/volumes/
 
-# Claude sessions + project-private docs/plans (keep local-only, never push)
+# Claude sessions + project-private docs/plans (keep local-only, never push).
+# docs/* (not docs/) so operator-facing docs/operations/ — which the README
+# links to — can be re-included and shipped publicly.
 .claude/
 CLAUDE.md
-docs/
+docs/*
+!docs/operations/
 plans/
 
 # Lock file debug
