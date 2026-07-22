@@ -26,6 +26,11 @@ export interface PipelineConfig {
   onValidationWarning?: ValidationCallback;
   /** If true, resources with validation errors are skipped (default: false = halt on error) */
   skipOnError?: boolean;
+  /**
+   * HMAC secret để hash RRN (주민등록번호) tại transform (PIPA).
+   * Absent → RRN vẫn bị mask `######-*******`, không bao giờ đi tiếp dạng raw.
+   */
+  rrnSecret?: string;
 }
 
 /**
@@ -65,7 +70,7 @@ export class TransformPipeline {
    * @throws Error nếu resource fails validation và skipOnError = false
    */
   async *pipe(source: AsyncIterable<RawRecord>, signal?: AbortSignal): AsyncGenerator<Bundle> {
-    const { resourceType, mappingConfig, batchSize, onValidationWarning, skipOnError } =
+    const { resourceType, mappingConfig, batchSize, onValidationWarning, skipOnError, rrnSecret } =
       this.config;
     let builder = new BundleBuilder();
 
@@ -79,7 +84,7 @@ export class TransformPipeline {
       let resource: Resource;
 
       try {
-        resource = transformToFhir(rawRecord, resourceType, mappingConfig);
+        resource = transformToFhir(rawRecord, resourceType, mappingConfig, undefined, rrnSecret);
       } catch (err) {
         if (skipOnError) continue;
         throw new Error(
@@ -130,7 +135,8 @@ export class TransformPipeline {
     source: AsyncIterable<RawRecord>,
     signal?: AbortSignal,
   ): AsyncGenerator<Resource> {
-    const { resourceType, mappingConfig, onValidationWarning, skipOnError } = this.config;
+    const { resourceType, mappingConfig, onValidationWarning, skipOnError, rrnSecret } =
+      this.config;
 
     for await (const rawRecord of source) {
       // Dừng ngay khi signal bị aborted
@@ -139,7 +145,7 @@ export class TransformPipeline {
       let resource: Resource;
 
       try {
-        resource = transformToFhir(rawRecord, resourceType, mappingConfig);
+        resource = transformToFhir(rawRecord, resourceType, mappingConfig, undefined, rrnSecret);
       } catch (err) {
         if (skipOnError) continue;
         throw new Error(

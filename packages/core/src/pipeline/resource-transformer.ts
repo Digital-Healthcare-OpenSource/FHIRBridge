@@ -5,6 +5,9 @@
 
 import type { Resource } from '@fhirbridge/types';
 
+import { hashIdentifier } from '../ai/deidentifier.js';
+import { containsRrn, maskRrn } from '../security/rrn-detector.js';
+
 /** A raw record from a source system (HIS, CSV, etc.) */
 export type RawRecord = Record<string, unknown>;
 
@@ -32,6 +35,9 @@ export type SlashDateOrder = 'DMY' | 'MDY';
  * @param resourceType - Target FHIR resource type (e.g., 'Patient')
  * @param mappingConfig - Optional field remapping
  * @param dateOrder - Slash-date interpretation order (default `DMY` for VI/JP)
+ * @param rrnSecret - HMAC secret để hash RRN (주민등록번호) ở cột identifier.
+ *   PIPA: RRN không được đi tiếp dạng raw — có secret thì hash (giữ tính duy nhất
+ *   cho dedupe), không có secret thì mask `######-*******`.
  * @throws {Error} when a recognized date has an impossible month/day (fail-fast,
  *   never emit a wrong clinical date)
  */
@@ -40,13 +46,14 @@ export function transformToFhir(
   resourceType: string,
   mappingConfig?: MappingConfig,
   dateOrder: SlashDateOrder = 'DMY',
+  rrnSecret?: string,
 ): Resource {
   const result: RawRecord = { resourceType };
 
   if (!mappingConfig) {
     // Default: direct field-name copy with date normalization
     for (const [key, value] of Object.entries(rawData)) {
-      result[key] = normalizeValue(key, value, dateOrder);
+      result[key] = normalizeValue(key, value, dateOrder, rrnSecret);
     }
     return result as unknown as Resource;
   }
@@ -55,7 +62,7 @@ export function transformToFhir(
   for (const [sourceField, fhirPath] of Object.entries(mappingConfig)) {
     if (!(sourceField in rawData)) continue;
 
-    const value = normalizeValue(fhirPath, rawData[sourceField], dateOrder);
+    const value = normalizeValue(fhirPath, rawData[sourceField], dateOrder, rrnSecret);
     setNestedValue(result, fhirPath, value);
   }
 
@@ -66,8 +73,24 @@ export function transformToFhir(
  * Normalize a field value based on its FHIR path.
  * Handles date format normalization and boolean coercion.
  */
-function normalizeValue(fieldPath: string, value: unknown, dateOrder: SlashDateOrder): unknown {
+function normalizeValue(
+  fieldPath: string,
+  value: unknown,
+  dateOrder: SlashDateOrder,
+  rrnSecret?: string,
+): unknown {
   if (value === null || value === undefined) return undefined;
+
+  // PIPA guard: RRN (주민등록번호) không bao giờ đi tiếp dạng raw.
+  // - Cột identifier: hash HMAC nếu có secret (giữ uniqueness), else mask.
+  // - Field string khác: mask — export path không đi qua deidentifier nên đây
+  //   là chốt chặn duy nhất trước khi dữ liệu rời pipeline.
+  if (typeof value === 'string' && containsRrn(value)) {
+    if (fieldPath.includes('identifier') && rrnSecret) {
+      return hashIdentifier(value.trim(), rrnSecret);
+    }
+    return maskRrn(value);
+  }
 
   // Normalize date fields to ISO 8601
   const dateFields = ['birthDate', 'recordedDate', 'onsetDateTime', 'authoredOn'];

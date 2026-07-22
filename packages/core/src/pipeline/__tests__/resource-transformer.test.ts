@@ -141,4 +141,61 @@ describe('transformToFhir', () => {
       expect(result['code']?.coding[0]?.code).toBe('29463-7');
     });
   });
+
+  describe('RRN masking (주민등록번호, PIPA)', () => {
+    // Synthetic checksum-valid RRN — xem rrn-detector.test.ts về cách tính
+    const RRN = '800101-1234560';
+
+    it('hashes RRN in identifier path when rrnSecret provided (giữ uniqueness)', () => {
+      const raw = { rrn: RRN };
+      const mapping = { rrn: 'identifier[0].value' };
+      const result = transformToFhir(raw, 'Patient', mapping, 'DMY', 'test-secret') as Record<
+        string,
+        { value: string }[]
+      >;
+
+      const value = result['identifier']![0]!.value;
+      expect(value).not.toContain(RRN);
+      expect(value).toMatch(/^[0-9a-f]{16}$/); // HMAC-SHA256 truncated
+    });
+
+    it('masks RRN in identifier path when no secret is available', () => {
+      const raw = { rrn: RRN };
+      const mapping = { rrn: 'identifier[0].value' };
+      const result = transformToFhir(raw, 'Patient', mapping) as Record<
+        string,
+        { value: string }[]
+      >;
+
+      expect(result['identifier']![0]!.value).toBe('######-*******');
+    });
+
+    it('masks RRN embedded in non-identifier string fields', () => {
+      const raw = { note_text: `환자 주민등록번호 ${RRN} 확인됨` };
+      const mapping = { note_text: 'text' };
+      const result = transformToFhir(raw, 'Patient', mapping, 'DMY', 'test-secret');
+
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain(RRN);
+      expect(serialized).toContain('######-*******');
+    });
+
+    it('masks RRN in default-mode (no mappingConfig) field copy', () => {
+      const raw = { identifier: RRN };
+      const result = transformToFhir(raw, 'Patient') as Record<string, string>;
+
+      expect(result['identifier']).toBe('######-*******');
+    });
+
+    it('leaves checksum-invalid 13-digit values untouched (false-positive guard)', () => {
+      const raw = { mrn: '800101-1234561' };
+      const mapping = { mrn: 'identifier[0].value' };
+      const result = transformToFhir(raw, 'Patient', mapping, 'DMY', 'test-secret') as Record<
+        string,
+        { value: string }[]
+      >;
+
+      expect(result['identifier']![0]!.value).toBe('800101-1234561');
+    });
+  });
 });

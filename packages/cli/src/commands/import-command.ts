@@ -127,7 +127,14 @@ async function runImport(opts: ImportOptions): Promise<void> {
   const progress = createProgress(Math.max(connectorRecords.length + 2, 3), 'Transforming');
 
   // Run transform pipeline — collect into single bundle
-  const pipeline = new TransformPipeline({ resourceType, mappingConfig, skipOnError: true });
+  // PIPA: RRN (주민등록번호) trong cột identifier được hash bằng HMAC nếu secret
+  // có mặt; không có secret thì mask — không bao giờ giữ raw RRN trong output.
+  const pipeline = new TransformPipeline({
+    resourceType,
+    mappingConfig,
+    skipOnError: true,
+    rrnSecret: process.env['FHIRBRIDGE_HMAC_SECRET'],
+  });
   const builder = new BundleBuilder();
   let processed = 0;
 
