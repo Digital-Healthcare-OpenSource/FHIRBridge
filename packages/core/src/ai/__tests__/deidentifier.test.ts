@@ -933,3 +933,43 @@ describe('deidentify — expert-review fixes (C1/C2/contained/onsetAge)', () => 
     expect(({} as { polluted?: unknown }).polluted).toBeUndefined();
   });
 });
+
+describe('RRN leak prevention (주민등록번호, PIPA)', () => {
+  // Synthetic checksum-valid RRNs — xem rrn-detector.test.ts về cách tính
+  const RRN = '800101-1234560';
+  const RRN_NO_SEP = '9002022345679';
+
+  it('masks RRN lọt vào string field bất kỳ — bundle output không chứa raw RRN', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'Patient',
+            id: 'kr-patient-1',
+            // RRN trong identifier → đã được HMAC bởi nhánh identifier
+            identifier: [{ system: 'urn:kr:rrn', value: RRN }],
+            // RRN lọt vào field string lạ (không thuộc nhánh xử lý nào) → mask
+            multipleBirthString: `쌍둥이 아님 ${RRN_NO_SEP}`,
+          } as unknown as Resource,
+        },
+      ],
+    };
+
+    const { bundle: result } = deidentify(bundle, 'test-secret');
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).not.toContain(RRN);
+    expect(serialized).not.toContain(RRN_NO_SEP);
+    expect(serialized).toContain('######-*******');
+  });
+
+  it('hashIdentifier output của một RRN không còn chứa RRN pattern (audit metadata safe)', () => {
+    // Audit chỉ nhận userIdHash + counts — khẳng định hash của RRN không thể
+    // match lại RRN pattern (hex 16 ký tự, không phải 13 digits).
+    const hashed = hashIdentifier(RRN, 'test-secret');
+    expect(hashed).toMatch(/^[0-9a-f]{16}$/);
+    expect(hashed).not.toContain(RRN);
+  });
+});

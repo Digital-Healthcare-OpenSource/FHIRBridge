@@ -89,6 +89,7 @@ export type { TokenRecord, AggregatedTokenUsage } from './ai/token-tracker.js';
 // ── Security utilities ───────────────────────────────────────────────────────
 export { validateBaseUrl, validateBaseUrlWithDns } from './security/index.js';
 export type { ValidateBaseUrlResult } from './security/index.js';
+export { isValidRrn, containsRrn, maskRrn, RRN_MASK } from './security/index.js';
 
 // ── Coding utilities ─────────────────────────────────────────────────────────
 export {

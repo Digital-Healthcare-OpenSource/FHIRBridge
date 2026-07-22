@@ -102,8 +102,12 @@ describe('XSS — POST /api/v1/connectors/test baseUrl field', () => {
       },
     });
     expect(containsUnescapedScript(res.body)).toBe(false);
-    // Non-http scheme should be rejected
-    expect([400, 422, 500]).toContain(res.statusCode);
+    // Non-http scheme bị từ chối: route connectors/test trả 200 với
+    // connected:false trong body (contract hiện tại), 4xx/500 cho bản cũ.
+    expect([200, 400, 422, 500]).toContain(res.statusCode);
+    if (res.statusCode === 200) {
+      expect(JSON.parse(res.body).connected).toBe(false);
+    }
   });
 });
 

@@ -11,12 +11,15 @@
  * - Redact Organization.name + Location.name → HMAC hash (kể cả contained resources)
  * - Redact Reference.display (tên người) và Attachment data/url/title (ảnh/PDF định danh)
  * - Truncate age ≥ 89 to year-only bucket per HIPAA Safe Harbor (birthDate + onsetAge)
+ * - Mask mọi RRN Hàn Quốc (주민등록번호) sót lại trong string values (PIPA)
  * - PRESERVE: medical codes (LOINC, SNOMED, RxNorm) incl. coding[].display, values, dosages
  */
 
 import { createHmac } from 'node:crypto';
 
 import type { Bundle, BundleEntry, DateShiftMap, DeidentifiedBundle } from '@fhirbridge/types';
+
+import { maskRrn } from '../security/rrn-detector.js';
 
 /**
  * Maximum date shift in days (±29).
@@ -134,6 +137,12 @@ function deidentifyResource(
     // Prototype-pollution guard: key đến từ bundle remote (attacker-influenceable).
     // Không có element FHIR hợp lệ nào tên như vậy → drop hẳn, không copy sang result.
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
+    // Property-injection guard: chỉ cho phép element name dạng FHIR hợp lệ
+    // (ASCII alphanumeric, tùy chọn prefix '_' cho primitive extension).
+    // Key lạ bị drop — deidentifier là sanitizer, bớt dữ liệu = an toàn hơn.
+    if (!/^_?[A-Za-z][A-Za-z0-9]*$/.test(key)) {
       continue;
     }
 
@@ -408,8 +417,10 @@ function deidentifyResource(
       continue;
     }
 
-    // Pass through primitives (boolean, number, string not matched above)
-    result[key] = value;
+    // Pass through primitives (boolean, number, string not matched above).
+    // PIPA: string sót lại vẫn phải quét RRN — chốt chặn cuối trước khi bundle
+    // rời hệ thống đến AI provider (checksum-gated, không đụng số khác).
+    result[key] = typeof value === 'string' ? maskRrn(value) : value;
   }
 
   return result;

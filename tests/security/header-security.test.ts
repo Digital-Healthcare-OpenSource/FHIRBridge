@@ -24,7 +24,7 @@ afterAll(async () => {
 
 const PROBE_PAYLOAD = {
   type: 'fhir-endpoint',
-  baseUrl: 'https://hapi.fhir.org/baseR4',
+  config: { type: 'fhir-endpoint', baseUrl: 'https://hapi.fhir.org/baseR4' },
 };
 
 // ---------------------------------------------------------------------------
@@ -57,9 +57,12 @@ describe('Response headers — Server header info-leak', () => {
 
 describe('Error responses — no stack traces', () => {
   it('404 response body does not contain a stack trace', async () => {
+    // Auth plugin chạy trước router: route lạ không token trả 401 (không leak
+    // route tồn tại hay không) — phải authenticate để chạm nhánh 404 thật.
     const res = await server.inject({
       method: 'GET',
       url: '/api/v1/does-not-exist-route-xyz',
+      headers: { authorization: bearerHeader(userJwt('header-404')) },
     });
     expect(res.statusCode).toBe(404);
     expect(res.body).not.toMatch(/at Object\.<anonymous>/);
@@ -138,7 +141,9 @@ describe('Response headers — Content-Type correctness', () => {
       },
       payload: PROBE_PAYLOAD,
     });
-    expect([200, 502]).toContain(res.statusCode); // network failure to upstream FHIR yields 502
+    // Route connectors/test luôn trả 200 (kết quả nằm trong body.connected);
+    // 502 giữ lại cho phiên bản proxy cũ.
+    expect([200, 502]).toContain(res.statusCode);
     expect(res.headers['content-type']).toMatch(/application\/json/);
   });
 });

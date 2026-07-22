@@ -1,0 +1,43 @@
+{
+  "$schema": "https://github.com/tranhoangtu-it/FHIRBridge/blob/main/packages/types/src/connectors/mapping.schema.json",
+  "description": "Korean hospital CSV with RRN (주민등록번호) identifiers and KCD/ICD-10 diagnosis codes. One row per encounter. PIPA: the RRN column is HMAC-hashed at transform time (or masked when no secret is configured) — raw RRN never flows past ingest.",
+  "patientId": {
+    "column": "환자ID",
+    "system": "https://fhirbridge.example/identifiers/kr-hospital-mrn"
+  },
+  "fields": {
+    "Patient.identifier[].value": "주민등록번호",
+    "Patient.name.family": "성_Surname",
+    "Patient.name.given": "이름_Given",
+    "Patient.gender": {
+      "column": "성별",
+      "transform": "lowercase",
+      "valueMap": { "남": "male", "여": "female", "기타": "other" }
+    },
+    "Patient.birthDate": {
+      "column": "생년월일",
+      "transform": "date",
+      "format": "YYYY-MM-DD"
+    },
+    "Patient.address.line": "주소_상세",
+    "Patient.address.city": "주소_시도",
+    "Patient.address.country": { "literal": "KR" },
+    "Encounter.period.start": {
+      "column": "진료일시",
+      "transform": "datetime",
+      "format": "YYYY-MM-DD HH:mm"
+    },
+    "Encounter.class.code": {
+      "column": "진료구분",
+      "valueMap": { "입원": "IMP", "외래": "AMB" }
+    },
+    "Condition.code.coding[].system": { "literal": "http://hl7.org/fhir/sid/icd-10" },
+    "Condition.code.coding[].code": "진단코드_KCD",
+    "Condition.code.text": "진단명",
+    "Observation.code.coding[].system": { "literal": "http://loinc.org" },
+    "Observation.code.coding[].code": "검사_LOINC",
+    "Observation.valueQuantity.value": "검사_결과",
+    "Observation.valueQuantity.unit": "검사_단위"
+  },
+  "resourceTypes": ["Patient", "Encounter", "Condition", "Observation"]
+}
