@@ -109,4 +109,20 @@ describe('ImportPage', () => {
     await screen.findByTestId('column-mapper');
     expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
   });
+
+  it('shows done stage with resource count when server processes synchronously (no columns)', async () => {
+    // Server thật trả {message, resourceCount, bundle} — không có columns
+    const { connectorApi } = await import('../../api/connector-api');
+    vi.mocked(connectorApi.uploadFile).mockResolvedValueOnce({
+      message: 'Import complete',
+      resourceCount: 3,
+    } as never);
+
+    render(<ImportPage />);
+    screen.getByRole('button', { name: /accept file/i }).click();
+
+    expect(await screen.findByText(/import complete — 3 resources processed/i)).toBeInTheDocument();
+    // File name của file vừa chọn hiển thị trong done box
+    expect(screen.getByText('data.csv')).toBeInTheDocument();
+  });
 });

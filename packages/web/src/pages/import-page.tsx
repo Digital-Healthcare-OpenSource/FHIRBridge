@@ -33,12 +33,16 @@ export function ImportPage() {
     try {
       const meta = await connectorApi.uploadFile(file);
       setUploadedMeta(meta);
-      if (meta.columns) {
+      if (meta.columns && meta.columns.length > 0) {
         const initMapping: ColumnMapping = {};
         meta.columns.forEach((c) => {
           initMapping[c] = '';
         });
         setMapping(initMapping);
+      } else {
+        // Server xử lý đồng bộ (trả resourceCount, không có columns) —
+        // import đã xong, chuyển thẳng sang done thay vì kẹt ở preview.
+        setStage('done');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -150,7 +154,14 @@ export function ImportPage() {
 
         {stage === 'done' && (
           <div className="rounded-lg border border-green-200 bg-green-50 p-5 dark:border-green-800 dark:bg-green-900/20">
-            <p className="font-medium text-green-800 dark:text-green-200">Import started</p>
+            <p className="font-medium text-green-800 dark:text-green-200">
+              {uploadedMeta?.resourceCount != null
+                ? `Import complete — ${uploadedMeta.resourceCount} resources processed`
+                : 'Import started'}
+            </p>
+            {selectedFile && (
+              <p className="mt-1 text-sm text-green-700 dark:text-green-300">{selectedFile.name}</p>
+            )}
             {jobId && (
               <p className="mt-1 text-sm text-green-600">
                 Job ID: <StatusBadge status="running" />

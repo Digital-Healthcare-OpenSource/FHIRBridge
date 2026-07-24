@@ -53,6 +53,20 @@ describe('exportApi.startExport', () => {
     );
   });
 
+  it('maps connectorConfig.url to server field baseUrl (export-schemas contract)', async () => {
+    mockApiClient.post.mockResolvedValueOnce(MOCK_START_RESPONSE);
+    await exportApi.startExport({
+      connectorType: 'fhir',
+      format: 'ndjson',
+      patientId: 'P001',
+      connectorConfig: { url: 'https://hapi.fhir.org/baseR4' },
+    });
+    const [, body] = mockApiClient.post.mock.calls[0] as [string, Record<string, unknown>];
+    const cc = body['connectorConfig'] as Record<string, unknown>;
+    expect(cc['baseUrl']).toBe('https://hapi.fhir.org/baseR4');
+    expect(cc).not.toHaveProperty('url');
+  });
+
   it('returns enriched ExportJob with id from exportId', async () => {
     mockApiClient.post.mockResolvedValueOnce(MOCK_START_RESPONSE);
     const job = await exportApi.startExport({ connectorType: 'fhir', format: 'json' });
@@ -83,6 +97,18 @@ describe('exportApi.getStatus', () => {
     expect(job.status).toBe('complete');
     expect(job.progress).toBe(100);
     expect(job.resourceCount).toBe(42);
+  });
+
+  it("maps server status 'failed' to UI status 'error' so polling stops", async () => {
+    mockApiClient.get.mockResolvedValueOnce({
+      status: 'failed',
+      resourceCount: null,
+      error: 'Blocked baseUrl',
+    });
+    const job = await exportApi.getStatus('job-abc');
+    expect(job.status).toBe('error');
+    expect(job.progress).toBe(0);
+    expect(job.error).toBe('Blocked baseUrl');
   });
 });
 

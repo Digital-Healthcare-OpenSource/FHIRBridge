@@ -17,6 +17,13 @@ export interface UploadedFile {
   columns?: string[];
   rowCount?: number;
   uploadedAt: string;
+  /**
+   * Server /connectors/import hiện xử lý ĐỒNG BỘ và trả {message, resourceCount,
+   * bundle} — không có id/columns. Client dùng resourceCount để hiển thị kết quả;
+   * không giữ `bundle` trong type (client không cần ôm cả bundle).
+   */
+  message?: string;
+  resourceCount?: number;
 }
 
 export const connectorApi = {
