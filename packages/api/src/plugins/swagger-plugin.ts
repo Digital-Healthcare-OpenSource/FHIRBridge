@@ -31,7 +31,7 @@ async function _swaggerPlugin(fastify: FastifyInstance): Promise<void> {
         title: 'FHIRBridge API',
         description:
           'FHIR R4 Patient Data Portability Tool — exports patient data, transforms to FHIR bundles, generates AI summaries.',
-        version: '0.1.0',
+        version: '0.2.0',
         contact: {
           name: 'FHIRBridge Team',
         },

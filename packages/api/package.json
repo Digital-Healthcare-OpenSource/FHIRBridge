@@ -1,6 +1,6 @@
 {
   "name": "@fhirbridge/api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fastify REST API server for FHIRBridge",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
