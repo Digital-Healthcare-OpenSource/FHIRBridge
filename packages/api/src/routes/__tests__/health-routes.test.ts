@@ -41,7 +41,7 @@ describe('GET /api/v1/health', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json();
     expect(body.status).toBe('ok');
-    expect(body.version).toBe('0.1.0');
+    expect(body.version).toBe('0.2.0');
     expect(body.timestamp).toBeDefined();
     expect(body.checks).toMatchObject({ server: 'ok', database: 'ok', redis: 'ok' });
   });
