@@ -9,7 +9,14 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const pages = ['/dashboard', '/export', '/import', '/summary', '/settings'];
+const pages = [
+  '/',
+  '/app/dashboard',
+  '/app/export',
+  '/app/import',
+  '/app/summary/test-export-123',
+  '/app/settings',
+];
 
 for (const pagePath of pages) {
   test(`${pagePath} has no critical a11y violations @a11y`, async ({ page }) => {

@@ -21,14 +21,10 @@ export class DashboardPage {
     this.healthIndicator = page
       .locator('[data-testid="health-indicator"]')
       .or(page.getByText(/api status/i).first());
-    // Quick action card — navigates to /export
-    this.newExportButton = page
-      .getByRole('button', { name: /new export/i })
-      .or(page.getByText('New Export').first());
-    // Quick action card — navigates to /import
-    this.importButton = page
-      .getByRole('button', { name: /import file/i })
-      .or(page.getByText('Import File').first());
+    // Quick action card — navigates to /app/export (role duy nhất, tránh strict-mode)
+    this.newExportButton = page.getByRole('button', { name: /new export/i });
+    // Quick action card — navigates to /app/import
+    this.importButton = page.getByRole('button', { name: /import file/i });
     // Exports table rendered when jobs exist
     this.exportsTable = page.locator('table').or(page.getByRole('table'));
     // App sidebar nav element
@@ -40,11 +36,7 @@ export class DashboardPage {
   }
 
   async goto() {
-    await this.page.goto('/');
-  }
-
-  async gotoExplicit() {
-    await this.page.goto('/dashboard');
+    await this.page.goto('/app/dashboard');
   }
 
   async clickNewExport() {

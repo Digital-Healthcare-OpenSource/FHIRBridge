@@ -12,8 +12,8 @@ test.describe('Dashboard', () => {
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
+    await page.goto('/app/dashboard');
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     expect(errors).toHaveLength(0);
   });
 
@@ -48,7 +48,7 @@ test.describe('Dashboard', () => {
   });
 
   test('page title includes FHIRBridge', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/app/dashboard');
     await expect(page).toHaveTitle(/fhirbridge/i);
   });
 
@@ -56,13 +56,13 @@ test.describe('Dashboard', () => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
     await dashboard.clickNewExport();
-    await expect(page).toHaveURL(/\/export/);
+    await expect(page).toHaveURL(/\/app\/export$/);
   });
 
   test('Import File button navigates to /import', async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
     await dashboard.clickImport();
-    await expect(page).toHaveURL(/\/import/);
+    await expect(page).toHaveURL(/\/app\/import$/);
   });
 });

@@ -73,6 +73,13 @@ function AppShell() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-950">
+      {/* Skip link — focusable đầu tiên, nhảy thẳng vào main content (WCAG 2.4.1) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary-600 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+      >
+        Skip to main content
+      </a>
       <AppSidebar healthOk={healthOk} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <AppHeader />

@@ -55,7 +55,7 @@ export class SummaryViewerPage {
   }
 
   async goto(exportId = '') {
-    const path = exportId ? `/summary/${exportId}` : '/summary';
+    const path = exportId ? `/app/summary/${exportId}` : '/app/summary';
     await this.page.goto(path);
   }
 

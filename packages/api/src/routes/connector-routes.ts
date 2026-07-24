@@ -36,14 +36,17 @@ const EXCEL_MIME_TYPES = new Set([
 ]);
 
 /**
- * Phát hiện loại file từ MIME type và extension để dispatch đúng connector.
- * Ưu tiên MIME type; fallback về extension nếu MIME là octet-stream hoặc không rõ.
+ * Phát hiện loại file từ extension và MIME type để dispatch đúng connector.
+ * Extension đi trước: Firefox/WebKit trên Windows gửi .csv với MIME
+ * 'application/vnd.ms-excel' (registry mapping cũ) — tin MIME trước sẽ đẩy
+ * CSV vào ExcelConnector (unzipper) và nổ FILE_ENDED.
  */
 function detectFileType(filename: string, mimetype: string): 'excel' | 'csv' | null {
-  if (EXCEL_MIME_TYPES.has(mimetype)) return 'excel';
   const ext = extname(filename).toLowerCase();
+  if (ext === '.csv') return 'csv';
   if (ext === '.xlsx' || ext === '.xls') return 'excel';
-  if (ext === '.csv' || mimetype === 'text/csv' || mimetype === 'text/plain') return 'csv';
+  if (EXCEL_MIME_TYPES.has(mimetype)) return 'excel';
+  if (mimetype === 'text/csv' || mimetype === 'text/plain') return 'csv';
   return null;
 }
 
@@ -168,6 +171,8 @@ export async function connectorRoutes(fastify: FastifyInstance): Promise<void> {
           bundle,
         });
       } catch (err) {
+        // Log server-side để chẩn đoán — message trả client giữ generic (không leak chi tiết).
+        request.log.error({ err }, 'File import processing failed');
         return reply.status(500).send({
           statusCode: 500,
           error: 'Internal Server Error',

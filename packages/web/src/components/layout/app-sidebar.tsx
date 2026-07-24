@@ -60,12 +60,13 @@ export function AppSidebar({ healthOk }: Props) {
 
       {/* Health indicator */}
       <div className="flex items-center gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+        {/* Dot thuần trang trí — text bên cạnh đã mô tả trạng thái (axe: aria-prohibited-attr) */}
         <span
           className={cn(
             'inline-block h-2 w-2 rounded-full',
             healthOk === undefined ? 'bg-gray-400' : healthOk ? 'bg-green-500' : 'bg-red-500',
           )}
-          aria-label={healthOk ? 'API online' : 'API offline'}
+          aria-hidden="true"
         />
         <span className="text-xs text-gray-500 dark:text-gray-400">
           {healthOk === undefined ? 'Checking…' : healthOk ? 'API online' : 'API offline'}

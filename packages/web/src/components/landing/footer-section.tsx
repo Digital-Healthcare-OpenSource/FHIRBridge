@@ -94,10 +94,10 @@ export function FooterSection() {
 
         {/* Bottom bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             &copy; {new Date().getFullYear()} FHIRBridge. Open source under MIT License.
           </p>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-400">
             Built with FHIR R4 &middot; HL7 &middot; TypeScript
           </p>
         </div>

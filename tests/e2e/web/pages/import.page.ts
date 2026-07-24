@@ -47,7 +47,7 @@ export class ImportPage {
   }
 
   async goto() {
-    await this.page.goto('/import');
+    await this.page.goto('/app/import');
   }
 
   /** Upload a file via the hidden <input type="file"> element. */
