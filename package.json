@@ -62,7 +62,7 @@
     "jsonwebtoken": "^9.0.3",
     "lint-staged": "^15.2.10",
     "prettier": "^3.9.5",
-    "turbo": "^2.9.14",
+    "turbo": "^2.10.6",
     "typescript": "^5.5.4",
     "vitest": "^3.2.7"
   },
