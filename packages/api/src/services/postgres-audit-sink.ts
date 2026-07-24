@@ -170,6 +170,19 @@ export class PostgresAuditSink implements AuditSink {
     }
   }
 
+  /**
+   * Retention purge — gọi purge_audit_logs() (SECURITY DEFINER từ migration 002)
+   * xoá row cũ hơn retentionDays. Trả về số row đã xoá. Ném lỗi cho caller
+   * (AuditRetentionService) xử lý fail-soft.
+   */
+  async purgeExpired(retentionDays: number): Promise<number> {
+    const result = await this.pool.query<{ deleted: number }>(
+      'SELECT purge_audit_logs(make_interval(days => $1)) AS deleted',
+      [retentionDays],
+    );
+    return result.rows[0]?.deleted ?? 0;
+  }
+
   /** Graceful shutdown — flush remaining entries and close pool */
   async shutdown(): Promise<void> {
     if (this.flushTimer) {

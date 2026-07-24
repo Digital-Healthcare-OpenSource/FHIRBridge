@@ -295,10 +295,13 @@ ingest are HMAC-hashed or masked and never flow through the pipeline raw (Art. 2
 **Access log (접속기록):** set `AUDIT_PROFILE=kr` to enrich every audit row with
 `patientRefHash` (HMAC of the accessed patient id — never raw) and `sourceIp`,
 per the KR 안전성 확보조치 access-log requirement (who / when / whose record /
-from where). Keep audit rows **≥ 2 years**: the table is append-only and deletion
-runs only through the scheduled purge function — e.g. a pg_cron/cron job running
-`SELECT purge_audit_logs(INTERVAL '2 years');` — so size that interval to the KR
-floor and review the log periodically. Note: `sourceIp` is personal data under GDPR —
+from where). Keep audit rows **≥ 2 years**: set `AUDIT_RETENTION_DAYS=730` (or
+more) and the API runs a daily `purge_audit_logs()` purge in-process (apply
+migration 002 via `pnpm --filter @fhirbridge/api migrate` so the least-privilege
+role may execute it). Leave it unset to manage retention yourself — the table is
+append-only outside that function; e.g. schedule
+`SELECT purge_audit_logs(INTERVAL '2 years');` via pg_cron. Review the log
+periodically. Note: `sourceIp` is personal data under GDPR —
 the field only exists under the KR profile; leave `AUDIT_PROFILE` unset elsewhere.
 
 **Recommendation for Korean deployments:** as with Japan, prefer running with AI
@@ -330,11 +333,11 @@ the client with zero PHI at rest, and VneID identifiers in CSV imports
 never leave your servers. The only payload that can cross the border is the
 optional AI summary, and it is de-identified first (identifiers HMAC-hashed,
 names redacted to `[PATIENT]`/`[PROVIDER]`, dates deterministically shifted). If
-your organization falls under Decree 53's log-retention duties, schedule the
-audit purge accordingly (the table is append-only; deletion runs only through
-`SELECT purge_audit_logs(INTERVAL '…');` via pg_cron/cron, so pick an interval at
-or above the applicable floor) — audit rows contain HMAC hashes and counts only,
-never raw identifiers or RRN/VneID values.
+your organization falls under Decree 53's log-retention duties, set
+`AUDIT_RETENTION_DAYS` at or above the applicable floor (the API then purges
+daily via `purge_audit_logs()`; unset = no automatic deletion, the table is
+append-only otherwise) — audit rows contain HMAC hashes and counts only, never
+raw identifiers or RRN/VneID values.
 
 **Recommendation for Vietnamese deployments:** as with Japan and Korea, prefer
 running with AI summaries disabled (omit `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` —

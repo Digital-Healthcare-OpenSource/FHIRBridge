@@ -31,6 +31,7 @@ import { healthRoutes } from './routes/health-routes.js';
 import { summaryRoutes } from './routes/summary-routes.js';
 import { AuditService, ConsoleAuditSink } from './services/audit-service.js';
 import { PostgresAuditSink } from './services/postgres-audit-sink.js';
+import { AuditRetentionService } from './services/audit-retention-service.js';
 import type { IRedisStore } from './services/redis-store.js';
 import type { ExportService } from './services/export-service.js';
 import type { SummaryService } from './services/summary-service.js';
@@ -98,6 +99,27 @@ export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promis
   }
 
   const auditService = new AuditService(resolvedAuditSink);
+
+  // ── Audit retention scheduler (opt-in) ──────────────────────────────────────
+  // Chỉ chạy khi AUDIT_RETENTION_DAYS được set tường minh VÀ Postgres sink bật —
+  // không auto-xoá audit data theo default (rủi ro compliance).
+  let retentionService: AuditRetentionService | null = null;
+  if (postgresAuditSink && config.auditRetentionDays != null) {
+    retentionService = new AuditRetentionService(
+      postgresAuditSink,
+      config.auditRetentionDays,
+      fastify.log,
+    );
+    retentionService.start();
+    fastify.log.info(
+      `[Server] audit retention scheduler enabled (${config.auditRetentionDays} days, daily purge)`,
+    );
+  }
+  if (config.auditProfile === 'kr' && (config.auditRetentionDays ?? 0) < 730) {
+    fastify.log.warn(
+      '[Server] AUDIT_PROFILE=kr: 접속기록 phải giữ ≥ 2 năm — set AUDIT_RETENTION_DAYS=730 trở lên',
+    );
+  }
 
   // ── JWT revocation list (logout) ────────────────────────────────────────────────
   // Redis-backed when a store is available (survives across replicas); in-memory otherwise.
@@ -185,7 +207,13 @@ export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promis
 
   registerErrorHandler(fastify);
 
-  // Graceful shutdown cho Postgres audit sink (chỉ khi server tự tạo)
+  // Graceful shutdown: dừng retention scheduler trước, rồi đóng sink (khi server tự tạo)
+  if (retentionService) {
+    const svc = retentionService;
+    fastify.addHook('onClose', async () => {
+      svc.stop();
+    });
+  }
   if (postgresAuditSink && !opts.auditSink) {
     const sink = postgresAuditSink;
     fastify.addHook('onClose', async () => {

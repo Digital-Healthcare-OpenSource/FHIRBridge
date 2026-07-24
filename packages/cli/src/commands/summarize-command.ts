@@ -54,8 +54,7 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
   const providerOpts = await promptProviderOptions({
     provider: (opts.provider ?? config.defaultProvider) as
       'claude' | 'openai' | 'gemini' | undefined,
-    language: (opts.language ?? config.defaultLanguage) as
-      'en' | 'vi' | 'ja' | 'ko' | 'zh' | undefined,
+    language: (opts.language ?? config.defaultLanguage) as 'en' | 'vi' | 'ja' | 'ko' | undefined,
     detail: opts.detail as 'brief' | 'standard' | 'detailed' | undefined,
   });
 
