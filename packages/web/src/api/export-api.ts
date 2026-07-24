@@ -24,10 +24,12 @@ export interface StartExportResponse {
 }
 
 /**
- * Shape returned by GET /api/v1/export/:id/status
+ * Shape returned by GET /api/v1/export/:id/status.
+ * Server enum: 'processing' | 'complete' | 'failed' (export-schemas.ts) —
+ * client chuẩn hoá 'failed' → 'error' trong getStatus.
  */
 export interface ExportStatusResponse {
-  status: ExportStatus;
+  status: 'processing' | 'complete' | 'failed';
   resourceCount: number | null;
   error?: string;
 }
@@ -63,12 +65,15 @@ export interface StartExportRequest {
   summaryLanguage?: string;
 }
 
-/** Map server StartExportRequest shape — server expects patientId + connectorConfig at top level */
+/**
+ * Map server StartExportRequest shape — server expects patientId + connectorConfig
+ * at top level, với field `baseUrl` (không phải `url` — schema export-schemas.ts).
+ */
 interface ServerExportBody {
   patientId?: string;
   connectorConfig: {
     type: string;
-    url?: string;
+    baseUrl?: string;
     clientId?: string;
     clientSecret?: string;
   };
@@ -83,7 +88,7 @@ export const exportApi = {
       patientId: req.patientId,
       connectorConfig: {
         type: req.connectorType === 'fhir' ? 'fhir-endpoint' : 'file',
-        url: req.connectorConfig?.url,
+        baseUrl: req.connectorConfig?.url,
         clientId: req.connectorConfig?.clientId,
         clientSecret: req.connectorConfig?.clientSecret,
       },
@@ -104,17 +109,19 @@ export const exportApi = {
   /** GET /api/v1/export/:id/status — poll job progress */
   async getStatus(jobId: string): Promise<ExportJob> {
     const res = await apiClient.get<ExportStatusResponse>(`/v1/export/${jobId}/status`);
+    // Server nói 'failed', UI type dùng 'error' — không map thì poll không bao giờ dừng
+    const status: ExportStatus = res.status === 'failed' ? 'error' : res.status;
     const progress =
-      res.status === 'complete'
+      status === 'complete'
         ? 100
-        : res.status === 'error'
+        : status === 'error'
           ? 0
           : res.resourceCount != null && res.resourceCount > 0
             ? 50
             : 10;
     return {
       id: jobId,
-      status: res.status,
+      status,
       progress,
       resourceCount: res.resourceCount ?? 0,
       error: res.error,

@@ -55,6 +55,36 @@ export function getAuthToken(): string | null {
   return _authToken;
 }
 
+/**
+ * JWT compact form: đúng 3 segment base64url VÀ segment đầu decode ra JSON
+ * header có "alg". Check shape suông (3 dấu chấm) chưa đủ — API key server
+ * chấp nhận chuỗi bất kỳ không chứa dấu phẩy, nên key kiểu `prod.web.key1`
+ * sẽ bị misroute thành Bearer và 401 oan. Server chỉ nhận API key qua
+ * x-api-key, còn Authorization: Bearer bị verify như JWT (HS256).
+ */
+function isJwtShaped(token: string): boolean {
+  const segments = token.split('.');
+  if (segments.length !== 3 || !segments.every((s) => s.length > 0 && /^[A-Za-z0-9_-]+$/.test(s))) {
+    return false;
+  }
+  try {
+    const b64 = segments[0]!.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const header = JSON.parse(atob(padded)) as { alg?: unknown };
+    return typeof header.alg === 'string';
+  } catch {
+    return false;
+  }
+}
+
+/** Gắn credential vào đúng header server hiểu: JWT → Bearer, API key → x-api-key. */
+function buildAuthHeaders(): Record<string, string> {
+  if (!_authToken) return {};
+  return isJwtShaped(_authToken)
+    ? { Authorization: `Bearer ${_authToken}` }
+    : { 'x-api-key': _authToken };
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -64,7 +94,7 @@ async function request<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (_authToken) headers['Authorization'] = `Bearer ${_authToken}`;
+  Object.assign(headers, buildAuthHeaders());
 
   const url = `${API_BASE_URL}${path}`;
   const res = await fetch(url, {
@@ -104,7 +134,7 @@ export const apiClient = {
       Object.entries(metadata).forEach(([k, v]) => form.append(k, v));
     }
     const headers: Record<string, string> = {};
-    if (_authToken) headers['Authorization'] = `Bearer ${_authToken}`;
+    Object.assign(headers, buildAuthHeaders());
 
     const url = `${API_BASE_URL}${path}`;
     const res = await fetch(url, { method: 'POST', headers, body: form });
@@ -117,7 +147,7 @@ export const apiClient = {
   /** Download a blob (PDF, JSON bundle, etc.). */
   async download(path: string): Promise<Blob> {
     const headers: Record<string, string> = {};
-    if (_authToken) headers['Authorization'] = `Bearer ${_authToken}`;
+    Object.assign(headers, buildAuthHeaders());
     const url = `${API_BASE_URL}${path}`;
     const res = await fetch(url, { method: 'GET', headers });
     if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}: ${res.statusText}`);

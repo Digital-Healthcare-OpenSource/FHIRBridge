@@ -60,9 +60,26 @@ test.describe('Import Page', () => {
       importPage.uploadFixture('test-patients.csv'),
     ]);
     expect(response.status()).toBe(200);
-    // File name hiển thị trong dropzone, không có error banner
+    // Server xử lý đồng bộ → UI chuyển sang done stage với resource count
+    await expect(page.getByText(/import complete — \d+ resources processed/i)).toBeVisible();
     await expect(page.getByText('test-patients.csv')).toBeVisible();
     await expect(page.getByText(/import failed/i)).toBeHidden();
+  });
+
+  test('API-key sign-in routes via x-api-key and uploads successfully', async ({ page }) => {
+    // API key (không phải JWT) — client phải gửi x-api-key, không phải Bearer
+    await signInViaSettings(page, 'test-key-free');
+    await page.getByRole('link', { name: 'Import', exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/import$/);
+
+    const importPage = new ImportPage(page);
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/v1/connectors/import')),
+      importPage.uploadFixture('test-patients.csv'),
+    ]);
+    expect(response.status()).toBe(200);
+    expect(response.request().headers()['x-api-key']).toBe('test-key-free');
+    await expect(page.getByText(/import complete/i)).toBeVisible();
   });
 
   test('sidebar navigation is present', async ({ page }) => {

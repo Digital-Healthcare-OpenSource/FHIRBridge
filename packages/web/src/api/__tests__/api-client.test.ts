@@ -52,13 +52,38 @@ describe('apiClient.get', () => {
     expect(headers['Authorization']).toBeUndefined();
   });
 
-  it('includes Authorization header when token is set', async () => {
+  it('sends JWT-shaped token as Authorization: Bearer', async () => {
+    // 3 segment base64url — server verify Bearer như JWT (HS256)
+    setAuthToken('eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.c2ln');
+    mockFetch.mockResolvedValueOnce(makeResponse({}));
+    await apiClient.get('/exports');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.c2ln');
+    expect(headers['x-api-key']).toBeUndefined();
+  });
+
+  it('routes dotted API key (3 segments, non-JWT header) via x-api-key', async () => {
+    // 'prod.web.key1' có đúng 3 segment base64url nhưng segment đầu không phải
+    // JSON header có "alg" — phải đi x-api-key, không được misroute thành Bearer
+    setAuthToken('prod.web.key1');
+    mockFetch.mockResolvedValueOnce(makeResponse({}));
+    await apiClient.get('/exports');
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers['x-api-key']).toBe('prod.web.key1');
+    expect(headers['Authorization']).toBeUndefined();
+  });
+
+  it('sends opaque API key via x-api-key header, not Bearer', async () => {
+    // Server chỉ nhận API key qua x-api-key; Bearer với API key sẽ 401
     setAuthToken('my-token');
     mockFetch.mockResolvedValueOnce(makeResponse({}));
     await apiClient.get('/exports');
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     const headers = init.headers as Record<string, string>;
-    expect(headers['Authorization']).toBe('Bearer my-token');
+    expect(headers['x-api-key']).toBe('my-token');
+    expect(headers['Authorization']).toBeUndefined();
   });
 
   it('returns parsed JSON on success', async () => {

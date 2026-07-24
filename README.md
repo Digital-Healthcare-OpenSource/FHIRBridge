@@ -26,14 +26,14 @@ Patient medical records are locked inside hospital information systems (HIS). In
 
 - **FHIR R4 Export** — Patient, Encounter, Condition, Observation, MedicationRequest, AllergyIntolerance, Procedure, DiagnosticReport, Immunization, CarePlan, CareTeam, Specimen, DocumentReference, Practitioner, Medication
 - **HIS Connectors** — FHIR endpoint (SMART on FHIR / OAuth2) + CSV / Excel import with visual column mapping
-- **AI Summaries (optional)** — Claude or OpenAI providers, de-identified before any external call (HMAC-SHA256 + date shifting), supports VI / EN / JA
+- **AI Summaries (optional)** — Claude or OpenAI providers, de-identified before any external call (HMAC-SHA256 + date shifting), supports VI / EN / JA / KO
 - **Three interfaces** — CLI tool, REST API (Fastify), React web dashboard
 - **Privacy-by-design** — Stream-only architecture, no PHI persisted to durable storage, audit log stores hashes only
 - **IPS Bundle support** — International Patient Summary `Bundle.type=document` profile
 
 ## Tech stack
 
-TypeScript (strict, ES2022) · Turborepo + pnpm workspaces · Fastify 5 · Vite 6 + React 18 + Tailwind · Commander.js · Vitest + Playwright · PostgreSQL 16 (audit logs only, no PHI) · Redis 7 (rate limit + caching, optional) · Anthropic SDK · OpenAI SDK · i18next (VI / EN / JA)
+TypeScript (strict, ES2022) · Turborepo + pnpm workspaces · Fastify 5 · Vite 6 + React 18 + Tailwind · Commander.js · Vitest + Playwright · PostgreSQL 16 (audit logs only, no PHI) · Redis 7 (rate limit + caching, optional) · Anthropic SDK · OpenAI SDK · i18next (VI / EN / JA / KO)
 
 ## Project layout
 
@@ -44,7 +44,7 @@ fhirbridge/
 │   ├── core/    FHIR engine, validators, connectors, AI pipeline, security utilities
 │   ├── api/     Fastify REST server (JWT, rate limit, audit, helmet, swagger)
 │   ├── cli/     Commander.js CLI tool
-│   └── web/     Vite + React + Tailwind dashboard (i18n VI/EN/JA)
+│   └── web/     Vite + React + Tailwind dashboard (i18n VI/EN/JA/KO)
 ├── docker/      Postgres 16 + Redis 7 (optional, only needed for audit log + multi-replica rate limit)
 └── tests/       1100+ tests across unit, integration, E2E, security, performance
 ```
@@ -295,14 +295,56 @@ ingest are HMAC-hashed or masked and never flow through the pipeline raw (Art. 2
 **Access log (접속기록):** set `AUDIT_PROFILE=kr` to enrich every audit row with
 `patientRefHash` (HMAC of the accessed patient id — never raw) and `sourceIp`,
 per the KR 안전성 확보조치 access-log requirement (who / when / whose record /
-from where). Keep audit rows **≥ 2 years** (`AUDIT_RETENTION_DAYS=730` or more)
-and review the log periodically. Note: `sourceIp` is personal data under GDPR —
+from where). Keep audit rows **≥ 2 years**: the table is append-only and deletion
+runs only through the scheduled purge function — e.g. a pg_cron/cron job running
+`SELECT purge_audit_logs(INTERVAL '2 years');` — so size that interval to the KR
+floor and review the log periodically. Note: `sourceIp` is personal data under GDPR —
 the field only exists under the KR profile; leave `AUDIT_PROFILE` unset elsewhere.
 
 **Recommendation for Korean deployments:** as with Japan, prefer running with AI
 summaries disabled or with an in-country/self-hosted provider. The built-in consent
 recording captures operator consent, not patient consent — your DPO decides the
 patient-consent process. This is engineering guidance, not legal advice.
+
+### Data residency — Vietnam (PDPD)
+
+Under Vietnam's Personal Data Protection Decree (Nghị định 13/2023/NĐ-CP), health
+status and medical-record information is **sensitive personal data** (dữ liệu cá
+nhân nhạy cảm, Art. 2). Processing it requires explicit, affirmative consent
+(Art. 11 — silence is not consent), and the patient must be told the data being
+processed is sensitive. The decree has no GDPR-style pseudonymization carve-out,
+so treat HMAC-hashed IDs and shifted dates as still-personal data: sending them to
+an AI provider hosted outside Vietnam is a **cross-border transfer**, and the
+operator must prepare a transfer impact assessment dossier (hồ sơ đánh giá tác
+động chuyển dữ liệu cá nhân ra nước ngoài, Art. 25) — alongside the general
+processing impact assessment (Art. 24) — and file it with the Ministry of Public
+Security (A05) within 60 days of the transfer commencing. Since 2026-01-01 the
+Personal Data Protection Law (Luật Bảo vệ dữ liệu cá nhân) sits above the decree;
+confirm the current filing mechanics with counsel.
+
+**Data localization (Nghị định 53/2022/NĐ-CP):** the Cybersecurity Law's
+data-localization rules are satisfied by design in a self-hosted deployment — the
+pipeline runs entirely on your own infrastructure, exports stream from the HIS to
+the client with zero PHI at rest, and VneID identifiers in CSV imports
+([examples/column-mappings/csv-vneid-vn.json](examples/column-mappings/csv-vneid-vn.json))
+never leave your servers. The only payload that can cross the border is the
+optional AI summary, and it is de-identified first (identifiers HMAC-hashed,
+names redacted to `[PATIENT]`/`[PROVIDER]`, dates deterministically shifted). If
+your organization falls under Decree 53's log-retention duties, schedule the
+audit purge accordingly (the table is append-only; deletion runs only through
+`SELECT purge_audit_logs(INTERVAL '…');` via pg_cron/cron, so pick an interval at
+or above the applicable floor) — audit rows contain HMAC hashes and counts only,
+never raw identifiers or RRN/VneID values.
+
+**Recommendation for Vietnamese deployments:** as with Japan and Korea, prefer
+running with AI summaries disabled (omit `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` —
+export and connectors are unaffected) or an in-country/self-hosted provider. If
+you enable a foreign provider, the consent modal (Vietnamese-first UI) discloses
+the destination, provider and contact, purpose, data categories, and retention
+before every summary call — but it records operator consent, not patient consent,
+and consent does not replace the Art. 25 dossier: your DPO owns the
+patient-consent process and the MPS filing. This is engineering guidance, not
+legal advice.
 
 ## Testing
 
