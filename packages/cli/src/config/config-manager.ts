@@ -12,7 +12,9 @@ import { warn } from '../utils/logger.js';
 export const CONFIG_PATH = join(homedir(), '.fhirbridgerc.json');
 
 export type SupportedProvider = 'claude' | 'openai' | 'gemini';
-export type SupportedLanguage = 'en' | 'vi' | 'ja' | 'ko' | 'zh';
+// 'zh' đã bỏ: SummaryLanguage của core/types không hỗ trợ — CLI nhận vào cũng
+// chỉ tạo request bị server/type-check từ chối.
+export type SupportedLanguage = 'en' | 'vi' | 'ja' | 'ko';
 
 export interface ConnectorProfile {
   type: 'fhir-endpoint' | 'epic' | 'cerner' | 'csv';

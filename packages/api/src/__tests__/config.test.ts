@@ -97,8 +97,8 @@ describe('loadConfig — newly validated env vars', () => {
     expect(loadConfig().enableDocs).toBe(false);
   });
 
-  it('coerces AUDIT_RETENTION_DAYS (default 90)', () => {
-    expect(loadConfig().auditRetentionDays).toBe(90);
+  it('coerces AUDIT_RETENTION_DAYS (opt-in, không default)', () => {
+    expect(loadConfig().auditRetentionDays).toBeUndefined();
     process.env['AUDIT_RETENTION_DAYS'] = '30';
     expect(loadConfig().auditRetentionDays).toBe(30);
   });

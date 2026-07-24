@@ -75,8 +75,11 @@ const ApiConfigSchema = z
     // Optional override for structured-error docs deep links.
     errorDocsBaseUrl: z.string().url('ERROR_DOCS_BASE_URL must be a valid URL').optional(),
 
-    // Audit retention window (days). Default 90 — tune to your compliance retention policy.
-    auditRetentionDays: z.coerce.number().int().positive().default(90),
+    // Audit retention window (days) — OPT-IN, không có default. Khi set, API tự
+    // chạy purge_audit_logs() mỗi 24h (cần migration 002 cho role least-privilege).
+    // Không set = không tự xoá (schedule pg_cron thủ công nếu muốn). Không default
+    // vì auto-purge ngầm có thể xoá audit data pháp luật yêu cầu giữ (KR ≥ 730 ngày).
+    auditRetentionDays: z.coerce.number().int().positive().optional(),
 
     // KR 개인정보 안전성 확보조치 (access log 접속기록): 'kr' bật thêm
     // patientRefHash + sourceIp trong audit metadata. Mặc định (undefined) giữ
