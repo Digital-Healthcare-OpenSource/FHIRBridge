@@ -66,7 +66,7 @@ export function DashboardPage() {
             API status:{' '}
             <span
               className={
-                health.status === 'ok' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
+                health.status === 'ok' ? 'text-green-700 font-medium' : 'text-red-600 font-medium'
               }
             >
               {health.status}
@@ -98,7 +98,7 @@ export function DashboardPage() {
           <ArrowDownToLine className="h-6 w-6 text-teal-600" aria-hidden />
           <div>
             <p className="font-medium text-teal-800 dark:text-teal-200">Import File</p>
-            <p className="text-xs text-teal-600 dark:text-teal-400">
+            <p className="text-xs text-teal-700 dark:text-teal-400">
               Upload CSV / Excel / FHIR JSON
             </p>
           </div>

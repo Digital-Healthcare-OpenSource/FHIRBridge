@@ -68,7 +68,7 @@ export function LandingNavbar() {
           )}
           <Link
             to={ROUTES.DASHBOARD}
-            className="ml-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+            className="ml-2 px-4 py-2 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
           >
             Get Started
           </Link>
@@ -133,7 +133,7 @@ export function LandingNavbar() {
           )}
           <Link
             to={ROUTES.DASHBOARD}
-            className="mt-2 px-4 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold text-center transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="mt-2 px-4 py-2.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold text-center transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500"
             onClick={() => setMenuOpen(false)}
           >
             Get Started

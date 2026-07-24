@@ -130,7 +130,7 @@ export function ExportWizardPage() {
                   <p className="font-medium text-gray-900 dark:text-gray-100">
                     {type === 'fhir' ? 'FHIR Endpoint' : 'File Upload'}
                   </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
                     {type === 'fhir'
                       ? 'Connect to a FHIR R4 server'
                       : 'Upload CSV, XLSX or FHIR JSON'}

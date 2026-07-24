@@ -1,0 +1,5 @@
+# SQL migration checksums (schema_migrations drift detection) phải ổn định
+# cross-platform — ép LF để checkout Windows (autocrlf) không làm lệch SHA-256.
+# SQL migration checksums must be platform-stable — force LF so Windows
+# checkouts (autocrlf) cannot skew the SHA-256 drift detection.
+*.sql text eol=lf

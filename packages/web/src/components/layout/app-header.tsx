@@ -7,18 +7,18 @@ import { ChevronRight, Settings } from 'lucide-react';
 import { ROUTES } from '../../lib/constants';
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  '/': 'Dashboard',
-  '/export': 'Export',
-  '/import': 'Import',
-  '/settings': 'Settings',
+  [ROUTES.DASHBOARD]: 'Dashboard',
+  [ROUTES.EXPORT]: 'Export',
+  [ROUTES.IMPORT]: 'Import',
+  [ROUTES.SETTINGS]: 'Settings',
 };
 
 function useBreadcrumb(): Array<{ label: string; href: string }> {
   const { pathname } = useLocation();
   const label = BREADCRUMB_MAP[pathname] ?? pathname.split('/').filter(Boolean).pop() ?? 'Page';
-  if (pathname === '/') return [{ label: 'Dashboard', href: '/' }];
+  if (pathname === ROUTES.DASHBOARD) return [{ label: 'Dashboard', href: ROUTES.DASHBOARD }];
   return [
-    { label: 'Dashboard', href: '/' },
+    { label: 'Dashboard', href: ROUTES.DASHBOARD },
     { label, href: pathname },
   ];
 }
