@@ -1,73 +1,72 @@
 /**
  * Import Page E2E tests.
- * Covers: page load, dropzone visibility, CSV file upload, preview/mapping appearance.
+ * Covers: page load, dropzone, accept types, unauthenticated error state,
+ * and an authenticated CSV upload round trip against the real API.
  */
 
 import { test, expect } from '@playwright/test';
-import * as path from 'path';
 import { ImportPage } from './pages/import.page';
-
-const FIXTURES_DIR = path.join(__dirname, 'fixtures');
+import { signInViaSettings } from './helpers/auth';
 
 test.describe('Import Page', () => {
   test('loads the import page', async ({ page }) => {
     const importPage = new ImportPage(page);
     await importPage.goto();
-    await expect(page.getByText(/import file/i).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: /import file/i })).toBeVisible();
   });
 
   test('shows page description text', async ({ page }) => {
-    await page.goto('/import');
-    await expect(page.getByText(/upload csv|xlsx|fhir json/i).first()).toBeVisible();
+    await page.goto('/app/import');
+    await expect(page.getByText(/upload csv, xlsx or fhir json/i).first()).toBeVisible();
   });
 
-  test('file dropzone area is visible', async ({ page }) => {
+  test('file dropzone input is attached', async ({ page }) => {
     const importPage = new ImportPage(page);
     await importPage.goto();
-    // FileDropzone component is always rendered in upload stage
-    const dropzoneOrInput = page.locator('input[type="file"]').first();
-    await expect(dropzoneOrInput).toBeAttached();
+    const fileInput = page.locator('input[type="file"]').first();
+    await expect(fileInput).toBeAttached();
   });
 
-  test('file input accepts CSV MIME type', async ({ page }) => {
-    await page.goto('/import');
+  test('file input accepts CSV, XLSX and JSON types', async ({ page }) => {
+    await page.goto('/app/import');
     const fileInput = page.locator('input[type="file"]').first();
     const accept = await fileInput.getAttribute('accept');
-    // Accept attribute should reference csv or be unrestricted
-    if (accept) {
-      expect(accept.toLowerCase()).toMatch(/csv|xlsx|json|\*/);
-    }
+    expect(accept?.toLowerCase()).toMatch(/csv/);
+    expect(accept?.toLowerCase()).toMatch(/xlsx|spreadsheet/);
+    expect(accept?.toLowerCase()).toMatch(/json/);
   });
 
-  test('uploading a CSV file triggers preview stage', async ({ page }) => {
+  test('uploading without credentials surfaces the error state', async ({ page }) => {
     const importPage = new ImportPage(page);
     await importPage.goto();
     await importPage.uploadFixture('test-patients.csv');
-    // Preview heading or file name should appear
-    await expect(
-      page
-        .getByText(/preview/i)
-        .or(page.getByText(/test-patients\.csv/i))
-        .first(),
-    ).toBeVisible({ timeout: 5000 });
+    // Server rejects with 401 → UI switches to the error stage
+    await expect(page.getByText(/import failed/i)).toBeVisible();
+    await expect(page.getByText(/authentication required/i)).toBeVisible();
+    // "Try again" resets back to the upload stage
+    await page.getByRole('button', { name: /try again/i }).click();
+    await expect(page.locator('input[type="file"]').first()).toBeAttached();
   });
 
-  test('uploading a FHIR JSON bundle shows file name', async ({ page }) => {
+  test('authenticated CSV upload round-trips through the real API', async ({ page }) => {
+    // Sign in qua Settings UI (token in-memory) rồi điều hướng bằng click SPA
+    await signInViaSettings(page);
+    await page.getByRole('link', { name: 'Import', exact: true }).click();
+    await expect(page).toHaveURL(/\/app\/import$/);
+
     const importPage = new ImportPage(page);
-    await importPage.goto();
-    const bundlePath = path.join(FIXTURES_DIR, 'test-bundle.json');
-    await importPage.fileInput.setInputFiles(bundlePath);
-    // File name or preview indicator should appear
-    await expect(
-      page
-        .getByText(/test-bundle\.json/i)
-        .or(page.getByText(/preview/i))
-        .first(),
-    ).toBeVisible({ timeout: 5000 });
+    const [response] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/api/v1/connectors/import')),
+      importPage.uploadFixture('test-patients.csv'),
+    ]);
+    expect(response.status()).toBe(200);
+    // File name hiển thị trong dropzone, không có error banner
+    await expect(page.getByText('test-patients.csv')).toBeVisible();
+    await expect(page.getByText(/import failed/i)).toBeHidden();
   });
 
   test('sidebar navigation is present', async ({ page }) => {
-    await page.goto('/import');
+    await page.goto('/app/import');
     const nav = page.locator('nav').first();
     await expect(nav).toBeVisible();
   });

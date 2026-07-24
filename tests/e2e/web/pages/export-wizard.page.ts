@@ -50,7 +50,7 @@ export class ExportWizardPage {
   }
 
   async goto() {
-    await this.page.goto('/export');
+    await this.page.goto('/app/export');
   }
 
   async selectFhirEndpoint() {

@@ -40,7 +40,7 @@ export class SettingsPage {
   }
 
   async goto() {
-    await this.page.goto('/settings');
+    await this.page.goto('/app/settings');
   }
 
   async fillApiKey(key: string) {
