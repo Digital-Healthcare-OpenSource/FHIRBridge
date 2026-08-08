@@ -1,5 +1,8 @@
 /**
  * Tests for ImportPage component.
+ *
+ * Server /connectors/import xử lý đồng bộ → UI một bước: upload → importing →
+ * done/error. Không có preview/column-mapping stage (xem import-page.tsx).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -9,13 +12,7 @@ import { ImportPage } from '../import-page';
 // Mock API
 vi.mock('../../api/connector-api', () => ({
   connectorApi: {
-    uploadFile: vi.fn(),
-  },
-}));
-
-vi.mock('../../api/export-api', () => ({
-  exportApi: {
-    startExport: vi.fn(),
+    importFile: vi.fn(),
   },
 }));
 
@@ -44,15 +41,6 @@ vi.mock('../../components/import/file-dropzone', () => ({
   ),
 }));
 
-// Mock PreviewTable and ColumnMapper
-vi.mock('../../components/import/preview-table', () => ({
-  PreviewTable: () => <div data-testid="preview-table" />,
-}));
-
-vi.mock('../../components/import/column-mapper', () => ({
-  ColumnMapper: () => <div data-testid="column-mapper" />,
-}));
-
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -78,45 +66,13 @@ describe('ImportPage', () => {
     expect(screen.getByText(/upload csv/i)).toBeInTheDocument();
   });
 
-  it('transitions to preview stage after file accepted', async () => {
+  it('shows done stage with resource count after synchronous import', async () => {
+    // Server thật trả {message, resourceCount} — client hiển thị số resource.
     const { connectorApi } = await import('../../api/connector-api');
-    vi.mocked(connectorApi.uploadFile).mockResolvedValueOnce({
-      id: 'file-1',
-      filename: 'data.csv',
-      columns: ['name', 'dob'],
-      rowCount: 10,
-    });
-
-    render(<ImportPage />);
-    screen.getByRole('button', { name: /accept file/i }).click();
-
-    await screen.findByTestId('preview-table');
-    expect(screen.getByTestId('preview-table')).toBeInTheDocument();
-  });
-
-  it('renders column mapper after upload with columns', async () => {
-    const { connectorApi } = await import('../../api/connector-api');
-    vi.mocked(connectorApi.uploadFile).mockResolvedValueOnce({
-      id: 'file-1',
-      filename: 'data.csv',
-      columns: ['name', 'dob'],
-      rowCount: 10,
-    });
-
-    render(<ImportPage />);
-    screen.getByRole('button', { name: /accept file/i }).click();
-
-    await screen.findByTestId('column-mapper');
-    expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
-  });
-
-  it('shows done stage with resource count when server processes synchronously (no columns)', async () => {
-    // Server thật trả {message, resourceCount, bundle} — không có columns
-    const { connectorApi } = await import('../../api/connector-api');
-    vi.mocked(connectorApi.uploadFile).mockResolvedValueOnce({
+    vi.mocked(connectorApi.importFile).mockResolvedValueOnce({
       message: 'Import complete',
       resourceCount: 3,
-    } as never);
+    });
 
     render(<ImportPage />);
     screen.getByRole('button', { name: /accept file/i }).click();
@@ -124,5 +80,18 @@ describe('ImportPage', () => {
     expect(await screen.findByText(/import complete — 3 resources processed/i)).toBeInTheDocument();
     // File name của file vừa chọn hiển thị trong done box
     expect(screen.getByText('data.csv')).toBeInTheDocument();
+  });
+
+  it('shows the error stage when the import request fails', async () => {
+    const { connectorApi } = await import('../../api/connector-api');
+    vi.mocked(connectorApi.importFile).mockRejectedValueOnce(
+      new Error('Authentication required'),
+    );
+
+    render(<ImportPage />);
+    screen.getByRole('button', { name: /accept file/i }).click();
+
+    expect(await screen.findByText(/import failed/i)).toBeInTheDocument();
+    expect(screen.getByText(/authentication required/i)).toBeInTheDocument();
   });
 });
