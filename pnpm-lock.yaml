@@ -11,14 +11,16 @@ overrides:
   find-my-way@>=9 <9.7.0: 9.7.0
   glob@>=10 <10.5.0: 10.5.0
   minimatch@>=9 <9.0.7: 9.0.7
-  fast-uri@<3.1.4: 3.1.4
-  fast-uri@>=4 <4.1.1: 4.1.1
-  brace-expansion@<1.1.16: 1.1.16
-  brace-expansion@>=2 <2.1.2: 2.1.2
-  brace-expansion@>=3 <5.0.7: 5.0.7
+  fast-uri@<3.1.5: 3.1.5
+  fast-uri@>=4 <4.1.2: 4.1.2
+  brace-expansion@<1.1.18: 1.1.18
+  brace-expansion@>=2 <2.1.4: 2.1.4
+  brace-expansion@>=3 <5.0.9: 5.0.9
   tmp@<0.2.7: 0.2.7
   ws@>=8 <8.21.0: 8.21.0
-  react-router@>=7 <7.15.0: 7.15.0
+  '@fastify/static@<10.1.1': 10.1.1
+  react-router@>=7 <7.18.2: 7.18.2
+  react-router-dom@>=7 <7.18.2: 7.18.2
   picomatch@<2.3.2: 2.3.2
   picomatch@>=4 <4.0.4: 4.0.4
   uuid@<14: 14.0.0
@@ -276,8 +278,8 @@ importers:
         specifier: ^10.1.0
         version: 10.1.0(@types/react@18.3.28)(react@18.3.1)
       react-router-dom:
-        specifier: ^7.15.0
-        version: 7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 7.18.2
+        version: 7.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       tailwind-merge:
         specifier: ^3.6.0
         version: 3.6.0
@@ -1207,10 +1209,10 @@ packages:
         integrity: sha512-TMYeQLCBSy2TOFmV95hQWkiTYgC/SEx7vMdV+wnZVX4tt8VBLKzmH8vV9OzJehV0+XBfg+WxPMt5wp+JBUKsVw==,
       }
 
-  '@fastify/static@9.1.3':
+  '@fastify/static@10.1.1':
     resolution:
       {
-        integrity: sha512-aXrYtsiryLhRxRNaxNqsn7FUISeb7rB9q4eHUPIot5aeQBLNahnz1m6thzm7JWC1poSGXS9XrX8DvuMivp2hkQ==,
+        integrity: sha512-ZQnXbBrI7FMUVpKGi00nVe86K17aAliC1Cyqt2UAe9ugYGW7itatVjx79d0jAjnY0HuEpoRwGTkYx/40rAugOw==,
       }
 
   '@fastify/swagger-ui@5.2.6':
@@ -2694,24 +2696,24 @@ packages:
         integrity: sha512-fGTi3gxV/23FTYdAoUtLYp6qySe2KE3teyZitipKNRuVYcBkoP/bB3guXN/XVKUe9mxCHXnc9C4ocyz8OmgN0g==,
       }
 
-  brace-expansion@1.1.16:
+  brace-expansion@1.1.18:
     resolution:
       {
-        integrity: sha512-IDw48K2/2kRkg9LdJxurvq3lV3aBgq0REY89duEqFRthjlPdXHKMj7EnQOXVckxzgisinf3nHfrcE2FufFLXMw==,
+        integrity: sha512-Edep/X9fGqVNmzKBVsDYIOtD+z1tuezV70LBjdCst9Tqu76lsnvRiZ6oTic1n+/BIwX6QDGAO94PN4N2SADvtw==,
       }
 
-  brace-expansion@2.1.2:
+  brace-expansion@2.1.4:
     resolution:
       {
-        integrity: sha512-w5JZcKgdhDOgOwm8H+KgbosopHMuGcl6qbulwjtz3SM7I7P3yW1eAjzMPLrIE+NQ9vjgANKHWeMHnrT0OXW1oA==,
+        integrity: sha512-hGfVzPxthbf3+2yjg/RBs60cB0FhqBS/zvdV/4wn4/BmN0bNMMHPc4V/BbFieqf1TKAGGAHnY4eSjajCl0f2Xg==,
       }
 
-  brace-expansion@5.0.7:
+  brace-expansion@5.0.9:
     resolution:
       {
-        integrity: sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==,
+        integrity: sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==,
       }
-    engines: { node: 18 || 20 || >=22 }
+    engines: { node: 20 || >=22 }
 
   braces@3.0.3:
     resolution:
@@ -3012,10 +3014,10 @@ packages:
         integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==,
       }
 
-  content-disposition@1.1.0:
+  content-disposition@2.0.1:
     resolution:
       {
-        integrity: sha512-5jRCH9Z/+DRP7rkvY83B+yGIGX96OYdJmzngqnw2SBSxqCFPd0w2km3s5iawpGX8krnwSGmF0FW5Nhr0Hfai3g==,
+        integrity: sha512-e+H0ZXHSWYrENhQzw1LPuP4oF5MzVKmDU6d3hxlvaPEYLLg62MxtQNPRx4SYSuYJSBUgnQIG4HIN2tEtNv7Dog==,
       }
     engines: { node: '>=18' }
 
@@ -3677,16 +3679,16 @@ packages:
         integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==,
       }
 
-  fast-uri@3.1.4:
+  fast-uri@3.1.5:
     resolution:
       {
-        integrity: sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw==,
+        integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==,
       }
 
-  fast-uri@4.1.1:
+  fast-uri@4.1.2:
     resolution:
       {
-        integrity: sha512-YPOs1zD5TG2+EZt+r88LwF6mclA7TPkpwMP7ZN3TO2HiHS8TXvq7QA/17iJsV9dubcLo/f8eEYqMBruyQV21hQ==,
+        integrity: sha512-TyGmBcbDTZXcb2cj5MV89DrF42DKvb3y5DDUNh95iO+IMeAzMkVSxK1PZRrRIpc9yg8U2GhGdbofNa0LS/a4Bw==,
       }
 
   fast-wrap-ansi@0.2.0:
@@ -6046,20 +6048,20 @@ packages:
       }
     engines: { node: '>=0.10.0' }
 
-  react-router-dom@7.18.1:
+  react-router-dom@7.18.2:
     resolution:
       {
-        integrity: sha512-KaZh+X/6UtEp28x51AUYZDMg9NGoz2ja3dNHa+ta/tk40vCzKhQ/RypCWBMLbmDr6//E24Vv5uPsrqXFozdkAg==,
+        integrity: sha512-AIKJ/jgGlFb3EbfCXk5Gzshiwt+l3mqbCrNjmEWMMjqQxNJ3svBa6bgzFyCC2Sw3RA0VWF1kg3uQf2OFhxb8hw==,
       }
     engines: { node: '>=20.0.0' }
     peerDependencies:
       react: '>=18'
       react-dom: '>=18'
 
-  react-router@7.18.1:
+  react-router@7.18.2:
     resolution:
       {
-        integrity: sha512-GDLgg3i3uM0aeJO3Fm+TCS+sDQ7gu12T6x0qdTEzcwqEfleci7JwugVNIF3U//0FWKnJT7ptG+20B2jfDqnZAg==,
+        integrity: sha512-aUVMjFm3GAPTTZL7oYr5E7ETiqfQCHRLH+B+5afnICvf0r7kkK4eR6SMuwbSTJw/7t+12khT/Kahij49fqOCIg==,
       }
     engines: { node: '>=20.0.0' }
     peerDependencies:
@@ -7829,7 +7831,7 @@ snapshots:
     dependencies:
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
-      fast-uri: 3.1.4
+      fast-uri: 3.1.5
 
   '@fastify/busboy@3.2.0': {}
 
@@ -7892,18 +7894,19 @@ snapshots:
       http-errors: 2.0.1
       mime: 3.0.0
 
-  '@fastify/static@9.1.3':
+  '@fastify/static@10.1.1':
     dependencies:
       '@fastify/accept-negotiator': 2.0.1
+      '@fastify/error': 4.2.0
       '@fastify/send': 4.1.0
-      content-disposition: 1.1.0
-      fastify-plugin: 5.1.0
+      content-disposition: 2.0.1
+      fastify-plugin: 6.0.0
       fastq: 1.20.1
       glob: 13.0.6
 
   '@fastify/swagger-ui@5.2.6':
     dependencies:
-      '@fastify/static': 9.1.3
+      '@fastify/static': 10.1.1
       fastify-plugin: 5.1.0
       openapi-types: 12.1.3
       rfdc: 1.4.1
@@ -8616,7 +8619,7 @@ snapshots:
   ajv@8.18.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.4
+      fast-uri: 3.1.5
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -8802,16 +8805,16 @@ snapshots:
 
   bn.js@4.12.3: {}
 
-  brace-expansion@1.1.16:
+  brace-expansion@1.1.18:
     dependencies:
       balanced-match: 1.0.2
       concat-map: 0.0.1
 
-  brace-expansion@2.1.2:
+  brace-expansion@2.1.4:
     dependencies:
       balanced-match: 1.0.2
 
-  brace-expansion@5.0.7:
+  brace-expansion@5.0.9:
     dependencies:
       balanced-match: 4.0.4
 
@@ -8962,7 +8965,7 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  content-disposition@1.1.0: {}
+  content-disposition@2.0.1: {}
 
   convert-source-map@2.0.0: {}
 
@@ -9451,7 +9454,7 @@ snapshots:
       '@fastify/merge-json-schemas': 0.2.1
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
-      fast-uri: 3.1.4
+      fast-uri: 3.1.5
       json-schema-ref-resolver: 3.0.0
       rfdc: 1.4.1
 
@@ -9460,7 +9463,7 @@ snapshots:
       '@fastify/merge-json-schemas': 0.2.1
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
-      fast-uri: 4.1.1
+      fast-uri: 4.1.2
       json-schema-ref-resolver: 3.0.0
       rfdc: 1.4.1
 
@@ -9486,9 +9489,9 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.4: {}
+  fast-uri@3.1.5: {}
 
-  fast-uri@4.1.1: {}
+  fast-uri@4.1.2: {}
 
   fast-wrap-ansi@0.2.0:
     dependencies:
@@ -10083,7 +10086,7 @@ snapshots:
   json-schema-resolver@3.0.0:
     dependencies:
       debug: 4.4.3
-      fast-uri: 3.1.4
+      fast-uri: 3.1.5
       rfdc: 1.4.1
     transitivePeerDependencies:
       - supports-color
@@ -10581,19 +10584,19 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.7
+      brace-expansion: 5.0.9
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 1.1.16
+      brace-expansion: 1.1.18
 
   minimatch@5.1.9:
     dependencies:
-      brace-expansion: 2.1.2
+      brace-expansion: 2.1.4
 
   minimatch@9.0.7:
     dependencies:
-      brace-expansion: 5.0.7
+      brace-expansion: 5.0.9
 
   minimist@1.2.8: {}
 
@@ -10974,13 +10977,13 @@ snapshots:
 
   react-refresh@0.17.0: {}
 
-  react-router-dom@7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-router-dom@7.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      react-router: 7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-router: 7.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
-  react-router@7.18.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-router@7.18.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       cookie: 1.1.1
       react: 18.3.1

@@ -1,6 +1,6 @@
 /**
  * ImportPage — Page Object Model for /import.
- * Stages: upload → preview → mapping → exporting → done/error.
+ * Stages: upload → importing → done/error (server xử lý đồng bộ một request).
  */
 
 import type { Page, Locator } from '@playwright/test';
@@ -10,11 +10,6 @@ export class ImportPage {
   readonly page: Page;
   readonly dropzone: Locator;
   readonly fileInput: Locator;
-  readonly previewHeading: Locator;
-  readonly previewTable: Locator;
-  readonly mapperArea: Locator;
-  readonly startImportButton: Locator;
-  readonly cancelButton: Locator;
   readonly successBanner: Locator;
   readonly errorBanner: Locator;
 
@@ -30,18 +25,8 @@ export class ImportPage {
       .locator('input[aria-label="File upload"]')
       .or(page.locator('input[type="file"]'))
       .first();
-    // Preview section heading
-    this.previewHeading = page.getByText(/preview/i).first();
-    // Preview table
-    this.previewTable = page.locator('table').first();
-    // Column mapper area heading
-    this.mapperArea = page.getByText(/map columns to fhir/i);
-    // Start import button
-    this.startImportButton = page.getByRole('button', { name: /start import/i });
-    // Cancel button
-    this.cancelButton = page.getByRole('button', { name: /cancel/i });
-    // Success state
-    this.successBanner = page.getByText(/import started/i);
+    // Done state — "Import complete — N resources processed"
+    this.successBanner = page.getByText(/import complete/i);
     // Error state
     this.errorBanner = page.getByText(/import failed/i);
   }

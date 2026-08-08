@@ -10,18 +10,17 @@ export interface ConnectionTestResult {
   serverVersion?: string;
 }
 
-export interface UploadedFile {
-  id: string;
-  filename: string;
-  sizeBytes: number;
-  columns?: string[];
-  rowCount?: number;
-  uploadedAt: string;
-  /**
-   * Server /connectors/import hiện xử lý ĐỒNG BỘ và trả {message, resourceCount,
-   * bundle} — không có id/columns. Client dùng resourceCount để hiển thị kết quả;
-   * không giữ `bundle` trong type (client không cần ôm cả bundle).
-   */
+/**
+ * Kết quả import — server /connectors/import xử lý ĐỒNG BỘ trong một request:
+ * parse file → build bundle → trả {message, resourceCount, bundle}. Không có
+ * bước staged-upload (không id/columns) — client chỉ cần resourceCount để hiển
+ * thị kết quả, không ôm cả `bundle`.
+ *
+ * Result of an import — the server processes /connectors/import SYNCHRONOUSLY in
+ * one request (parse → build bundle → return). There is no staged-upload step, so
+ * no id/columns are returned; the client only needs the resource count.
+ */
+export interface ImportResult {
   message?: string;
   resourceCount?: number;
 }
@@ -43,10 +42,11 @@ export const connectorApi = {
   },
 
   /**
-   * POST /api/v1/connectors/import — multipart upload
+   * POST /api/v1/connectors/import — multipart upload.
+   * Server xử lý đồng bộ và trả kết quả import ngay trong response.
    * Server endpoint is /import (not /upload).
    */
-  async uploadFile(file: File): Promise<UploadedFile> {
-    return apiClient.upload<UploadedFile>('/v1/connectors/import', file);
+  async importFile(file: File): Promise<ImportResult> {
+    return apiClient.upload<ImportResult>('/v1/connectors/import', file);
   },
 };
