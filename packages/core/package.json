@@ -25,7 +25,7 @@
     "csv-parse": "^6.2.1",
     "exceljs": "^4.4.0",
     "fhir-kit-client": "^1.9.2",
-    "iconv-lite": "^0.6.3",
+    "iconv-lite": "^0.7.3",
     "openai": "^6.45.0",
     "pdfkit": "^0.19.1",
     "unzipper": "^0.12.5",
