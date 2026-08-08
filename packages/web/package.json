@@ -41,7 +41,7 @@
     "autoprefixer": "^10.5.0",
     "jsdom": "^25.0.0",
     "postcss": "^8.5.19",
-    "tailwindcss": "^4.2.2",
+    "tailwindcss": "^4.3.3",
     "typescript": "*",
     "vite": "^7.3.6",
     "vitest": "^3.2.7"
