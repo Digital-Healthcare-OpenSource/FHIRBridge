@@ -6,6 +6,26 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- **SSRF protection now also holds at connect time (DNS rebinding).** FHIR endpoint and OAuth2
+  token requests go through a small built-in HTTP client whose DNS lookup re-applies the SSRF
+  policy to the exact addresses the socket connects to, so a DNS answer that changes after the
+  pre-flight check can no longer reach private, loopback or cloud-metadata addresses. Redirects
+  are followed only for GET (max 5, each re-validated) and never forward the bearer token to
+  another origin; the token endpoint is never redirected; responses are capped at 64 MiB after
+  decompression. This replaces `fhir-kit-client`.
+- Dependency advisories: `fastify` 5.12.5
+  ([GHSA-w2qp-rph6-63g4](https://github.com/advisories/GHSA-w2qp-rph6-63g4),
+  [GHSA-3m5p-2c4r-xxw2](https://github.com/advisories/GHSA-3m5p-2c4r-xxw2)), `csv-parse` 7.0.3
+  ([GHSA-8cw4-87c7-c6xx](https://github.com/advisories/GHSA-8cw4-87c7-c6xx)); dropping
+  `fhir-kit-client` also removes `decode-uri-component` 0.2.2
+  ([GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr)).
+  `pnpm audit --prod` reports no known vulnerabilities.
+- **Node.js 24 LTS.** Node 20 reached end-of-life on 2026-04-30
+  ([schedule](https://github.com/nodejs/release#release-schedule)). Docker images and CI use
+  Node 24; the minimum supported version is Node 22 (checked by a CI job).
+
 ### Added
 
 - **One-command setup and run.** `pnpm run setup` creates `.env` with random secrets, an API key

@@ -1,0 +1,2 @@
+# pnpm writes its own lockfile format; reformatting it only creates huge diffs.
+pnpm-lock.yaml

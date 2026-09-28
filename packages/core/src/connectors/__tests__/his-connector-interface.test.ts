@@ -11,11 +11,13 @@ import { FhirEndpointConnector } from '../fhir-endpoint-connector.js';
 import type { HisConnector } from '../his-connector-interface.js';
 
 // Stub external dependencies — not testing actual I/O or HTTP
-vi.mock('fhir-kit-client', () => ({
-  default: vi.fn().mockImplementation(() => ({
+vi.mock('../fhir-http-client.js', () => ({
+  FhirHttpClient: vi.fn().mockImplementation(() => ({
     capabilityStatement: vi.fn().mockResolvedValue({ fhirVersion: '4.0.1' }),
     request: vi.fn().mockResolvedValue({ resourceType: 'Bundle', entry: [] }),
+    close: vi.fn(),
   })),
+  postFormForJson: vi.fn(),
 }));
 
 /** Verify an object satisfies the HisConnector interface shape */
