@@ -6,7 +6,8 @@
  *   GET    /api/v1/export/:id/status   → { status, resourceCount, error }
  *   GET    /api/v1/export/:id/download → Blob
  *
- * NOTE: Server does NOT expose a list endpoint — listExports returns empty array.
+ * NOTE: Server does NOT expose a list endpoint — listExports returns the exports started
+ * from this tab (kept in memory only, like the auth token; gone on reload).
  * Server response for status does not include `id`, `patientId`, `progress`,
  * `createdAt`, or `updatedAt`. We augment with client-tracked values where needed.
  */
@@ -81,6 +82,20 @@ interface ServerExportBody {
   includeSummary?: boolean;
 }
 
+/** Exports started from this tab — memory only (zero-persistence, like the auth token). */
+const sessionJobs = new Map<string, ExportJob>();
+
+/** Test hook: forget this tab's exports. */
+export function clearSessionExports(): void {
+  sessionJobs.clear();
+}
+
+function rememberJob(job: ExportJob): ExportJob {
+  const previous = sessionJobs.get(job.id);
+  sessionJobs.set(job.id, { ...previous, ...job });
+  return job;
+}
+
 export const exportApi = {
   /** POST /api/v1/export — initiates async export, returns exportId */
   async startExport(req: StartExportRequest): Promise<ExportJob> {
@@ -96,14 +111,14 @@ export const exportApi = {
       includeSummary: req.includeSummary,
     };
     const res = await apiClient.post<StartExportResponse>('/v1/export', body);
-    return {
+    return rememberJob({
       id: res.exportId,
       patientId: req.patientId,
       status: 'processing',
       progress: 0,
       resourceCount: 0,
       createdAt: new Date().toISOString(),
-    };
+    });
   },
 
   /** GET /api/v1/export/:id/status — poll job progress */
@@ -119,21 +134,27 @@ export const exportApi = {
           : res.resourceCount != null && res.resourceCount > 0
             ? 50
             : 10;
-    return {
+    const job: ExportJob = {
       id: jobId,
       status,
       progress,
       resourceCount: res.resourceCount ?? 0,
       error: res.error,
+      // Server sends no timestamps: record when this client observed completion.
+      ...(status === 'complete' ? { updatedAt: new Date().toISOString() } : {}),
     };
+    if (sessionJobs.has(jobId)) rememberJob(job);
+    return job;
   },
 
   /**
-   * Server does not expose a list endpoint.
-   * Returns empty array — callers should persist job IDs locally if needed.
+   * Server does not expose a list endpoint — returns the exports started from this
+   * tab, newest first (memory only; nothing is written to browser storage).
    */
   async listExports(): Promise<ExportJob[]> {
-    return [];
+    return [...sessionJobs.values()].sort((a, b) =>
+      (b.createdAt ?? '').localeCompare(a.createdAt ?? ''),
+    );
   },
 
   /** GET /api/v1/export/:id/download — download FHIR bundle as Blob */

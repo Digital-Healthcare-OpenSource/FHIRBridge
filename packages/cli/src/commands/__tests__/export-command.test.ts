@@ -27,6 +27,7 @@ vi.mock('@fhirbridge/core', async (importOriginal) => {
 
 // Silence logger output in tests
 vi.mock('../../utils/logger.js', () => ({
+  useStderrForStatus: vi.fn(),
   info: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),

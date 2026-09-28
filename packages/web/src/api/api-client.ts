@@ -150,7 +150,8 @@ export const apiClient = {
     Object.assign(headers, buildAuthHeaders());
     const url = `${API_BASE_URL}${path}`;
     const res = await fetch(url, { method: 'GET', headers });
-    if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}: ${res.statusText}`);
+    // Server errors carry the reason in the body (e.g. 502 "Summary generation failed: …").
+    if (!res.ok) throw await buildApiError(res);
     return res.blob();
   },
 };

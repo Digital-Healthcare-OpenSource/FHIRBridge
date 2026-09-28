@@ -1,7 +1,7 @@
 /**
  * E2E tests for `fhirbridge summarize` command.
  * Runs CLI as a real subprocess — no mocks.
- * AI provider calls are expected to fail (no API key) — tests verify graceful error handling.
+ * No provider API key is set — tests verify the command fails fast with a clear message.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -50,10 +50,7 @@ describe('fhirbridge summarize', () => {
     expect(result.stdout).toMatch(/--language/);
   });
 
-  it('exits non-zero or outputs placeholder when API module is absent', async () => {
-    // AI module (@fhirbridge/ai) is optional. Without it, command generates a placeholder summary.
-    // Without any API key env vars, real AI providers fail — but since the module is absent,
-    // we expect either exit 0 with placeholder text or exit 1 with graceful error.
+  it('exits 1 with an actionable message when no provider API key is set', async () => {
     const result = await runCli(
       [
         'summarize',
@@ -73,16 +70,8 @@ describe('fhirbridge summarize', () => {
       },
     );
 
-    // Should not hang; must terminate with 0 (placeholder) or 1 (graceful fail)
-    expect([0, 1]).toContain(result.exitCode);
-
-    if (result.exitCode === 0) {
-      // Placeholder summary should contain recognizable content
-      expect(result.stdout).toBeTruthy();
-    } else {
-      // Graceful error message must appear
-      expect(result.stderr).toBeTruthy();
-    }
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr + result.stdout).toMatch(/ANTHROPIC_API_KEY is not set/);
   });
 
   it('exits 1 when --input is not provided', async () => {

@@ -125,4 +125,14 @@ describe('ExportProgress', () => {
     renderProgress();
     expect(screen.getByText('Source unreachable')).toBeInTheDocument();
   });
+
+  it('ticks every step (no spinner) once the export is complete', () => {
+    mockUsePolling.mockReturnValue({
+      data: { id: 'job-1', status: 'complete' as const, progress: 100, resourceCount: 6 },
+      error: null,
+      loading: false,
+    });
+    const { container } = renderProgress();
+    expect(container.querySelector('.animate-spin')).toBeNull();
+  });
 });

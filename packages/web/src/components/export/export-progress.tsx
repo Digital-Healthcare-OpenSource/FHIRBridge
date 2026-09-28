@@ -34,6 +34,7 @@ interface Props {
 
 export function ExportProgress({ jobId, onComplete, onError }: Props) {
   const { t } = useTranslation('common');
+  const { t: tError } = useTranslation('errors');
   const { data: job, error } = usePolling(() => exportApi.getStatus(jobId), {
     interval: POLLING_INTERVAL_MS,
     enabled: true,
@@ -43,14 +44,19 @@ export function ExportProgress({ jobId, onComplete, onError }: Props) {
   useEffect(() => {
     if (!job) return;
     if (job.status === 'complete') onComplete(job);
-    if (job.status === 'error') onError(job.error ?? 'Export failed');
-  }, [job, onComplete, onError]);
+    if (job.status === 'error') onError(job.error ?? tError('export_failed'));
+  }, [job, onComplete, onError, tError]);
 
   useEffect(() => {
     if (error) onError(error);
   }, [error, onError]);
 
-  const currentStep = job ? progressToStep(job.progress) : 0;
+  // Complete → every step ticked (no spinner left on the last one).
+  const currentStep = !job
+    ? 0
+    : job.status === 'complete'
+      ? STEPS.length
+      : progressToStep(job.progress);
   const progress = job?.progress ?? 0;
 
   return (

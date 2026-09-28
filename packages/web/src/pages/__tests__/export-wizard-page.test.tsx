@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ExportWizardPage } from '../export-wizard-page';
 
 // Mock API dependencies
@@ -81,6 +81,19 @@ describe('ExportWizardPage', () => {
     });
   });
 
+  it('File Upload sends CSV / Excel users to the Import page (server exports FHIR only)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/app/export']}>
+        <Routes>
+          <Route path="/app/export" element={<ExportWizardPage />} />
+          <Route path="/app/import" element={<p>import page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByText(/file upload/i));
+    expect(await screen.findByText('import page')).toBeInTheDocument();
+  });
+
   it('renders the step indicator navigation', async () => {
     renderPage();
     await waitFor(() => {
@@ -122,6 +135,26 @@ describe('ExportWizardPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /^next$/i })).toBeInTheDocument();
     });
+  });
+
+  it('shows the start-export error instead of a blank wizard', async () => {
+    const { exportApi } = await import('../../api/export-api');
+    vi.mocked(exportApi.startExport).mockRejectedValueOnce(new Error('Authentication required'));
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: /fhir endpoint/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^next$/i }));
+    fireEvent.change(await screen.findByLabelText(/patient identifier/i), {
+      target: { value: 'patient-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^next$/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /start export/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/export failed/i);
+    expect(alert).toHaveTextContent('Authentication required');
+    expect(screen.getByRole('button', { name: /new export/i })).toBeInTheDocument();
   });
 
   it('step 2 has a Back button', async () => {

@@ -9,6 +9,13 @@
  * - Decimal/hex/octal IP representations (normalize trước khi match)
  * - URLs có userinfo (user:pass@host)
  *
+ * Operator allowlist — CONNECTOR_ALLOWED_HOSTS (comma-separated hostnames, IPv4
+ * addresses, IPv4 CIDRs or host:port pairs, e.g. "his.hospital.local,10.20.0.0/16,
+ * localhost:8090"). A host:port entry only opens that one port. A self-hosted
+ * hospital's HIS almost always lives on a private network, which the rules above
+ * block; listed entries are the explicit, opt-in way to reach it. Cloud-metadata
+ * hosts and link-local 169.254.0.0/16 stay blocked even when listed.
+ *
  * TODO(DNS rebinding mitigation): DNS resolution xảy ra tại connect-time, không tại
  * validate-time. Để chống DNS rebinding (resolve về IP hợp lệ sau đó đổi về nội bộ),
  * cần implement connect-then-validate: sau khi TCP connect, lấy actual IP từ socket
@@ -29,6 +36,107 @@ const BLOCKED_HOSTNAMES = new Set([
   'metadata.internal', // generic
   'metadata.aws.internal', // AWS metadata internal
 ]);
+
+/** Never reachable, even when an operator lists them in CONNECTOR_ALLOWED_HOSTS. */
+const METADATA_HOSTNAMES = new Set([...BLOCKED_HOSTNAMES].filter((h) => h !== 'localhost'));
+
+/** Env var holding the operator allowlist. */
+export const ALLOWED_HOSTS_ENV = 'CONNECTOR_ALLOWED_HOSTS';
+
+const ALLOWLIST_HINT = ` — if this is your own HIS on the hospital network, add it to ${ALLOWED_HOSTS_ENV}`;
+
+interface AllowList {
+  hostnames: Set<string>;
+  /** "host:port" entries — allow only that port on that host. */
+  hostPorts: Set<string>;
+  cidrs: Array<{ base: number; mask: number }>;
+}
+
+function ipv4ToUint32(ip: string): number | null {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  let value = 0;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    const octet = Number(part);
+    if (octet > 255) return null;
+    value = value * 256 + octet;
+  }
+  return value >>> 0;
+}
+
+let cachedRaw: string | undefined;
+let cachedAllowList: AllowList = { hostnames: new Set(), hostPorts: new Set(), cidrs: [] };
+
+/** Parse CONNECTOR_ALLOWED_HOSTS (re-read each call so config/tests can change it). */
+function currentAllowList(): AllowList {
+  const raw = process.env[ALLOWED_HOSTS_ENV] ?? '';
+  if (raw === cachedRaw) return cachedAllowList;
+  const allowList: AllowList = { hostnames: new Set(), hostPorts: new Set(), cidrs: [] };
+  for (const entry of raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)) {
+    const cidr = entry.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+    const base = cidr ? ipv4ToUint32(cidr[1]!) : null;
+    const bits = cidr ? Number(cidr[2]) : NaN;
+    if (cidr && base !== null && bits >= 0 && bits <= 32) {
+      const mask = bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0;
+      allowList.cidrs.push({ base: (base & mask) >>> 0, mask });
+    } else if (/^[^:[\]]+:\d{1,5}$/.test(entry)) {
+      allowList.hostPorts.add(entry);
+    } else {
+      allowList.hostnames.add(entry.replace(/^\[|\]$/g, ''));
+    }
+  }
+  cachedRaw = raw;
+  cachedAllowList = allowList;
+  return allowList;
+}
+
+/** Port the URL will actually connect to (explicit, or the scheme default). */
+function effectivePort(parsed: URL): string {
+  return parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+}
+
+/** Link-local / "this network" IPv4 — metadata services live here; never allowlistable. */
+function isAlwaysBlockedIpv4(ip: string): boolean {
+  const value = ipv4ToUint32(ip);
+  if (value === null) return false;
+  const a = value >>> 24;
+  const b = (value >>> 16) & 0xff;
+  return (a === 169 && b === 254) || a === 0;
+}
+
+/** IPv4 embedded in an IPv4-mapped IPv6 address (dotted or hex form), else null. */
+function mappedIpv4(ipv6: string): string | null {
+  const addr = ipv6.replace(/^\[|\]$/g, '').toLowerCase();
+  if (!addr.startsWith('::ffff:')) return null;
+  const tail = addr.slice(7);
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(tail)) return tail;
+  const hex = tail.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (!hex) return null;
+  const hi = parseInt(hex[1]!, 16);
+  const lo = parseInt(hex[2]!, 16);
+  return [hi >> 8, hi & 0xff, lo >> 8, lo & 0xff].join('.');
+}
+
+/** IPv6 forms of metadata / link-local targets — never allowlistable either. */
+function isAlwaysBlockedIpv6(ipv6: string): boolean {
+  const addr = ipv6.replace(/^\[|\]$/g, '').toLowerCase();
+  const v4 = mappedIpv4(addr);
+  if (v4 !== null) return isAlwaysBlockedIpv4(v4);
+  // AWS IMDS over IPv6 + link-local fe80::/10
+  return addr === 'fd00:ec2::254' || /^fe[89ab]/.test(addr);
+}
+
+/** True when the operator explicitly allowlisted this IPv4 (exact or CIDR). */
+function isAllowlistedIpv4(ip: string, allowList: AllowList): boolean {
+  if (allowList.hostnames.has(ip)) return true;
+  const value = ipv4ToUint32(ip);
+  if (value === null) return false;
+  return allowList.cidrs.some(({ base, mask }) => (value & mask) >>> 0 === base);
+}
 
 /** Schemes được phép — chỉ http và https */
 const ALLOWED_SCHEMES = new Set(['http:', 'https:']);
@@ -169,22 +277,48 @@ export function validateBaseUrl(url: string): ValidateBaseUrlResult {
   }
 
   const hostname = parsed.hostname.toLowerCase();
+  const allowList = currentAllowList();
 
-  // Blocked hostname list (metadata endpoints, localhost variants)
-  if (BLOCKED_HOSTNAMES.has(hostname)) {
+  // Metadata endpoints: blocked unconditionally (allowlist cannot re-open them)
+  if (METADATA_HOSTNAMES.has(hostname)) {
     return { ok: false, reason: `Hostname '${hostname}' is blocked` };
   }
 
   // Normalize decimal/hex/octal IPv4 representations
   const normalizedHostname = normalizeIpv4(hostname);
   const effectiveHostname = normalizedHostname ?? hostname;
+  const isIpv4Literal = /^\d{1,3}(\.\d{1,3}){3}$/.test(effectiveHostname);
+
+  if (isIpv4Literal && isAlwaysBlockedIpv4(effectiveHostname)) {
+    return {
+      ok: false,
+      reason: `IP '${effectiveHostname}' is in a blocked link-local/metadata range`,
+    };
+  }
+  if (hostname.startsWith('[') && isAlwaysBlockedIpv6(hostname)) {
+    return { ok: false, reason: `IPv6 address '${hostname}' is in a blocked metadata range` };
+  }
+
+  // Operator allowlist (exact hostname / IP, host:port, or CIDR for IPv4 literals)
+  if (
+    allowList.hostnames.has(hostname.replace(/^\[|\]$/g, '')) ||
+    allowList.hostPorts.has(`${effectiveHostname}:${effectivePort(parsed)}`) ||
+    (isIpv4Literal && isAllowlistedIpv4(effectiveHostname, allowList))
+  ) {
+    return { ok: true };
+  }
+
+  // localhost variants
+  if (BLOCKED_HOSTNAMES.has(hostname)) {
+    return { ok: false, reason: `Hostname '${hostname}' is blocked${ALLOWLIST_HINT}` };
+  }
 
   // Kiểm tra IPv4 private/loopback/link-local
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(effectiveHostname)) {
+  if (isIpv4Literal) {
     if (isPrivateIpv4(effectiveHostname)) {
       return {
         ok: false,
-        reason: `IP '${effectiveHostname}' is in a blocked private/loopback range`,
+        reason: `IP '${effectiveHostname}' is in a blocked private/loopback range${ALLOWLIST_HINT}`,
       };
     }
   }
@@ -194,7 +328,7 @@ export function validateBaseUrl(url: string): ValidateBaseUrlResult {
     if (isBlockedIpv6(hostname)) {
       return {
         ok: false,
-        reason: `IPv6 address '${hostname}' is blocked`,
+        reason: `IPv6 address '${hostname}' is blocked${ALLOWLIST_HINT}`,
       };
     }
   }
@@ -223,20 +357,39 @@ export async function validateBaseUrlWithDns(url: string): Promise<ValidateBaseU
     return { ok: true };
   }
 
+  const allowList = currentAllowList();
+  const hostnameAllowlisted =
+    allowList.hostnames.has(hostname.toLowerCase()) ||
+    allowList.hostPorts.has(`${hostname.toLowerCase()}:${effectivePort(parsed)}`);
+
   // DNS resolution — kiểm tra resolved IP
   try {
     const addresses = await lookup(hostname, { all: true });
     for (const addr of addresses) {
-      if (addr.family === 4 && isPrivateIpv4(addr.address)) {
+      if (
+        (addr.family === 4 && isAlwaysBlockedIpv4(addr.address)) ||
+        (addr.family === 6 && isAlwaysBlockedIpv6(addr.address))
+      ) {
         return {
           ok: false,
-          reason: `DNS resolved '${hostname}' to blocked IP '${addr.address}'`,
+          reason: `DNS resolved '${hostname}' to blocked link-local/metadata IP '${addr.address}'`,
+        };
+      }
+      if (hostnameAllowlisted) continue; // operator vouched for this host
+      if (
+        addr.family === 4 &&
+        isPrivateIpv4(addr.address) &&
+        !isAllowlistedIpv4(addr.address, allowList)
+      ) {
+        return {
+          ok: false,
+          reason: `DNS resolved '${hostname}' to blocked IP '${addr.address}'${ALLOWLIST_HINT}`,
         };
       }
       if (addr.family === 6 && isBlockedIpv6(addr.address)) {
         return {
           ok: false,
-          reason: `DNS resolved '${hostname}' to blocked IPv6 '${addr.address}'`,
+          reason: `DNS resolved '${hostname}' to blocked IPv6 '${addr.address}'${ALLOWLIST_HINT}`,
         };
       }
     }

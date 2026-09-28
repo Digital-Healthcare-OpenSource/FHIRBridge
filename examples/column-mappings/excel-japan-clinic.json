@@ -1,14 +1,16 @@
 {
-  "$schema": "https://github.com/tranhoangtu-it/FHIRBridge/blob/main/packages/types/src/connectors/mapping.schema.json",
-  "description": "Japanese small-clinic Excel workbook. Two sheets: 患者 (Patients) and 受診 (Encounters). Kanji column headers; ICD-10 diagnosis codes.",
+  "$schema": "./mapping.schema.json",
+  "description": "Japanese small-clinic Excel workbook with two sheets: 患者 (Patients) and 受診 (Encounters, one row per visit with its diagnosis). Kanji column headers; ICD-10 diagnosis codes. Rows on 受診 are linked to patients through 患者番号. Date cells may be real Excel dates or text in the given format. Times are JST (+09:00). Sample data: examples/data/jp-clinic.xlsx.",
   "sheet": {
     "Patient": "患者",
-    "Encounter": "受診"
+    "Encounter": "受診",
+    "Condition": "受診"
   },
   "patientId": {
     "column": "患者番号",
-    "system": "urn:oid:1.2.392.200119.6.301"
+    "system": "https://fhirbridge.example/identifiers/jp-clinic-patient-id"
   },
+  "timezone": "+09:00",
   "fields": {
     "Patient.identifier[].value": "患者番号",
     "Patient.name.family": "姓",

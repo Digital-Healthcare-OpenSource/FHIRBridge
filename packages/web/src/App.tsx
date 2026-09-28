@@ -15,6 +15,7 @@ import { AppHeader } from './components/layout/app-header';
 import { ErrorBoundary } from './components/shared/error-boundary';
 import { healthApi } from './api/health-api';
 import { ROUTES } from './lib/constants';
+import { useTranslation } from './i18n/use-translation';
 
 const LandingPage = lazy(() =>
   import('./pages/landing-page').then((m) => ({ default: m.LandingPage })),
@@ -36,10 +37,11 @@ const SettingsPage = lazy(() =>
 );
 
 function PageFallback() {
+  const { t } = useTranslation('common');
   return (
     <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite">
       <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{t('app.loading')}</span>
     </div>
   );
 }
@@ -69,6 +71,7 @@ function useHealthCheck() {
 }
 
 function AppShell() {
+  const { t } = useTranslation('common');
   const healthOk = useHealthCheck();
 
   return (
@@ -78,7 +81,7 @@ function AppShell() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-primary-600 focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
       >
-        Skip to main content
+        {t('app.skip_to_content')}
       </a>
       <AppSidebar healthOk={healthOk} />
       <div className="flex flex-1 flex-col overflow-hidden">

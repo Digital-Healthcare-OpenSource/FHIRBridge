@@ -7,7 +7,9 @@ export const API_BASE_URL: string =
 
 export const ROUTES = {
   LANDING: '/',
-  GITHUB: 'https://github.com/tranhoangtu-it/FHIRBridge',
+  GITHUB: 'https://github.com/Digital-Healthcare-OpenSource/FHIRBridge',
+  // Repo không có wiki — tài liệu chính là README
+  DOCS: 'https://github.com/Digital-Healthcare-OpenSource/FHIRBridge#readme',
   DASHBOARD: '/app/dashboard',
   EXPORT: '/app/export',
   IMPORT: '/app/import',
@@ -18,8 +20,13 @@ export const ROUTES = {
 
 export const POLLING_INTERVAL_MS = 2000;
 export const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+// Data files the import API converts (it rejects anything else, incl. legacy .xls).
+// A .csv that Windows browsers label application/vnd.ms-excel still matches by extension.
 export const ACCEPTED_FILE_TYPES = {
   'text/csv': ['.csv'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'application/json': ['.json'],
 };
+
+/** Mapping format guide (examples/README.md). */
+export const MAPPING_DOCS_URL =
+  'https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/blob/main/examples/README.md';

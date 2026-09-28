@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import { exportApi } from '../api/export-api';
+import i18n from '../i18n';
 import type { ExportJob, StartExportRequest } from '../api/export-api';
 
 export type ExportStep = 1 | 2 | 3 | 4 | 5 | 6;
@@ -78,7 +79,7 @@ export function useExport(): UseExportReturn {
     } catch (err) {
       setFlowState({
         phase: 'error',
-        message: err instanceof Error ? err.message : 'Export failed',
+        message: err instanceof Error ? err.message : i18n.t('export_failed', { ns: 'errors' }),
       });
     }
   }, [config]);

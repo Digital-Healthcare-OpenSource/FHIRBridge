@@ -96,6 +96,36 @@ jobs:
           API_KEYS: test-key-free,test-key-paid
           LOG_LEVEL: silent
 
+  compose-smoke:
+    name: Docker Compose smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      # Same path a new user takes: generated .env → compose (API + web + Demo HIS).
+      - name: Create .env
+        run: node scripts/setup.mjs --env-only
+
+      - name: Build and start the stack
+        run: docker compose --profile demo up -d --build --wait --wait-timeout 180
+
+      - name: Export a demo patient through the web front end
+        run: node --env-file=.env scripts/smoke-test.mjs --his http://demo-his:8090/fhir --patient demo-kr-001
+
+      - name: Container logs
+        if: failure()
+        run: docker compose --profile demo logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose --profile demo down -v
+
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest

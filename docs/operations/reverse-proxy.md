@@ -114,3 +114,32 @@ instead, mirror the same policy — do not weaken it.
 
 `GET /api/v1/health` is public and returns `200` even when Postgres/Redis are
 degraded. Point your load balancer's health probe at it. It is safe to expose.
+
+## Serving the web UI
+
+The API does not serve the dashboard. Pick one:
+
+1. **Proxy everything to the bundled front end** (simplest). `docker compose up` (service
+   `web`, nginx) and `pnpm start` (Node gateway) both listen on `127.0.0.1:8080`, serve the UI
+   and already forward `/api/*` to the API unbuffered. Point your TLS proxy at it:
+
+   ```caddyfile
+   fhirbridge.example.org {
+       reverse_proxy 127.0.0.1:8080 {
+           flush_interval -1
+           transport http {
+               read_timeout 30m
+               write_timeout 30m
+           }
+       }
+   }
+   ```
+
+   `pnpm start` runs the API with `TRUST_PROXY=loopback` (unless you set another value) and the
+   Docker setup with `TRUST_PROXY=true` inside the compose network, so per-client rate limiting
+   and audit see the forwarded client address.
+
+2. **Serve the static build yourself.** Build once (`pnpm --filter @fhirbridge/web build`),
+   serve `packages/web/dist/` with an SPA fallback to `index.html`, and proxy `/api/` to
+   `127.0.0.1:3001` with the streaming settings above. Reuse the headers from
+   `docker/web/security-headers.conf`.

@@ -2,14 +2,40 @@
  * Tests for summarize-command — generates AI clinical summaries from FHIR bundles.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { writeFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { buildProgram } from '../../index.js';
+import { writeOutput } from '../../utils/file-writer.js';
+import { error as logError } from '../../utils/logger.js';
+
+// Real core pipeline, fake provider: ProviderGateway.summarize returns a canned summary.
+const mockSummarize = vi.fn();
+vi.mock('@fhirbridge/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@fhirbridge/core')>();
+  return {
+    ...actual,
+    ProviderGateway: vi.fn().mockImplementation(() => ({ summarize: mockSummarize })),
+  };
+});
+
+const FAKE_SUMMARY = {
+  sections: [{ section: 'Conditions', content: 'Hypertension.', tokenCount: 10, resourceCount: 1 }],
+  synthesis: 'Stable patient.',
+  metadata: {
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    provider: 'claude',
+    model: 'claude-opus-5',
+    totalTokens: 20,
+    language: 'en',
+    deidentified: true,
+  },
+};
 
 // Silence logger output in tests
 vi.mock('../../utils/logger.js', () => ({
+  useStderrForStatus: vi.fn(),
   info: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
@@ -101,19 +127,91 @@ describe('summarize-command registration', () => {
 
 describe('summarize-command parseAsync', () => {
   let tmpFile: string;
+  const savedKey = process.env['ANTHROPIC_API_KEY'];
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSummarize.mockResolvedValue(FAKE_SUMMARY);
+    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-test-not-real';
     tmpFile = join(tmpdir(), `test-bundle-sum-${Date.now()}.json`);
     writeFileSync(tmpFile, VALID_BUNDLE);
   });
 
   afterEach(() => {
+    if (savedKey === undefined) delete process.env['ANTHROPIC_API_KEY'];
+    else process.env['ANTHROPIC_API_KEY'] = savedKey;
     try {
       unlinkSync(tmpFile);
     } catch {
       /* ignore */
     }
+  });
+
+  /** Run the command expecting process.exit(1); returns the logged error text. */
+  async function expectExit1(args: string[]): Promise<string> {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new Error(`process.exit(${code})`);
+    });
+    try {
+      const program = buildProgram();
+      program.exitOverride();
+      await expect(program.parseAsync(['node', 'fhirbridge', ...args])).rejects.toThrow(
+        'process.exit(1)',
+      );
+      return vi
+        .mocked(logError)
+        .mock.calls.map((c) => String(c[0]))
+        .join('\n');
+    } finally {
+      exitSpy.mockRestore();
+    }
+  }
+
+  it('writes a real Markdown summary produced by the core pipeline', async () => {
+    const program = buildProgram();
+    program.exitOverride();
+    await program.parseAsync(['node', 'fhirbridge', 'summarize', '--input', tmpFile]);
+
+    expect(mockSummarize).toHaveBeenCalledTimes(1);
+    const [bundleArg, configArg] = mockSummarize.mock.calls[0];
+    expect(bundleArg.resourceType).toBe('Bundle');
+    expect(configArg.providerConfig.apiKey).toBe('sk-ant-test-not-real');
+    expect(configArg.hmacSecret.length).toBeGreaterThanOrEqual(32);
+    const written = vi.mocked(writeOutput).mock.calls[0][0];
+    expect(written).toContain('Stable patient.');
+    expect(written).not.toMatch(/placeholder/i);
+  });
+
+  it('emits a FHIR Composition for --format composition', async () => {
+    const program = buildProgram();
+    program.exitOverride();
+    await program.parseAsync([
+      'node',
+      'fhirbridge',
+      'summarize',
+      '--input',
+      tmpFile,
+      '--format',
+      'composition',
+    ]);
+    const written = JSON.parse(vi.mocked(writeOutput).mock.calls[0][0]);
+    expect(written.resourceType).toBe('Composition');
+  });
+
+  it('fails with a clear message when the provider API key is missing', async () => {
+    delete process.env['ANTHROPIC_API_KEY'];
+    const logged = await expectExit1(['summarize', '--input', tmpFile, '--provider', 'claude']);
+    expect(logged).toMatch(/ANTHROPIC_API_KEY is not set/);
+    expect(mockSummarize).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported languages and providers', async () => {
+    expect(await expectExit1(['summarize', '--input', tmpFile, '--language', 'zh'])).toMatch(
+      /Invalid --language "zh"/,
+    );
+    expect(await expectExit1(['summarize', '--input', tmpFile, '--provider', 'gemini'])).toMatch(
+      /Invalid --provider "gemini"/,
+    );
   });
 
   it('parses --provider claude without error', async () => {

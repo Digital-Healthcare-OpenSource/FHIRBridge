@@ -2,9 +2,9 @@
 
 ## Supported versions
 
-FHIRBridge has no formal release cadence yet. The `main` branch is the supported version. Security fixes are merged to `main` only — there are no LTS branches.
-
-If the project ever cuts a tagged release (`v1.0.0+`), this policy will be updated accordingly.
+FHIRBridge has no formal release cadence yet. Security fixes land on `main` and ship in the next
+tagged release ([releases](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases)).
+Only the latest release and `main` are supported — there are no LTS branches.
 
 ## Reporting a vulnerability
 
@@ -12,7 +12,7 @@ If the project ever cuts a tagged release (`v1.0.0+`), this policy will be updat
 
 Use the GitHub private security advisory flow:
 
-→ **https://github.com/tranhoangtu-it/FHIRBridge/security/advisories/new**
+→ **https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/security/advisories/new**
 
 The maintainer is automatically notified and can coordinate a fix in private until a coordinated disclosure date is agreed.
 
@@ -73,6 +73,6 @@ The project tracks Dependabot alerts. The maintainer applies patches via:
 
 1. Direct dependency bump if Dependabot opens a clean PR.
 2. `pnpm.overrides` for transitive dependencies whose parent already accepts the patched version.
-3. Replacement PR if a Dependabot group bump fails CI (see the OSS-pivot session note in `docs/project-changelog.md`).
+3. Replacement PR if a Dependabot group bump fails CI.
 
 Operators running FHIRBridge in production are encouraged to subscribe to the GitHub repo for security advisory notifications.

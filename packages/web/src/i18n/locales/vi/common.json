@@ -1,20 +1,32 @@
 {
+  "app": {
+    "loading": "Đang tải…",
+    "skip_to_content": "Chuyển đến nội dung chính"
+  },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "Tổng quan",
     "export": "Xuất dữ liệu",
     "import": "Nhập dữ liệu",
     "settings": "Cài đặt",
-    "summary": "Tóm tắt AI"
+    "summary": "Tóm tắt AI",
+    "main_aria": "Điều hướng chính",
+    "breadcrumb_aria": "Đường dẫn trang"
   },
   "status": {
     "checking": "Đang kiểm tra…",
-    "api_online": "API online",
-    "api_offline": "API offline"
+    "api_online": "API đang hoạt động",
+    "api_offline": "Mất kết nối API"
+  },
+  "job_status": {
+    "pending": "Đang chờ",
+    "processing": "Đang xử lý",
+    "running": "Đang chạy",
+    "generating": "Đang tạo",
+    "complete": "Hoàn tất",
+    "error": "Lỗi"
   },
   "language": {
-    "label": "Ngôn ngữ",
-    "vi": "Tiếng Việt",
-    "en": "English"
+    "label": "Ngôn ngữ"
   },
   "action": {
     "cancel": "Hủy",
@@ -24,17 +36,41 @@
     "retry": "Thử lại",
     "back": "Quay lại",
     "next": "Tiếp tục",
-    "try_again": "Thử lại"
+    "try_again": "Thử lại",
+    "refresh": "Làm mới"
   },
   "toast": {
     "dismiss": "Đóng thông báo"
   },
+  "format": {
+    "invalid_date": "Ngày không hợp lệ",
+    "resource_count_other": "{{count, number}} tài nguyên"
+  },
   "dropzone": {
     "instruction": "Kéo thả hoặc nhấn để tải lên",
     "drop_here": "Thả tệp vào đây",
-    "hint": "CSV, XLSX hoặc FHIR JSON · tối đa {{size}}",
+    "hint": "CSV hoặc XLSX · tối đa {{size}}",
     "input_label": "Tải tệp lên",
     "remove_label": "Xóa tệp"
+  },
+  "dashboard": {
+    "description": "Hoạt động gần đây và thao tác nhanh",
+    "api_status": "Trạng thái API:",
+    "health": {
+      "ok": "Bình thường",
+      "degraded": "Suy giảm",
+      "error": "Lỗi"
+    },
+    "new_export": "Xuất mới",
+    "new_export_desc": "Xuất FHIR bundle của bệnh nhân",
+    "import_file": "Nhập tệp",
+    "import_file_desc": "Tải lên CSV / Excel / FHIR JSON",
+    "recent_exports": "Lần xuất gần đây",
+    "empty": "Chưa có lần xuất nào. Hãy bắt đầu với \"Xuất mới\".",
+    "col_date": "Thời gian",
+    "col_patient": "Mã bệnh nhân",
+    "col_resources": "Tài nguyên",
+    "col_status": "Trạng thái"
   },
   "wizard": {
     "title": "Xuất FHIR Bundle",
@@ -54,9 +90,6 @@
     "source_file_title": "Tải tệp lên",
     "source_file_desc": "Tải lên CSV, XLSX hoặc FHIR JSON",
     "fhir_connection": "Kết nối FHIR",
-    "upload_file": "Tải tệp lên",
-    "uploading": "Đang tải lên… {{progress}}%",
-    "file_uploaded": "Tải tệp thành công.",
     "patient_id": "Mã bệnh nhân",
     "patient_identifier": "Mã định danh bệnh nhân",
     "patient_placeholder": "vd. patient-123",
@@ -68,7 +101,6 @@
     "review": "Xem lại",
     "review_source": "Nguồn",
     "review_fhir": "FHIR: {{url}}",
-    "review_file": "Tải tệp lên",
     "review_patient": "Mã bệnh nhân",
     "review_format": "Định dạng",
     "review_summary": "Kèm tóm tắt",
@@ -76,21 +108,47 @@
     "no": "Không",
     "exporting": "Đang xuất…",
     "start_export": "Bắt đầu xuất",
-    "back_to_dashboard": "Về Dashboard",
+    "back_to_dashboard": "Về trang Tổng quan",
     "new_export": "Xuất mới"
+  },
+  "connector": {
+    "fhir_url": "URL máy chủ FHIR",
+    "client_id": "Client ID",
+    "client_id_placeholder": "Không bắt buộc — dùng cho SMART on FHIR",
+    "client_secret": "Client Secret",
+    "client_secret_placeholder": "Không bắt buộc",
+    "test": "Kiểm tra kết nối",
+    "testing": "Đang kiểm tra…",
+    "test_failed": "Kết nối thất bại"
   },
   "import": {
     "title": "Nhập tệp",
-    "description": "Tải lên CSV, XLSX hoặc FHIR JSON và ánh xạ sang FHIR R4",
-    "preview": "Xem trước",
-    "rows_columns": "{{rows}} dòng · {{columns}} cột",
-    "map_columns": "Ánh xạ cột sang FHIR",
-    "start_import": "Bắt đầu nhập",
+    "description": "Chuyển file CSV hoặc Excel xuất từ HIS thành bundle FHIR R4 bằng file ánh xạ cột",
     "processing": "Đang xử lý nhập…",
-    "started": "Đã bắt đầu nhập",
-    "job_id": "Mã tác vụ: {{id}}",
+    "complete": "Nhập hoàn tất",
+    "complete_count_other": "Nhập hoàn tất — đã xử lý {{count, number}} tài nguyên",
     "import_another": "Nhập tệp khác",
-    "failed": "Nhập thất bại"
+    "failed": "Nhập thất bại",
+    "mapping_label": "Ánh xạ cột (column mapping)",
+    "mapping_help": "Cho FHIRBridge biết cột nào chứa trường FHIR nào. Bắt đầu từ một mẫu có sẵn hoặc tải lên file JSON của bạn.",
+    "mapping_docs": "Hướng dẫn định dạng ánh xạ",
+    "preset": {
+      "vn": "Việt Nam — CSV bệnh viện (VneID)",
+      "kr": "Hàn Quốc — CSV bệnh viện (bảo vệ số RRN)",
+      "jp": "Nhật Bản — Excel phòng khám",
+      "generic": "Quốc tế — CSV kiểu HL7",
+      "custom": "Ánh xạ tự tạo (file JSON)…"
+    },
+    "mapping_file_label": "File ánh xạ (.json)",
+    "data_file_label": "File dữ liệu",
+    "use_sample": "Dùng thử dữ liệu mẫu ({{file}})",
+    "sample_failed": "Không tải được file mẫu.",
+    "mapping_required": "Hãy chọn ánh xạ cột trước.",
+    "file_required": "Hãy chọn file CSV hoặc Excel trước.",
+    "mapping_invalid_json": "File ánh xạ không phải JSON hợp lệ.",
+    "start": "Nhập dữ liệu",
+    "download_bundle": "Tải FHIR Bundle (JSON)",
+    "warnings_title": "Cảnh báo"
   },
   "progress": {
     "label": "Tiến trình",
@@ -101,17 +159,29 @@
     "step_complete": "Hoàn tất",
     "error_generic": "Đã xảy ra lỗi trong quá trình xuất"
   },
-  "mapper": {
-    "source_column": "Cột nguồn",
-    "fhir_path": "Đường dẫn FHIR",
-    "skip": "— Bỏ qua —",
-    "map_aria": "Ánh xạ {{col}} sang đường dẫn FHIR",
-    "duplicate_warning": "Hai hoặc nhiều cột ánh xạ tới cùng đường dẫn FHIR ({{paths}}). Chỉ một giá trị được giữ lại.",
-    "identifier_required": "Ánh xạ ít nhất một mã định danh bệnh nhân (vd. Patient.id) để tiếp tục."
-  },
   "export_result": {
     "complete": "Xuất hoàn tất",
     "patient_id_label": "Mã bệnh nhân",
     "download": "Tải FHIR Bundle (JSON)"
+  },
+  "settings": {
+    "description": "Cấu hình quyền truy cập API và tùy chọn ứng dụng",
+    "credential_heading": "API key / access token của FHIRBridge",
+    "credential_help": "Nhập một trong các API key trong biến <code>API_KEYS</code> của tệp <code>.env</code> trên máy chủ (được tạo bởi <code>pnpm run setup</code>), hoặc một access token JWT. Đây là thông tin xác thực FHIRBridge của bạn — không phải API key của nhà cung cấp AI.",
+    "credential_memory": "Chỉ lưu trong bộ nhớ — bị xóa khi bạn đóng hoặc tải lại tab này. Không bao giờ được ghi xuống ổ đĩa.",
+    "credential_label": "API key hoặc access token",
+    "credential_placeholder": "Dán API key hoặc JWT",
+    "show_key": "Hiện API key",
+    "hide_key": "Ẩn API key",
+    "language_heading": "Ngôn ngữ giao diện",
+    "language_help": "Đồng thời là ngôn ngữ mặc định cho bản tóm tắt AI.",
+    "appearance_heading": "Hiển thị",
+    "dark_mode": "Chế độ tối",
+    "light_mode": "Chế độ sáng",
+    "toggle_theme": "Bật/tắt chế độ tối",
+    "switch_to_light": "Chuyển sang chế độ sáng",
+    "switch_to_dark": "Chuyển sang chế độ tối",
+    "save": "Lưu cài đặt",
+    "saved": "Đã lưu!"
   }
 }

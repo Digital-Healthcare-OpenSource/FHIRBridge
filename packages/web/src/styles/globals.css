@@ -1,4 +1,12 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/*
+ * Tailwind v4 không đọc tailwind.config.ts nếu không có @config — khai báo trực tiếp:
+ * dark mode theo class `.dark` (nút Giao diện trong Settings) và plugin typography
+ * cho phần tóm tắt Markdown (`prose`).
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+@plugin "@tailwindcss/typography";
 
 @theme {
   --color-primary-50: #eff6ff;
@@ -33,6 +41,15 @@
   --color-accent: hsl(210 40% 96.1%);
   --color-accent-foreground: hsl(222.2 47.4% 11.2%);
 
+  /*
+   * System font stack — không tải font ngoài (Google Fonts rò IP người dùng và hỏng
+   * trên mạng bệnh viện offline). Phủ Latin + tiếng Việt + CJK (KR trước, JP sau).
+   */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial,
+    'Apple SD Gothic Neo', 'Malgun Gothic', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+    'Yu Gothic', Meiryo, 'Noto Sans CJK KR', 'Noto Sans CJK JP', sans-serif;
+
   --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -44,16 +61,22 @@
     border-color: var(--color-border);
   }
 
+  /*
+   * <html lang="ja">: đưa font Nhật lên trước font Hàn để kanji/kana không bị render
+   * bằng glyph Hàn (Han unification). <html lang> do i18n/index.ts đồng bộ.
+   */
+  html:lang(ja) {
+    --font-sans:
+      system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial,
+      'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, 'Noto Sans CJK JP',
+      'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans CJK KR', sans-serif;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-  }
-
-  /* Landing page heading font */
-  .font-outfit {
-    font-family: Outfit, system-ui, sans-serif;
   }
 }
 
@@ -75,9 +98,19 @@
   }
 
   /* Staggered children delay helpers */
-  .delay-100 { animation-delay: 100ms; }
-  .delay-200 { animation-delay: 200ms; }
-  .delay-300 { animation-delay: 300ms; }
-  .delay-400 { animation-delay: 400ms; }
-  .delay-500 { animation-delay: 500ms; }
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+  .delay-400 {
+    animation-delay: 400ms;
+  }
+  .delay-500 {
+    animation-delay: 500ms;
+  }
 }

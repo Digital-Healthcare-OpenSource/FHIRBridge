@@ -13,7 +13,7 @@ import type { Resource } from '@fhirbridge/core';
 import { promptExportOptions } from '../prompts/export-prompts.js';
 import { createProgress } from '../formatters/progress-display.js';
 import { writeOutput } from '../utils/file-writer.js';
-import { info, success, error, debug } from '../utils/logger.js';
+import { info, success, error, debug, useStderrForStatus } from '../utils/logger.js';
 import { requireProfile } from '../config/profile-store.js';
 
 export function registerExportCommand(program: Command): void {
@@ -64,6 +64,8 @@ async function runExport(opts: ExportOptions): Promise<void> {
     outputPath: opts.output ?? '',
   });
 
+  // Bundle on stdout → keep stdout pure data (status lines go to stderr).
+  useStderrForStatus(!resolved.outputPath);
   info(`Connecting to ${resolved.endpoint}`);
   debug(`Patient ID: ${resolved.patientId} | Format: ${resolved.format}`);
 

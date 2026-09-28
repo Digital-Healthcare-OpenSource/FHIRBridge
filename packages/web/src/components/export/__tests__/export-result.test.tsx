@@ -66,4 +66,10 @@ describe('ExportResult', () => {
       expect(mockDownload).toHaveBeenCalledWith('job-xyz');
     });
   });
+
+  it('omits the date instead of printing "Invalid date" when the job has no timestamps', () => {
+    render(<ExportResult job={{ ...MOCK_JOB, createdAt: undefined, updatedAt: undefined }} />);
+    expect(screen.queryByText(/invalid date/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/42 resource/i)).toBeInTheDocument();
+  });
 });

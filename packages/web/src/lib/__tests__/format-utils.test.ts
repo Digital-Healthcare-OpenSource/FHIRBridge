@@ -1,16 +1,24 @@
 /**
  * Tests for format utility functions.
+ * test-setup ép UI về 'en' — locale khác truyền tường minh hoặc đổi ngôn ngữ trong test.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import i18n from '../../i18n';
 import {
+  currentLocale,
   formatDate,
   formatFileSize,
+  formatNumber,
   maskPatientId,
   formatResourceType,
-  formatCount,
+  formatResourceCount,
   formatStatus,
 } from '../format-utils';
+
+afterEach(async () => {
+  await i18n.changeLanguage('en');
+});
 
 describe('formatDate', () => {
   it('formats a valid ISO date string', () => {
@@ -31,6 +39,36 @@ describe('formatDate', () => {
   it('includes day, month, and year', () => {
     const result = formatDate('2023-06-15T12:00:00.000Z');
     expect(result).toContain('2023');
+  });
+
+  it('follows the active UI language instead of hardcoded en-US', async () => {
+    await i18n.changeLanguage('ja');
+    const result = formatDate('2024-01-15T10:30:00.000Z');
+    expect(result).toContain('2024年');
+    expect(result).not.toMatch(/Jan/);
+  });
+
+  it('uses an explicit locale when provided', () => {
+    expect(formatDate('2024-01-15T10:30:00.000Z', 'ko')).toContain('2024년');
+  });
+
+  it('translates the invalid-date label', () => {
+    expect(formatDate('nope', 'vi')).toBe('Ngày không hợp lệ');
+  });
+});
+
+describe('currentLocale', () => {
+  it('returns the active supported language', async () => {
+    expect(currentLocale()).toBe('en');
+    await i18n.changeLanguage('ko');
+    expect(currentLocale()).toBe('ko');
+  });
+});
+
+describe('formatNumber', () => {
+  it('uses locale grouping separators', () => {
+    expect(formatNumber(1234567, 'en')).toBe('1,234,567');
+    expect(formatNumber(1234567, 'vi')).toBe('1.234.567');
   });
 });
 
@@ -62,6 +100,10 @@ describe('formatFileSize', () => {
 
   it('formats gigabytes', () => {
     expect(formatFileSize(1024 * 1024 * 1024)).toBe('1 GB');
+  });
+
+  it('uses the locale decimal separator', () => {
+    expect(formatFileSize(2560, 'vi')).toBe('2,5 KB');
   });
 });
 
@@ -100,21 +142,24 @@ describe('formatResourceType', () => {
   });
 });
 
-describe('formatCount', () => {
-  it('uses singular label for count of 1', () => {
-    expect(formatCount(1, 'resource')).toBe('1 resource');
+describe('formatResourceCount', () => {
+  it('uses singular label for count of 1 (en)', () => {
+    expect(formatResourceCount(1)).toBe('1 resource');
   });
 
-  it('pluralises with s suffix by default', () => {
-    expect(formatCount(5, 'resource')).toBe('5 resources');
+  it('pluralises for other counts (en)', () => {
+    expect(formatResourceCount(5)).toBe('5 resources');
+    expect(formatResourceCount(0)).toBe('0 resources');
   });
 
-  it('uses custom plural when provided', () => {
-    expect(formatCount(3, 'entry', 'entries')).toBe('3 entries');
+  it('formats large counts with locale separators', () => {
+    expect(formatResourceCount(12345)).toBe('12,345 resources');
   });
 
-  it('handles count of 0', () => {
-    expect(formatCount(0, 'record')).toBe('0 records');
+  it('uses the plural-less form for vi / ja / ko', () => {
+    expect(formatResourceCount(1, 'vi')).toBe('1 tài nguyên');
+    expect(formatResourceCount(3, 'ja')).toBe('3 件のリソース');
+    expect(formatResourceCount(3, 'ko')).toBe('리소스 3개');
   });
 });
 

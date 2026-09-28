@@ -13,6 +13,8 @@
   "download_failed": "ダウンロードに失敗しました。もう一度お試しください。",
   "markdown_download_failed": "Markdown のダウンロードに失敗しました。もう一度お試しください。",
   "file_rejected": "ファイルが拒否されました: {{reason}}",
+  "boundary_title": "問題が発生しました",
+  "unexpected": "予期しないエラーが発生しました",
   "validation": {
     "required": "この項目は必須です。",
     "invalid_url": "URL が無効です。",

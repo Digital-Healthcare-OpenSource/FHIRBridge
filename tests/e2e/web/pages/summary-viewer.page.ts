@@ -23,20 +23,11 @@ export class SummaryViewerPage {
     // Config section heading
     this.configSection = page.getByText(/configuration/i).first();
     // Provider select — rendered inside SummaryConfig component
-    this.providerSelect = page
-      .locator('select')
-      .filter({ hasText: /openai|anthropic|google/i })
-      .first();
+    this.providerSelect = page.locator('select#provider');
     // Language select
-    this.languageSelect = page
-      .locator('select')
-      .filter({ hasText: /english|spanish|french/i })
-      .first();
+    this.languageSelect = page.locator('select#language');
     // Detail level select
-    this.detailLevelSelect = page
-      .locator('select')
-      .filter({ hasText: /standard|brief|detailed/i })
-      .first();
+    this.detailLevelSelect = page.locator('select#detail');
     // Generate button — text changes based on state
     this.generateButton = page.getByRole('button', {
       name: /generate summary|starting|generating/i,
@@ -59,7 +50,7 @@ export class SummaryViewerPage {
     await this.page.goto(path);
   }
 
-  async selectProvider(value: 'openai' | 'anthropic' | 'google') {
+  async selectProvider(value: 'claude' | 'openai') {
     await this.providerSelect.selectOption(value);
   }
 

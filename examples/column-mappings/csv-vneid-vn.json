@@ -1,10 +1,11 @@
 {
-  "$schema": "https://github.com/tranhoangtu-it/FHIRBridge/blob/main/packages/types/src/connectors/mapping.schema.json",
-  "description": "Vietnamese hospital CSV with VneID-style identifiers and ICD-10 diagnosis codes. One row per encounter.",
+  "$schema": "./mapping.schema.json",
+  "description": "Vietnamese hospital CSV, one row per encounter, keyed by the 12-digit citizen ID (CCCD / VNeID number) with WHO ICD-10 diagnosis codes and LOINC lab results. The citizen ID is written as-is to Patient.identifier (it is not hashed at import — FHIRBridge only hashes/masks Korean RRNs there; the optional AI-summary path HMAC-hashes all identifiers). patientId.system is a placeholder namespace: replace it with your organisation's identifier system URI. Times are ICT (+07:00). Sample data: examples/data/vn-hospital.csv.",
   "patientId": {
     "column": "VNEID",
-    "system": "https://vneid.gov.vn/identifier"
+    "system": "https://fhirbridge.example/identifiers/vn-citizen-id"
   },
+  "timezone": "+07:00",
   "fields": {
     "Patient.identifier[].value": "VNEID",
     "Patient.name.family": "HoTen_Surname",
@@ -36,6 +37,11 @@
     "Condition.code.text": "ChanDoan_MoTa",
     "Observation.code.coding[].system": { "literal": "http://loinc.org" },
     "Observation.code.coding[].code": "XetNghiem_LOINC",
+    "Observation.effectiveDateTime": {
+      "column": "NgayKham",
+      "transform": "datetime",
+      "format": "DD/MM/YYYY HH:mm"
+    },
     "Observation.valueQuantity.value": "XetNghiem_KetQua",
     "Observation.valueQuantity.unit": "XetNghiem_DonVi"
   },

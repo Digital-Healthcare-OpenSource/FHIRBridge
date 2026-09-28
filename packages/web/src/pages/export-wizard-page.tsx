@@ -7,27 +7,35 @@ import { PageContainer } from '../components/layout/page-container';
 import { ConnectorForm } from '../components/export/connector-form';
 import { ExportProgress } from '../components/export/export-progress';
 import { ExportResult } from '../components/export/export-result';
-import { FileDropzone } from '../components/import/file-dropzone';
 import { useExport, type ExportStep } from '../hooks/use-export';
-import { useFileUpload } from '../hooks/use-file-upload';
 import { connectorApi } from '../api/connector-api';
 import { cn } from '../lib/utils';
 import { ROUTES } from '../lib/constants';
 import { useState } from 'react';
 import type { ExportJob } from '../api/export-api';
+import { useTranslation } from '../i18n/use-translation';
 
-const STEP_LABELS = ['Connector', 'Configure', 'Patient', 'Options', 'Review', 'Progress'] as const;
+const STEP_KEYS = [
+  'wizard.step.connector',
+  'wizard.step.configure',
+  'wizard.step.patient',
+  'wizard.step.options',
+  'wizard.step.review',
+  'wizard.step.progress',
+] as const;
 
 function StepIndicator({ current }: { current: number }) {
+  const { t } = useTranslation('common');
   return (
-    <nav aria-label="Export wizard steps" className="mb-6">
+    <nav aria-label={t('wizard.steps_aria')} className="mb-6">
       <ol className="flex items-center gap-0">
-        {STEP_LABELS.map((label, idx) => {
+        {STEP_KEYS.map((key, idx) => {
+          const label = t(key);
           const step = (idx + 1) as ExportStep;
           const done = current > step;
           const active = current === step;
           return (
-            <li key={label} className="flex items-center">
+            <li key={key} className="flex items-center" aria-current={active ? 'step' : undefined}>
               <div className="flex flex-col items-center">
                 <div
                   className={cn(
@@ -43,7 +51,7 @@ function StepIndicator({ current }: { current: number }) {
                 </div>
                 <span className="mt-1 text-xs text-gray-500 hidden sm:block">{label}</span>
               </div>
-              {idx < STEP_LABELS.length - 1 && (
+              {idx < STEP_KEYS.length - 1 && (
                 <div className={cn('h-0.5 w-8 sm:w-12', done ? 'bg-primary-600' : 'bg-gray-200')} />
               )}
             </li>
@@ -56,8 +64,9 @@ function StepIndicator({ current }: { current: number }) {
 
 export function ExportWizardPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation('common');
+  const { t: tError } = useTranslation('errors');
   const { flowState, config, updateConfig, goToStep, startExport, reset } = useExport();
-  const { upload, uploading, progress: uploadProgress } = useFileUpload();
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
   const [completedJob, setCompletedJob] = useState<ExportJob | null>(null);
@@ -76,18 +85,10 @@ export function ExportWizardPage() {
       );
       setTestResult(result);
     } catch {
-      setTestResult({ success: false, message: 'Connection failed' });
+      setTestResult({ success: false, message: t('connector.test_failed') });
     } finally {
       setTesting(false);
     }
-  };
-
-  const handleFileUpload = async (files: File[]) => {
-    const file = files[0];
-    if (!file) return;
-    // /api/v1/connectors/import — multipart CSV/FHIR upload
-    const uploaded = await upload<{ id: string }>('/v1/connectors/import', file);
-    if (uploaded) updateConfig({ fileUploadId: uploaded.id });
   };
 
   const handleStartExport = async () => {
@@ -101,7 +102,7 @@ export function ExportWizardPage() {
   }
 
   return (
-    <PageContainer title="Export FHIR Bundle" description="Follow the steps to export patient data">
+    <PageContainer title={t('wizard.title')} description={t('wizard.description')}>
       <div className="mx-auto max-w-2xl">
         <StepIndicator current={step} />
 
@@ -109,7 +110,7 @@ export function ExportWizardPage() {
         {flowState.phase === 'configuring' && flowState.step === 1 && (
           <div className="space-y-4">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
-              Select data source
+              {t('wizard.select_source')}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {(['fhir', 'file'] as const).map((type) => (
@@ -117,6 +118,12 @@ export function ExportWizardPage() {
                   key={type}
                   type="button"
                   onClick={() => {
+                    // Server exports only from FHIR endpoints; CSV / Excel files are
+                    // converted on the Import page (column mapping → FHIR bundle).
+                    if (type === 'file') {
+                      navigate(ROUTES.IMPORT);
+                      return;
+                    }
                     updateConfig({ connectorType: type });
                     goToStep(2);
                   }}
@@ -128,12 +135,12 @@ export function ExportWizardPage() {
                   )}
                 >
                   <p className="font-medium text-gray-900 dark:text-gray-100">
-                    {type === 'fhir' ? 'FHIR Endpoint' : 'File Upload'}
+                    {type === 'fhir'
+                      ? t('wizard.source_fhir_title')
+                      : t('wizard.source_file_title')}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">
-                    {type === 'fhir'
-                      ? 'Connect to a FHIR R4 server'
-                      : 'Upload CSV, XLSX or FHIR JSON'}
+                    {type === 'fhir' ? t('wizard.source_fhir_desc') : t('wizard.source_file_desc')}
                   </p>
                 </button>
               ))}
@@ -145,52 +152,39 @@ export function ExportWizardPage() {
         {flowState.phase === 'configuring' && flowState.step === 2 && (
           <div className="space-y-4">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
-              {config.connectorType === 'fhir' ? 'FHIR Connection' : 'Upload File'}
+              {t('wizard.fhir_connection')}
             </h2>
-            {config.connectorType === 'fhir' ? (
-              <ConnectorForm
-                value={{
-                  url: config.fhirUrl ?? '',
-                  clientId: config.clientId ?? '',
-                  clientSecret: config.clientSecret ?? '',
-                }}
-                onChange={(v) =>
-                  updateConfig({
-                    fhirUrl: v.url,
-                    clientId: v.clientId,
-                    clientSecret: v.clientSecret,
-                  })
-                }
-                onTest={() => void handleTestConnection()}
-                testResult={testResult}
-                testing={testing}
-              />
-            ) : (
-              <div className="space-y-3">
-                <FileDropzone
-                  onFilesAccepted={(files) => void handleFileUpload(files)}
-                  disabled={uploading}
-                />
-                {uploading && <p className="text-sm text-gray-500">Uploading… {uploadProgress}%</p>}
-                {config.fileUploadId && (
-                  <p className="text-sm text-green-600">File uploaded successfully.</p>
-                )}
-              </div>
-            )}
+            <ConnectorForm
+              value={{
+                url: config.fhirUrl ?? '',
+                clientId: config.clientId ?? '',
+                clientSecret: config.clientSecret ?? '',
+              }}
+              onChange={(v) =>
+                updateConfig({
+                  fhirUrl: v.url,
+                  clientId: v.clientId,
+                  clientSecret: v.clientSecret,
+                })
+              }
+              onTest={() => void handleTestConnection()}
+              testResult={testResult}
+              testing={testing}
+            />
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => goToStep(1)}
                 className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600"
               >
-                Back
+                {t('action.back')}
               </button>
               <button
                 type="button"
                 onClick={() => goToStep(3)}
                 className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
               >
-                Next
+                {t('action.next')}
               </button>
             </div>
           </div>
@@ -199,18 +193,20 @@ export function ExportWizardPage() {
         {/* Step 3 — Patient ID */}
         {flowState.phase === 'configuring' && flowState.step === 3 && (
           <div className="space-y-4">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Patient ID</h2>
+            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+              {t('wizard.patient_id')}
+            </h2>
             <div>
               <label
                 htmlFor="patient-id"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
               >
-                Patient identifier
+                {t('wizard.patient_identifier')}
               </label>
               <input
                 id="patient-id"
                 type="text"
-                placeholder="e.g. patient-123"
+                placeholder={t('wizard.patient_placeholder')}
                 value={config.patientId ?? ''}
                 onChange={(e) => updateConfig({ patientId: e.target.value })}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
@@ -223,7 +219,7 @@ export function ExportWizardPage() {
                 onClick={() => goToStep(2)}
                 className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600"
               >
-                Back
+                {t('action.back')}
               </button>
               <button
                 type="button"
@@ -231,7 +227,7 @@ export function ExportWizardPage() {
                 disabled={!config.patientId}
                 className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
               >
-                Next
+                {t('action.next')}
               </button>
             </div>
           </div>
@@ -241,20 +237,24 @@ export function ExportWizardPage() {
         {flowState.phase === 'configuring' && flowState.step === 4 && (
           <div className="space-y-4">
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
-              Output Options
+              {t('wizard.output_options')}
             </h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Format
+                <label
+                  htmlFor="export-format"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                >
+                  {t('wizard.format')}
                 </label>
                 <select
+                  id="export-format"
                   value={config.format}
                   onChange={(e) => updateConfig({ format: e.target.value as 'json' | 'ndjson' })}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                 >
-                  <option value="json">FHIR Bundle JSON</option>
-                  <option value="ndjson">NDJSON</option>
+                  <option value="json">{t('wizard.format_json')}</option>
+                  <option value="ndjson">{t('wizard.format_ndjson')}</option>
                 </select>
               </div>
               <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -264,7 +264,7 @@ export function ExportWizardPage() {
                   onChange={(e) => updateConfig({ includeSummary: e.target.checked })}
                   className="rounded border-gray-300"
                 />
-                Generate AI summary after export
+                {t('wizard.generate_summary')}
               </label>
             </div>
             <div className="flex gap-2">
@@ -273,14 +273,14 @@ export function ExportWizardPage() {
                 onClick={() => goToStep(3)}
                 className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600"
               >
-                Back
+                {t('action.back')}
               </button>
               <button
                 type="button"
                 onClick={() => goToStep(5)}
                 className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
               >
-                Next
+                {t('action.next')}
               </button>
             </div>
           </div>
@@ -289,16 +289,18 @@ export function ExportWizardPage() {
         {/* Step 5 — Review */}
         {flowState.phase === 'configuring' && flowState.step === 5 && (
           <div className="space-y-4">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Review</h2>
+            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+              {t('wizard.review')}
+            </h2>
             <dl className="divide-y divide-gray-100 rounded-lg border border-gray-200 dark:border-gray-700 dark:divide-gray-700 text-sm">
               {[
+                [t('wizard.review_source'), t('wizard.review_fhir', { url: config.fhirUrl ?? '' })],
+                [t('wizard.review_patient'), config.patientId ?? '—'],
+                [t('wizard.review_format'), config.format.toUpperCase()],
                 [
-                  'Source',
-                  config.connectorType === 'fhir' ? `FHIR: ${config.fhirUrl}` : 'File upload',
+                  t('wizard.review_summary'),
+                  config.includeSummary ? t('wizard.yes') : t('wizard.no'),
                 ],
-                ['Patient ID', config.patientId ?? '—'],
-                ['Format', config.format.toUpperCase()],
-                ['Include summary', config.includeSummary ? 'Yes' : 'No'],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between px-4 py-2">
                   <dt className="text-gray-500 dark:text-gray-400">{k}</dt>
@@ -314,14 +316,14 @@ export function ExportWizardPage() {
                 onClick={() => goToStep(4)}
                 className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600"
               >
-                Back
+                {t('action.back')}
               </button>
               <button
                 type="button"
                 onClick={() => void handleStartExport()}
                 className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
               >
-                Start Export
+                {t('wizard.start_export')}
               </button>
             </div>
           </div>
@@ -330,7 +332,11 @@ export function ExportWizardPage() {
         {/* Step 6 — Progress / Result */}
         {flowState.phase === 'exporting' && (
           <div className="space-y-4">
-            <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">Exporting…</h2>
+            {!completedJob && !exportError && (
+              <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                {t('wizard.exporting')}
+              </h2>
+            )}
             <ExportProgress
               jobId={flowState.jobId}
               onComplete={(job) => setCompletedJob(job)}
@@ -342,12 +348,28 @@ export function ExportWizardPage() {
         {completedJob && <ExportResult job={completedJob} className="mt-4" />}
 
         {exportError && (
-          <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+          <p
+            role="alert"
+            className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400"
+          >
             {exportError}
           </p>
         )}
 
-        {(completedJob || exportError) && (
+        {/* startExport bị từ chối (vd. 401 chưa đăng nhập) — trước đây trang trắng */}
+        {flowState.phase === 'error' && (
+          <div
+            role="alert"
+            className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400"
+          >
+            <p className="font-medium">{tError('export_failed')}</p>
+            {flowState.message && flowState.message !== tError('export_failed') && (
+              <p className="mt-1 break-words">{flowState.message}</p>
+            )}
+          </div>
+        )}
+
+        {(completedJob || exportError || flowState.phase === 'error') && (
           <div className="mt-4 flex gap-2">
             <button
               type="button"
@@ -357,7 +379,7 @@ export function ExportWizardPage() {
               }}
               className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600"
             >
-              Back to Dashboard
+              {t('wizard.back_to_dashboard')}
             </button>
             <button
               type="button"
@@ -367,7 +389,7 @@ export function ExportWizardPage() {
               }}
               className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
             >
-              New Export
+              {t('wizard.new_export')}
             </button>
           </div>
         )}

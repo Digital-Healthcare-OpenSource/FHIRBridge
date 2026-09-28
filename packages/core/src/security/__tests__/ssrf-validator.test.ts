@@ -4,8 +4,8 @@
  * decimal/hex/octal IP encoding, userinfo bypass, IPv6 attacks.
  */
 
-import { describe, it, expect } from 'vitest';
-import { validateBaseUrl } from '../ssrf-validator.js';
+import { describe, it, expect, afterEach } from 'vitest';
+import { validateBaseUrl, validateBaseUrlWithDns } from '../ssrf-validator.js';
 
 // Helper: expect blocked
 function expectBlocked(url: string) {
@@ -116,5 +116,89 @@ describe('validateBaseUrl — result shape', () => {
     expect(result.ok).toBe(true);
     // Không có reason field khi ok
     expect((result as Record<string, unknown>)['reason']).toBeUndefined();
+  });
+});
+
+describe('CONNECTOR_ALLOWED_HOSTS operator allowlist', () => {
+  const saved = process.env['CONNECTOR_ALLOWED_HOSTS'];
+  afterEach(() => {
+    if (saved === undefined) delete process.env['CONNECTOR_ALLOWED_HOSTS'];
+    else process.env['CONNECTOR_ALLOWED_HOSTS'] = saved;
+  });
+
+  it('blocks a private HIS by default and tells the operator how to allow it', () => {
+    delete process.env['CONNECTOR_ALLOWED_HOSTS'];
+    const result = validateBaseUrl('http://10.20.1.5/fhir');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/CONNECTOR_ALLOWED_HOSTS/);
+  });
+
+  it('allows IPv4 literals inside an allowlisted CIDR only', () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] = '10.20.0.0/16';
+    expect(validateBaseUrl('http://10.20.1.5/fhir').ok).toBe(true);
+    expect(validateBaseUrl('http://10.21.0.1/fhir').ok).toBe(false);
+    expect(validateBaseUrl('http://192.168.1.10/fhir').ok).toBe(false);
+  });
+
+  it('allows an exact hostname or IP entry', () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] = ' HIS.Hospital.local , 192.168.1.10 ';
+    expect(validateBaseUrl('https://his.hospital.local/fhir/R4').ok).toBe(true);
+    expect(validateBaseUrl('http://192.168.1.10:8080/fhir').ok).toBe(true);
+    expect(validateBaseUrl('http://192.168.1.11:8080/fhir').ok).toBe(false);
+  });
+
+  it('allows localhost only when explicitly listed', async () => {
+    delete process.env['CONNECTOR_ALLOWED_HOSTS'];
+    expect(validateBaseUrl('http://localhost:8090/fhir').ok).toBe(false);
+    process.env['CONNECTOR_ALLOWED_HOSTS'] = 'localhost';
+    expect(validateBaseUrl('http://localhost:8090/fhir').ok).toBe(true);
+    expect((await validateBaseUrlWithDns('http://localhost:8090/fhir')).ok).toBe(true);
+  });
+
+  it('allows loopback IP literals when their CIDR is listed', () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] = '127.0.0.0/8';
+    expect(validateBaseUrl('http://127.0.0.1:8090/fhir').ok).toBe(true);
+  });
+
+  it('never re-opens cloud metadata or link-local, even when listed', async () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] =
+      '169.254.169.254,169.254.0.0/16,0.0.0.0/0,metadata.google.internal';
+    expect(validateBaseUrl('http://169.254.169.254/latest/meta-data').ok).toBe(false);
+    expect(validateBaseUrl('http://metadata.google.internal/').ok).toBe(false);
+    expect(validateBaseUrl('http://0xa9fea9fe/').ok).toBe(false); // hex-encoded
+    expect(validateBaseUrl('http://2852039166/').ok).toBe(false); // 169.254.169.254 as decimal
+  });
+
+  it('never re-opens metadata through IPv6 forms, even when listed', () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] =
+      '::ffff:a9fe:a9fe,::ffff:169.254.169.254,fd00:ec2::254';
+    expect(validateBaseUrl('http://[::ffff:169.254.169.254]/').ok).toBe(false);
+    expect(validateBaseUrl('http://[::ffff:a9fe:a9fe]/').ok).toBe(false);
+    expect(validateBaseUrl('http://[fd00:ec2::254]/').ok).toBe(false);
+    expect(validateBaseUrl('http://[fe80::1]/').ok).toBe(false);
+  });
+
+  it('still allows an explicitly listed private IPv6 HIS address', () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] = 'fd12:3456::10';
+    expect(validateBaseUrl('http://[fd12:3456::10]:8080/fhir').ok).toBe(true);
+    expect(validateBaseUrl('http://[fd12:3456::11]:8080/fhir').ok).toBe(false);
+  });
+});
+
+describe('CONNECTOR_ALLOWED_HOSTS host:port entries', () => {
+  const saved = process.env['CONNECTOR_ALLOWED_HOSTS'];
+  afterEach(() => {
+    if (saved === undefined) delete process.env['CONNECTOR_ALLOWED_HOSTS'];
+    else process.env['CONNECTOR_ALLOWED_HOSTS'] = saved;
+  });
+
+  it('opens only the listed port', async () => {
+    process.env['CONNECTOR_ALLOWED_HOSTS'] = 'localhost:8090,10.0.0.5:443';
+    expect(validateBaseUrl('http://localhost:8090/fhir').ok).toBe(true);
+    expect(validateBaseUrl('http://localhost:3001/api').ok).toBe(false);
+    expect(validateBaseUrl('https://10.0.0.5/fhir').ok).toBe(true); // default https port
+    expect(validateBaseUrl('http://10.0.0.5/fhir').ok).toBe(false); // port 80 not listed
+    expect((await validateBaseUrlWithDns('http://localhost:8090/fhir')).ok).toBe(true);
+    expect((await validateBaseUrlWithDns('http://localhost:6379/')).ok).toBe(false);
   });
 });

@@ -233,3 +233,57 @@ describe('ExcelConnector', () => {
     });
   });
 });
+
+describe('ExcelConnector.streamRows (raw rows for the canonical importer)', () => {
+  const JP_WORKBOOK = path.resolve(__dirname, '../../../../../examples/data/jp-clinic.xlsx');
+
+  it('reads the requested sheet and keeps Excel date cells as Date (with time)', async () => {
+    const connector = new ExcelConnector();
+    await connector.connect({ type: 'excel', filePath: JP_WORKBOOK });
+    expect(connector.getSheetNames()).toEqual(['患者', '受診']);
+
+    let headers: string[] = [];
+    const rows = [];
+    for await (const row of connector.streamRows({
+      sheet: '受診',
+      onHeaders: (h) => (headers = h),
+    })) {
+      rows.push(row);
+    }
+    await connector.disconnect();
+
+    expect(headers).toEqual(['患者番号', '受診日時', '受診区分', '診断コード', '診断名']);
+    expect(rows).toHaveLength(4);
+    expect(rows[0]!.sheet).toBe('受診');
+    expect(rows[0]!.rowNumber).toBe(2);
+    const at = rows[0]!.values['受診日時'];
+    expect(at).toBeInstanceOf(Date);
+    expect((at as Date).toISOString()).toBe('2024-03-04T09:30:00.000Z');
+  });
+
+  it('defaults to the first sheet and reports missing sheets with the available names', async () => {
+    const connector = new ExcelConnector();
+    await connector.connect({ type: 'excel', filePath: JP_WORKBOOK });
+    const first = [];
+    for await (const row of connector.streamRows()) first.push(row);
+    expect(first[0]!.sheet).toBe('患者');
+
+    await expect(async () => {
+      for await (const row of connector.streamRows({ sheet: 'Nope' })) void row;
+    }).rejects.toThrow('Sheet not found: "Nope" (workbook sheets: "患者", "受診")');
+    await connector.disconnect();
+  });
+
+  it('fetchPatientData now converts real date cells to YYYY-MM-DD (was a serial number)', async () => {
+    const connector = new ExcelConnector();
+    await connector.connect({
+      type: 'excel',
+      filePath: JP_WORKBOOK,
+      mapping: [{ sourceColumn: '生年月日', fhirPath: 'birthDate', resourceType: 'Patient' }],
+    });
+    const records = [];
+    for await (const record of connector.fetchPatientData('')) records.push(record);
+    await connector.disconnect();
+    expect(records[0]!.data['birthDate']).toBe('1980-04-01');
+  });
+});

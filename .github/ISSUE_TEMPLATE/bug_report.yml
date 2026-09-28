@@ -1,0 +1,59 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Never paste real patient data** — use the Demo HIS
+        (`pnpm demo`) or synthetic samples. Security issues: use the private advisory link instead.
+        Bạn có thể viết bằng tiếng Việt · 한국어로 작성하셔도 됩니다 · 日本語でも構いません.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. pnpm run setup && pnpm demo
+        2. Export patient demo-vn-001 …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / error messages
+      description: Redact secrets (JWT_SECRET, HMAC_SECRET, API keys) and any personal data.
+      render: text
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface
+      options: [Web UI, REST API, CLI, Docker, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run FHIRBridge?
+      options: [pnpm start / pnpm demo, docker compose, Pre-built image, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Release tag or `git rev-parse --short HEAD`.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: OS, Node.js version, browser, UI language (vi / en / ja / ko)

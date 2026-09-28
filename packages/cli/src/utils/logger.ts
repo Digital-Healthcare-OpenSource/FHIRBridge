@@ -17,6 +17,7 @@ const PREFIX = {
 
 let _verbose = false;
 let _quiet = false;
+let _statusToStderr = false;
 
 /** Configure logger verbosity flags */
 export function configureLogger(opts: { verbose?: boolean; quiet?: boolean }): void {
@@ -24,14 +25,26 @@ export function configureLogger(opts: { verbose?: boolean; quiet?: boolean }): v
   _quiet = opts.quiet ?? false;
 }
 
-/** Print informational message to stdout */
-export function info(msg: string): void {
-  if (!_quiet) process.stdout.write(`${PREFIX.info} ${msg}\n`);
+/**
+ * Send info / success / debug lines to stderr — used when a command writes its data
+ * (bundle, summary) to stdout, so `fhirbridge export … > bundle.json` stays valid JSON.
+ */
+export function useStderrForStatus(enabled: boolean): void {
+  _statusToStderr = enabled;
 }
 
-/** Print success message to stdout */
+function statusStream(): NodeJS.WriteStream {
+  return _statusToStderr ? process.stderr : process.stdout;
+}
+
+/** Print informational message to stdout (stderr when data goes to stdout) */
+export function info(msg: string): void {
+  if (!_quiet) statusStream().write(`${PREFIX.info} ${msg}\n`);
+}
+
+/** Print success message to stdout (stderr when data goes to stdout) */
 export function success(msg: string): void {
-  if (!_quiet) process.stdout.write(`${PREFIX.success} ${chalk.green(msg)}\n`);
+  if (!_quiet) statusStream().write(`${PREFIX.success} ${chalk.green(msg)}\n`);
 }
 
 /** Print warning message to stderr */
@@ -46,7 +59,7 @@ export function error(msg: string): void {
 
 /** Print debug message (only when --verbose) */
 export function debug(msg: string): void {
-  if (_verbose) process.stdout.write(`${PREFIX.debug} ${chalk.gray(msg)}\n`);
+  if (_verbose) statusStream().write(`${PREFIX.debug} ${chalk.gray(msg)}\n`);
 }
 
 /** Print plain text without prefix (for table/JSON output) */

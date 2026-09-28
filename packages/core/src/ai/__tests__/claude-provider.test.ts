@@ -143,7 +143,7 @@ describe('ClaudeProvider', () => {
       await expect(provider.generate('Prompt', GENERATE_OPTIONS)).rejects.toThrow(/refus/i);
     });
 
-    it('clamps out-of-range temperature and maxTokens before calling the API', async () => {
+    it('clamps maxTokens and never sends temperature (rejected by current models)', async () => {
       const mockCreate = await getMockCreate();
       mockCreate.mockResolvedValueOnce({
         content: [{ type: 'text', text: 'ok' }],
@@ -156,8 +156,7 @@ describe('ClaudeProvider', () => {
       await provider.generate('Prompt', { maxTokens: -5, temperature: 9 });
 
       const callArgs = mockCreate.mock.calls[0][0];
-      expect(callArgs.temperature).toBeLessThanOrEqual(1);
-      expect(callArgs.temperature).toBeGreaterThanOrEqual(0);
+      expect(callArgs).not.toHaveProperty('temperature');
       expect(callArgs.max_tokens).toBeGreaterThanOrEqual(1);
     });
 

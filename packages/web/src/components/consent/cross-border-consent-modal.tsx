@@ -10,9 +10,11 @@
 
 import { useEffect, useRef, useCallback, type KeyboardEvent } from 'react';
 import { useTranslation } from '../../i18n/use-translation';
+import { ROUTES } from '../../lib/constants';
 
-// URL tới docs self-hosted LLM — không i18n hoá vì là URL kỹ thuật cố định
-const SELF_HOST_URL = 'https://github.com/your-org/fhirbridge/blob/main/docs/deployment-guide.md';
+// URL tới hướng dẫn self-host — không i18n hoá vì là URL kỹ thuật cố định
+// (URL cũ your-org/.../docs/deployment-guide.md là placeholder 404)
+const SELF_HOST_URL = `${ROUTES.GITHUB}#self-host-deployment`;
 
 // ---------------------------------------------------------------------------
 // Props

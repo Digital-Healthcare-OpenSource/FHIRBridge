@@ -13,6 +13,8 @@
   "download_failed": "Tải xuống thất bại. Vui lòng thử lại.",
   "markdown_download_failed": "Tải Markdown thất bại. Vui lòng thử lại.",
   "file_rejected": "Tệp bị từ chối: {{reason}}",
+  "boundary_title": "Đã xảy ra sự cố",
+  "unexpected": "Đã xảy ra lỗi không mong muốn",
   "validation": {
     "required": "Trường này là bắt buộc.",
     "invalid_url": "URL không hợp lệ.",

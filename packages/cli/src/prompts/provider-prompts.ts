@@ -5,7 +5,7 @@
 import { select } from '@inquirer/prompts';
 
 export interface ProviderPromptResult {
-  provider: 'claude' | 'openai' | 'gemini';
+  provider: 'claude' | 'openai';
   language: 'en' | 'vi' | 'ja' | 'ko';
   detail: 'brief' | 'standard' | 'detailed';
 }
@@ -30,23 +30,22 @@ export async function promptProviderOptions(
   if (needsInteraction) requireTTY();
 
   const provider = (existing.provider ??
-    (await select<'claude' | 'openai' | 'gemini'>({
+    (await select<'claude' | 'openai'>({
       message: 'Select AI provider:',
       choices: [
         { name: 'Claude (Anthropic)', value: 'claude' },
-        { name: 'GPT-4 (OpenAI)', value: 'openai' },
-        { name: 'Gemini (Google)', value: 'gemini' },
+        { name: 'GPT (OpenAI)', value: 'openai' },
       ],
-    }))) as 'claude' | 'openai' | 'gemini';
+    }))) as 'claude' | 'openai';
 
   const language = (existing.language ??
     (await select<'en' | 'vi' | 'ja' | 'ko'>({
       message: 'Summary language:',
       choices: [
         { name: 'English', value: 'en' },
-        { name: 'Vietnamese', value: 'vi' },
-        { name: 'Japanese', value: 'ja' },
-        { name: 'Korean', value: 'ko' },
+        { name: 'Tiếng Việt (Vietnamese)', value: 'vi' },
+        { name: '日本語 (Japanese)', value: 'ja' },
+        { name: '한국어 (Korean)', value: 'ko' },
       ],
     }))) as 'en' | 'vi' | 'ja' | 'ko';
 

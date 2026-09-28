@@ -13,6 +13,8 @@
   "download_failed": "다운로드에 실패했습니다. 다시 시도해 주세요.",
   "markdown_download_failed": "Markdown 다운로드에 실패했습니다. 다시 시도해 주세요.",
   "file_rejected": "파일이 거부되었습니다: {{reason}}",
+  "boundary_title": "문제가 발생했습니다",
+  "unexpected": "예기치 않은 오류가 발생했습니다",
   "validation": {
     "required": "필수 입력 항목입니다.",
     "invalid_url": "유효하지 않은 URL입니다.",

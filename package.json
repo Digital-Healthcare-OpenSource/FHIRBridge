@@ -5,13 +5,13 @@
   "description": "Open-source, self-hosted FHIR R4 patient data portability tool with optional AI summaries. Hospitals and clinics pull and run it on their own infrastructure.",
   "license": "MIT",
   "author": "tranhoangtu-it",
-  "homepage": "https://github.com/tranhoangtu-it/FHIRBridge#readme",
+  "homepage": "https://github.com/Digital-Healthcare-OpenSource/FHIRBridge#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tranhoangtu-it/FHIRBridge.git"
+    "url": "git+https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git"
   },
   "bugs": {
-    "url": "https://github.com/tranhoangtu-it/FHIRBridge/issues"
+    "url": "https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/issues"
   },
   "keywords": [
     "fhir",
@@ -39,6 +39,11 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\" --ignore-path .gitignore",
     "prepare": "husky",
+    "setup": "node scripts/setup.mjs",
+    "start": "node scripts/start.mjs",
+    "demo": "node scripts/start.mjs --demo",
+    "smoke": "node --env-file=.env scripts/smoke-test.mjs",
+    "fhirbridge": "node packages/cli/bin/fhirbridge.js",
     "test:integration": "vitest run --project integration",
     "test:e2e:cli": "vitest run --project cli-e2e",
     "test:e2e": "playwright test",
@@ -84,8 +89,8 @@
       "find-my-way@>=9 <9.7.0": "9.7.0",
       "glob@>=10 <10.5.0": "10.5.0",
       "minimatch@>=9 <9.0.7": "9.0.7",
-      "fast-uri@<3.1.5": "3.1.5",
-      "fast-uri@>=4 <4.1.2": "4.1.2",
+      "fast-uri@<3.1.6": "3.1.6",
+      "fast-uri@>=4 <4.1.3": "4.1.3",
       "brace-expansion@<1.1.18": "1.1.18",
       "brace-expansion@>=2 <2.1.4": "2.1.4",
       "brace-expansion@>=3 <5.0.9": "5.0.9",

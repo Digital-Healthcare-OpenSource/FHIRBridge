@@ -1,7 +1,8 @@
 /**
  * Security tests — RRN (주민등록번호) masking, KR compliance phase 2 (PIPA).
  * Fixture CSV chứa RRN synthetic (checksum-valid) → khẳng định raw RRN không
- * xuất hiện trong: transform/export output, deidentified bundle, audit line.
+ * xuất hiện trong: transform/export output, deidentified bundle, audit line,
+ * và đường import CSV/Excel chuẩn (core importer + API response).
  */
 
 import { readFileSync } from 'node:fs';
@@ -9,8 +10,17 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, it, expect } from 'vitest';
 import type { ColumnMapping, Bundle, AuditLogEntry } from '@fhirbridge/types';
-import { mapRow, transformToFhir, deidentify, hashIdentifier, containsRrn } from '@fhirbridge/core';
+import {
+  mapRow,
+  transformToFhir,
+  deidentify,
+  hashIdentifier,
+  containsRrn,
+  importTabularFile,
+  parseMappingConfig,
+} from '@fhirbridge/core';
 import { AuditService, type AuditSink } from '../../packages/api/src/services/audit-service.js';
+import { bearerHeader, createTestServer, userJwt } from '../integration/helpers.js';
 
 const FIXTURE_PATH = fileURLToPath(
   new URL('../fixtures/csv/kr-sample-patients.csv', import.meta.url),
@@ -137,5 +147,111 @@ describe('RRN masking — audit path', () => {
       expect(line).not.toContain(rrn);
     }
     expect(containsRrn(line)).toBe(false);
+  });
+});
+
+// ── Canonical CSV/Excel import (parseMappingConfig + importTabularFile + API) ──
+
+const KR_EXAMPLE_DATA = fileURLToPath(
+  new URL('../../examples/data/kr-hospital.csv', import.meta.url),
+);
+const KR_EXAMPLE_MAPPING = fileURLToPath(
+  new URL('../../examples/column-mappings/csv-korea-hospital.json', import.meta.url),
+);
+const KR_EXAMPLE_RRNS = ['800101-1234560', '900202-2345679', '750505-1345673'];
+
+/** Canonical mapping for the legacy KR fixture (성명 = full name, used as family). */
+const FIXTURE_CANONICAL_MAPPING = {
+  patientId: { column: '환자ID', system: 'urn:example:kr-mrn' },
+  fields: {
+    'Patient.identifier[].value': '주민등록번호',
+    'Patient.name.family': '성명',
+    'Patient.birthDate': '생년월일',
+    'Patient.gender': '성별',
+    'Condition.code.coding[].code': '진단코드',
+    'Condition.code.text': '진단명',
+  },
+};
+
+function expectNoRrn(output: string, rrns: string[]) {
+  for (const rrn of rrns) {
+    expect(output).not.toContain(rrn);
+    expect(output).not.toContain(rrn.replace('-', ''));
+  }
+  expect(containsRrn(output)).toBe(false);
+}
+
+describe('RRN masking — canonical import path', () => {
+  it('example sample data really contains checksum-valid RRNs', () => {
+    expect(containsRrn(readFileSync(KR_EXAMPLE_DATA, 'utf8'))).toBe(true);
+  });
+
+  it('KR example: hashed with secret, masked without — never raw', async () => {
+    const mapping = parseMappingConfig(readFileSync(KR_EXAMPLE_MAPPING, 'utf8'));
+    const hashed = await importTabularFile({
+      filePath: KR_EXAMPLE_DATA,
+      mapping,
+      rrnSecret: HMAC_SECRET,
+    });
+    expectNoRrn(JSON.stringify(hashed.bundle), KR_EXAMPLE_RRNS);
+    expect(JSON.stringify(hashed.bundle)).not.toContain('######-*******');
+    expect(hashed.resourceCount).toBeGreaterThan(0);
+
+    const masked = await importTabularFile({ filePath: KR_EXAMPLE_DATA, mapping });
+    expectNoRrn(JSON.stringify(masked.bundle), KR_EXAMPLE_RRNS);
+    expect(JSON.stringify(masked.bundle)).toContain('######-*******');
+  });
+
+  it('legacy KR fixture through a canonical mapping: bundle and issues are RRN-free', async () => {
+    const mapping = parseMappingConfig(FIXTURE_CANONICAL_MAPPING);
+    for (const rrnSecret of [HMAC_SECRET, undefined]) {
+      const result = await importTabularFile({ filePath: FIXTURE_PATH, mapping, rrnSecret });
+      expect(result.stats.resourcesByType).toEqual({ Patient: 3, Condition: 3 });
+      expectNoRrn(JSON.stringify(result.bundle), FIXTURE_RRNS);
+      expectNoRrn(JSON.stringify(result.issues), FIXTURE_RRNS);
+    }
+  });
+
+  it('RRN used as patientId and in free text is protected too', async () => {
+    const mapping = parseMappingConfig({
+      patientId: '주민등록번호',
+      fields: { 'Patient.name.family': '성명', 'Condition.code.text': '주민등록번호' },
+    });
+    const result = await importTabularFile({
+      filePath: FIXTURE_PATH,
+      mapping,
+      rrnSecret: HMAC_SECRET,
+    });
+    expect(result.resourceCount).toBe(6);
+    expectNoRrn(JSON.stringify(result.bundle), FIXTURE_RRNS);
+  });
+
+  it('API import response never contains a raw RRN', async () => {
+    const server = await createTestServer();
+    try {
+      const boundary = 'rrn-boundary';
+      const body = Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="kr.csv"\r\nContent-Type: text/csv\r\n\r\n`,
+        ),
+        readFileSync(KR_EXAMPLE_DATA),
+        Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="mapping"\r\n\r\n`),
+        readFileSync(KR_EXAMPLE_MAPPING),
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]);
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/v1/connectors/import',
+        headers: {
+          authorization: bearerHeader(userJwt()),
+          'content-type': `multipart/form-data; boundary=${boundary}`,
+        },
+        payload: body,
+      });
+      expect(res.statusCode).toBe(200);
+      expectNoRrn(res.body, KR_EXAMPLE_RRNS);
+    } finally {
+      await server.close();
+    }
   });
 });

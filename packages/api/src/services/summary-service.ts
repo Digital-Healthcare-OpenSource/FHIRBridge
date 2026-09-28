@@ -6,7 +6,12 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { ProviderGateway, formatMarkdown } from '@fhirbridge/core';
+import {
+  CLAUDE_DEFAULT_MODEL,
+  OPENAI_DEFAULT_MODEL,
+  ProviderGateway,
+  formatMarkdown,
+} from '@fhirbridge/core';
 import type { Bundle, SummaryConfig, PatientSummary } from '@fhirbridge/types';
 import type { IRedisStore } from './redis-store.js';
 import type { AuditService } from './audit-service.js';
@@ -46,15 +51,41 @@ function resolveProvider(provider?: string): 'claude' | 'openai' {
   return 'claude';
 }
 
+/**
+ * Provider credentials + model pins. Comes from the validated ApiConfig (the same
+ * source the summary route checks before accepting a job) — never read ad hoc from
+ * process.env here, so a 202 can't turn into a job that has no key.
+ */
+export interface SummaryAiSettings {
+  anthropicApiKey?: string;
+  openaiApiKey?: string;
+  anthropicModel?: string;
+  openaiModel?: string;
+}
+
+/** Pick the AI settings out of an ApiConfig-shaped object. */
+export function summaryAiSettings(config: SummaryAiSettings): SummaryAiSettings {
+  return {
+    anthropicApiKey: config.anthropicApiKey,
+    openaiApiKey: config.openaiApiKey,
+    anthropicModel: config.anthropicModel,
+    openaiModel: config.openaiModel,
+  };
+}
+
 function buildSummaryConfig(
   options: SummaryRequestOptions = {},
   hmacSecret: string,
+  ai: SummaryAiSettings,
 ): SummaryConfig {
   const providerName = resolveProvider(options.provider);
-  const apiKey =
+  const apiKey = (providerName === 'openai' ? ai.openaiApiKey : ai.anthropicApiKey) ?? '';
+  // Operators pin a model per provider (ANTHROPIC_MODEL / OPENAI_MODEL); the
+  // defaults live in core so API and CLI never drift apart.
+  const model =
     providerName === 'openai'
-      ? (process.env['OPENAI_API_KEY'] ?? '')
-      : (process.env['ANTHROPIC_API_KEY'] ?? '');
+      ? (ai.openaiModel ?? OPENAI_DEFAULT_MODEL)
+      : (ai.anthropicModel ?? CLAUDE_DEFAULT_MODEL);
 
   return {
     language: options.language ?? 'en',
@@ -63,20 +94,31 @@ function buildSummaryConfig(
     hmacSecret,
     providerConfig: {
       provider: providerName,
-      model: providerName === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-20250514',
+      model,
       apiKey,
-      maxTokens: 2048,
-      // Clinical: deterministic output — không để model bịa/biến thiên trên nội dung y khoa.
+      // Headroom for current models, whose (adaptive) reasoning counts toward
+      // max_tokens — a tight cap truncated section summaries mid-sentence.
+      maxTokens: 16000,
+      // Clinical: deterministic output where the provider supports it (OpenAI).
+      // Current Claude models reject sampling params; ClaudeProvider omits it.
       temperature: 0,
-      timeoutMs: 30000,
+      // Background job — allow for reasoning time instead of failing at 30s.
+      timeoutMs: 120_000,
     },
   };
 }
 
 export class SummaryService {
   private readonly store: JobRecordStore<SummaryRecord>;
+  private readonly ai: SummaryAiSettings;
 
-  constructor(redisStore?: IRedisStore, auditService?: AuditService, auditHashSalt?: string) {
+  constructor(
+    redisStore?: IRedisStore,
+    auditService?: AuditService,
+    auditHashSalt?: string,
+    ai: SummaryAiSettings = {},
+  ) {
+    this.ai = ai;
     const hashKey =
       auditHashSalt ?? process.env['HMAC_SECRET'] ?? 'dev-only-fallback-salt-32-chars-min';
 
@@ -134,7 +176,7 @@ export class SummaryService {
     }
 
     try {
-      const config = buildSummaryConfig(request.summaryConfig, request.hmacSecret);
+      const config = buildSummaryConfig(request.summaryConfig, request.hmacSecret, this.ai);
       const gateway = new ProviderGateway(config);
       const summary = await gateway.summarize(request.bundle, config);
 

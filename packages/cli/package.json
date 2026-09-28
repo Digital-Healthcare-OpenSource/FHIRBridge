@@ -6,7 +6,7 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "fhirbridge": "./dist/index.js"
+    "fhirbridge": "./bin/fhirbridge.js"
   },
   "exports": {
     ".": {

@@ -1,20 +1,32 @@
 {
+  "app": {
+    "loading": "読み込み中…",
+    "skip_to_content": "メインコンテンツへスキップ"
+  },
   "nav": {
     "dashboard": "ダッシュボード",
     "export": "データエクスポート",
     "import": "データインポート",
     "settings": "設定",
-    "summary": "AI 要約"
+    "summary": "AI 要約",
+    "main_aria": "メインナビゲーション",
+    "breadcrumb_aria": "パンくずリスト"
   },
   "status": {
     "checking": "確認中…",
     "api_online": "API オンライン",
     "api_offline": "API オフライン"
   },
+  "job_status": {
+    "pending": "待機中",
+    "processing": "処理中",
+    "running": "実行中",
+    "generating": "生成中",
+    "complete": "完了",
+    "error": "エラー"
+  },
   "language": {
-    "label": "言語",
-    "vi": "Tiếng Việt",
-    "en": "English"
+    "label": "言語"
   },
   "action": {
     "cancel": "キャンセル",
@@ -24,17 +36,41 @@
     "retry": "再試行",
     "back": "戻る",
     "next": "次へ",
-    "try_again": "もう一度試す"
+    "try_again": "もう一度試す",
+    "refresh": "更新"
   },
   "toast": {
     "dismiss": "通知を閉じる"
   },
+  "format": {
+    "invalid_date": "無効な日付",
+    "resource_count_other": "{{count, number}} 件のリソース"
+  },
   "dropzone": {
     "instruction": "ドラッグ＆ドロップ、またはクリックしてアップロード",
     "drop_here": "ここにファイルをドロップ",
-    "hint": "CSV、XLSX または FHIR JSON · 最大 {{size}}",
+    "hint": "CSV または XLSX · 最大 {{size}}",
     "input_label": "ファイルアップロード",
     "remove_label": "ファイルを削除"
+  },
+  "dashboard": {
+    "description": "最近のアクティビティとクイックアクション",
+    "api_status": "API ステータス:",
+    "health": {
+      "ok": "正常",
+      "degraded": "低下",
+      "error": "エラー"
+    },
+    "new_export": "新規エクスポート",
+    "new_export_desc": "患者の FHIR バンドルをエクスポート",
+    "import_file": "ファイルをインポート",
+    "import_file_desc": "CSV / Excel / FHIR JSON をアップロード",
+    "recent_exports": "最近のエクスポート",
+    "empty": "エクスポートはまだありません。「新規エクスポート」から始めてください。",
+    "col_date": "日時",
+    "col_patient": "患者 ID",
+    "col_resources": "リソース",
+    "col_status": "ステータス"
   },
   "wizard": {
     "title": "FHIR Bundle をエクスポート",
@@ -54,9 +90,6 @@
     "source_file_title": "ファイルアップロード",
     "source_file_desc": "CSV、XLSX または FHIR JSON をアップロード",
     "fhir_connection": "FHIR 接続",
-    "upload_file": "ファイルをアップロード",
-    "uploading": "アップロード中… {{progress}}%",
-    "file_uploaded": "ファイルのアップロードが完了しました。",
     "patient_id": "患者 ID",
     "patient_identifier": "患者識別子",
     "patient_placeholder": "例: patient-123",
@@ -68,7 +101,6 @@
     "review": "確認",
     "review_source": "ソース",
     "review_fhir": "FHIR: {{url}}",
-    "review_file": "ファイルアップロード",
     "review_patient": "患者 ID",
     "review_format": "形式",
     "review_summary": "要約を含める",
@@ -79,18 +111,44 @@
     "back_to_dashboard": "ダッシュボードに戻る",
     "new_export": "新規エクスポート"
   },
+  "connector": {
+    "fhir_url": "FHIR サーバー URL",
+    "client_id": "クライアント ID",
+    "client_id_placeholder": "任意 — SMART on FHIR 用",
+    "client_secret": "クライアントシークレット",
+    "client_secret_placeholder": "任意",
+    "test": "接続テスト",
+    "testing": "テスト中…",
+    "test_failed": "接続に失敗しました"
+  },
   "import": {
     "title": "ファイルをインポート",
-    "description": "CSV、XLSX または FHIR JSON をアップロードし、FHIR R4 にマッピングします",
-    "preview": "プレビュー",
-    "rows_columns": "{{rows}} 行 · {{columns}} 列",
-    "map_columns": "列を FHIR にマッピング",
-    "start_import": "インポートを開始",
+    "description": "HIS から出力した CSV または Excel ファイルを、カラムマッピングで FHIR R4 バンドルに変換します",
     "processing": "インポートを処理中…",
-    "started": "インポートを開始しました",
-    "job_id": "ジョブ ID: {{id}}",
+    "complete": "インポート完了",
+    "complete_count_other": "インポート完了 — {{count, number}} 件のリソースを処理しました",
     "import_another": "別のファイルをインポート",
-    "failed": "インポートに失敗しました"
+    "failed": "インポートに失敗しました",
+    "mapping_label": "カラムマッピング",
+    "mapping_help": "どの列がどの FHIR 項目かを FHIRBridge に伝えます。サンプルから始めるか、独自の JSON をアップロードしてください。",
+    "mapping_docs": "マッピング形式のガイド",
+    "preset": {
+      "vn": "ベトナム — 病院 CSV (VneID)",
+      "kr": "韓国 — 病院 CSV (住民登録番号を保護)",
+      "jp": "日本 — クリニック Excel",
+      "generic": "国際 — HL7 形式 CSV",
+      "custom": "カスタムマッピング (JSON ファイル)…"
+    },
+    "mapping_file_label": "マッピングファイル (.json)",
+    "data_file_label": "データファイル",
+    "use_sample": "サンプルデータで試す ({{file}})",
+    "sample_failed": "サンプルファイルを読み込めませんでした。",
+    "mapping_required": "先にカラムマッピングを選択してください。",
+    "file_required": "先に CSV または Excel ファイルを選択してください。",
+    "mapping_invalid_json": "マッピングファイルが正しい JSON ではありません。",
+    "start": "インポート",
+    "download_bundle": "FHIR バンドルをダウンロード (JSON)",
+    "warnings_title": "警告"
   },
   "progress": {
     "label": "進行状況",
@@ -101,17 +159,29 @@
     "step_complete": "完了",
     "error_generic": "エクスポート中にエラーが発生しました"
   },
-  "mapper": {
-    "source_column": "ソース列",
-    "fhir_path": "FHIR パス",
-    "skip": "— スキップ —",
-    "map_aria": "{{col}} を FHIR パスにマッピング",
-    "duplicate_warning": "2 つ以上の列が同じ FHIR パス（{{paths}}）にマッピングされています。保持される値は 1 つのみです。",
-    "identifier_required": "続行するには、少なくとも患者識別子（例: Patient.id）をマッピングしてください。"
-  },
   "export_result": {
     "complete": "エクスポート完了",
     "patient_id_label": "患者 ID",
     "download": "FHIR Bundle をダウンロード (JSON)"
+  },
+  "settings": {
+    "description": "API へのアクセスとアプリケーションの設定を行います",
+    "credential_heading": "FHIRBridge API キー / アクセストークン",
+    "credential_help": "サーバーの <code>.env</code> ファイルにある <code>API_KEYS</code> の API キー（<code>pnpm run setup</code> で生成）のいずれか、または JWT アクセストークンを入力してください。これは FHIRBridge の認証情報であり、AI プロバイダーの API キーではありません。",
+    "credential_memory": "メモリ上にのみ保持され、このタブを閉じるか再読み込みすると消去されます。ディスクに保存されることはありません。",
+    "credential_label": "API キーまたはアクセストークン",
+    "credential_placeholder": "API キーまたは JWT を貼り付け",
+    "show_key": "API キーを表示",
+    "hide_key": "API キーを隠す",
+    "language_heading": "表示言語",
+    "language_help": "AI 要約の既定の言語としても使用されます。",
+    "appearance_heading": "外観",
+    "dark_mode": "ダークモード",
+    "light_mode": "ライトモード",
+    "toggle_theme": "ダークモードの切り替え",
+    "switch_to_light": "ライトモードに切り替え",
+    "switch_to_dark": "ダークモードに切り替え",
+    "save": "設定を保存",
+    "saved": "保存しました！"
   }
 }

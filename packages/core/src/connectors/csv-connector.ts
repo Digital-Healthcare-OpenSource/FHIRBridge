@@ -8,12 +8,22 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { pipeline } from 'node:stream';
 import { parse } from 'csv-parse';
 import iconv from 'iconv-lite';
 import type { ConnectorConfig, FileImportConfig } from '@fhirbridge/types';
-import type { HisConnector, RawRecord, ConnectionStatus } from './his-connector-interface.js';
+import type {
+  HisConnector,
+  RawRecord,
+  ConnectionStatus,
+  SourceRow,
+  StreamRowsOptions,
+} from './his-connector-interface.js';
 import { ConnectorError } from './his-connector-interface.js';
 import { mapRow } from './column-mapper.js';
+
+/** Data-row ceiling for streamRows() — mirrors ExcelConnector's workbook row ceiling. */
+const MAX_CSV_ROWS = 1_000_000;
 
 export class CsvConnector implements HisConnector {
   readonly type = 'csv' as const;
@@ -99,10 +109,60 @@ export class CsvConnector implements HisConnector {
         continue;
       }
 
-      const records = mapRow(typedRow, mapping, source, rowIndex);
+      const records = mapRow(typedRow, mapping ?? [], source, rowIndex);
       for (const record of records) {
         yield record;
       }
+    }
+  }
+
+  /**
+   * Stream raw rows (header → keys) without any mapping — input for the
+   * canonical import transformer. `rowNumber` = physical line of the record
+   * (header = line 1). Parse errors propagate; source-stream errors destroy the
+   * parser (không treo for-await).
+   */
+  async *streamRows(options: StreamRowsOptions = {}): AsyncGenerator<SourceRow> {
+    if (!this.config) {
+      throw new ConnectorError('Call connect() before streamRows()', 'NOT_CONNECTED');
+    }
+    const { filePath, delimiter, encoding, headerRow } = this.config;
+
+    const parser = parse({
+      delimiter: delimiter ?? ',',
+      columns: (header: string[]) => {
+        options.onHeaders?.(header.map(String));
+        return header;
+      },
+      from_line: (headerRow ?? 0) + 1,
+      skip_empty_lines: true,
+      trim: true,
+      bom: true,
+      info: true,
+    });
+    pipeline(
+      fs.createReadStream(filePath),
+      iconv.decodeStream(resolveIconvEncoding(encoding)),
+      parser,
+      () => {
+        // Lỗi (nếu có) đã được pipeline chuyển vào parser → for-await bên dưới reject.
+      },
+    );
+
+    // Row ceiling (like ExcelConnector): a huge file of unmapped rows must fail fast
+    // instead of being transformed row by row until the import finally reports nothing.
+    const maxRows = options.maxRows ?? MAX_CSV_ROWS;
+    let rowCount = 0;
+    for await (const item of parser) {
+      if (++rowCount > maxRows) {
+        parser.destroy();
+        throw new ConnectorError('Row count ceiling exceeded', 'ROW_LIMIT');
+      }
+      const { record, info } = item as {
+        record: Record<string, unknown>;
+        info: { lines: number };
+      };
+      yield { rowNumber: info.lines, values: record };
     }
   }
 

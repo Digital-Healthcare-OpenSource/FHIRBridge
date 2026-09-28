@@ -54,12 +54,37 @@ export {
 export { transformToFhir } from './pipeline/resource-transformer.js';
 export { TransformPipeline, arrayToAsyncIterable } from './pipeline/transform-pipeline.js';
 export type { RawRecord, MappingConfig, PipelineConfig } from './pipeline/index.js';
+// CSV/Excel import — canonical column mapping ("fields") → FHIR
+export {
+  RowTransformer,
+  transformRows,
+  formatImportIssue,
+  deterministicUuid,
+  importTabularFile,
+  detectTabularFileType,
+  assertTabularContent,
+  TabularImportError,
+} from './pipeline/index.js';
+export type {
+  TabularRow,
+  ImportIssue,
+  ImportStats,
+  TransformedResource,
+  RowTransformerOptions,
+  TabularFileType,
+  TabularImportOptions,
+  TabularImportResult,
+  TabularImportErrorCode,
+} from './pipeline/index.js';
 
 // ── HIS Connectors ───────────────────────────────────────────────────────────
 export type {
   HisConnector,
   ConnectionStatus,
   RawRecord as ConnectorRawRecord,
+  SourceRow,
+  StreamRowsOptions,
+  ParseMappingOptions,
 } from './connectors/index.js';
 export {
   ConnectorError,
@@ -68,6 +93,13 @@ export {
   ExcelConnector,
 } from './connectors/index.js';
 export { mapRow, withRetry, isRetryable } from './connectors/index.js';
+export {
+  parseMappingConfig,
+  MappingConfigError,
+  FIELD_TRANSFORMS,
+  SUPPORTED_RESOURCE_TYPES,
+  DATE_FORMAT_TOKENS,
+} from './connectors/index.js';
 export type { RetryOptions } from './connectors/index.js';
 
 // ── AI Summary Engine ────────────────────────────────────────────────────────
@@ -108,3 +140,8 @@ export {
   getCodesForSystem,
 } from './coding/index.js';
 export type { CodeInfo } from './coding/index.js';
+export {
+  ICD10_SYSTEM,
+  CONDITION_CATEGORY_SYSTEM,
+  V3_NULL_FLAVOR_SYSTEM,
+} from './coding/code-systems.js';

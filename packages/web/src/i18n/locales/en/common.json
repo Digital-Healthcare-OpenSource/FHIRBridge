@@ -1,20 +1,32 @@
 {
+  "app": {
+    "loading": "Loading…",
+    "skip_to_content": "Skip to main content"
+  },
   "nav": {
     "dashboard": "Dashboard",
-    "export": "Export Data",
-    "import": "Import Data",
+    "export": "Export",
+    "import": "Import",
     "settings": "Settings",
-    "summary": "AI Summary"
+    "summary": "AI Summary",
+    "main_aria": "Main navigation",
+    "breadcrumb_aria": "Breadcrumb"
   },
   "status": {
     "checking": "Checking…",
     "api_online": "API online",
     "api_offline": "API offline"
   },
+  "job_status": {
+    "pending": "Pending",
+    "processing": "Processing",
+    "running": "Running",
+    "generating": "Generating",
+    "complete": "Complete",
+    "error": "Error"
+  },
   "language": {
-    "label": "Language",
-    "vi": "Tiếng Việt",
-    "en": "English"
+    "label": "Language"
   },
   "action": {
     "cancel": "Cancel",
@@ -24,17 +36,42 @@
     "retry": "Retry",
     "back": "Back",
     "next": "Next",
-    "try_again": "Try again"
+    "try_again": "Try again",
+    "refresh": "Refresh"
   },
   "toast": {
     "dismiss": "Dismiss notification"
   },
+  "format": {
+    "invalid_date": "Invalid date",
+    "resource_count_one": "{{count, number}} resource",
+    "resource_count_other": "{{count, number}} resources"
+  },
   "dropzone": {
     "instruction": "Drag & drop or click to upload",
     "drop_here": "Drop the file here",
-    "hint": "CSV, XLSX or FHIR JSON · max {{size}}",
+    "hint": "CSV or XLSX · max {{size}}",
     "input_label": "File upload",
     "remove_label": "Remove file"
+  },
+  "dashboard": {
+    "description": "Recent activity and quick actions",
+    "api_status": "API status:",
+    "health": {
+      "ok": "OK",
+      "degraded": "Degraded",
+      "error": "Error"
+    },
+    "new_export": "New Export",
+    "new_export_desc": "Export a patient's FHIR bundle",
+    "import_file": "Import File",
+    "import_file_desc": "Upload CSV / Excel / FHIR JSON",
+    "recent_exports": "Recent Exports",
+    "empty": "No exports yet. Start with \"New Export\".",
+    "col_date": "Date",
+    "col_patient": "Patient ID",
+    "col_resources": "Resources",
+    "col_status": "Status"
   },
   "wizard": {
     "title": "Export FHIR Bundle",
@@ -54,9 +91,6 @@
     "source_file_title": "File Upload",
     "source_file_desc": "Upload CSV, XLSX or FHIR JSON",
     "fhir_connection": "FHIR Connection",
-    "upload_file": "Upload File",
-    "uploading": "Uploading… {{progress}}%",
-    "file_uploaded": "File uploaded successfully.",
     "patient_id": "Patient ID",
     "patient_identifier": "Patient identifier",
     "patient_placeholder": "e.g. patient-123",
@@ -68,7 +102,6 @@
     "review": "Review",
     "review_source": "Source",
     "review_fhir": "FHIR: {{url}}",
-    "review_file": "File upload",
     "review_patient": "Patient ID",
     "review_format": "Format",
     "review_summary": "Include summary",
@@ -79,18 +112,45 @@
     "back_to_dashboard": "Back to Dashboard",
     "new_export": "New Export"
   },
+  "connector": {
+    "fhir_url": "FHIR Server URL",
+    "client_id": "Client ID",
+    "client_id_placeholder": "Optional — for SMART on FHIR",
+    "client_secret": "Client Secret",
+    "client_secret_placeholder": "Optional",
+    "test": "Test Connection",
+    "testing": "Testing…",
+    "test_failed": "Connection failed"
+  },
   "import": {
     "title": "Import File",
-    "description": "Upload CSV, XLSX or FHIR JSON and map to FHIR R4",
-    "preview": "Preview",
-    "rows_columns": "{{rows}} rows · {{columns}} columns",
-    "map_columns": "Map Columns to FHIR",
-    "start_import": "Start Import",
+    "description": "Convert a CSV or Excel export from your HIS into a FHIR R4 bundle using a column mapping",
     "processing": "Processing import…",
-    "started": "Import started",
-    "job_id": "Job ID: {{id}}",
+    "complete": "Import complete",
+    "complete_count_one": "Import complete — {{count, number}} resource processed",
+    "complete_count_other": "Import complete — {{count, number}} resources processed",
     "import_another": "Import another file",
-    "failed": "Import failed"
+    "failed": "Import failed",
+    "mapping_label": "Column mapping",
+    "mapping_help": "Tells FHIRBridge which column holds which FHIR field. Start from an example or upload your own JSON.",
+    "mapping_docs": "Mapping format guide",
+    "preset": {
+      "vn": "Vietnam — hospital CSV (VneID)",
+      "kr": "Korea — hospital CSV (RRN protected)",
+      "jp": "Japan — clinic Excel",
+      "generic": "International — HL7-style CSV",
+      "custom": "Custom mapping (JSON file)…"
+    },
+    "mapping_file_label": "Mapping file (.json)",
+    "data_file_label": "Data file",
+    "use_sample": "Try with sample data ({{file}})",
+    "sample_failed": "Could not load the sample file.",
+    "mapping_required": "Choose a column mapping first.",
+    "file_required": "Choose a CSV or Excel file first.",
+    "mapping_invalid_json": "The mapping file is not valid JSON.",
+    "start": "Import",
+    "download_bundle": "Download FHIR Bundle (JSON)",
+    "warnings_title": "Warnings"
   },
   "progress": {
     "label": "Progress",
@@ -101,17 +161,29 @@
     "step_complete": "Complete",
     "error_generic": "An error occurred during export"
   },
-  "mapper": {
-    "source_column": "Source Column",
-    "fhir_path": "FHIR Path",
-    "skip": "— Skip —",
-    "map_aria": "Map {{col}} to FHIR path",
-    "duplicate_warning": "Two or more columns map to the same FHIR path ({{paths}}). Only one value will be kept.",
-    "identifier_required": "Map at least a patient identifier (e.g. Patient.id) to continue."
-  },
   "export_result": {
     "complete": "Export complete",
     "patient_id_label": "Patient ID",
     "download": "Download FHIR Bundle (JSON)"
+  },
+  "settings": {
+    "description": "Configure API access and application preferences",
+    "credential_heading": "FHIRBridge API key / access token",
+    "credential_help": "Enter one of the API keys from <code>API_KEYS</code> in the server's <code>.env</code> file (generated by <code>pnpm run setup</code>), or a JWT access token. This is your FHIRBridge credential — not an AI provider key.",
+    "credential_memory": "Kept in memory only — cleared when you close or reload this tab. Never saved to disk.",
+    "credential_label": "API key or access token",
+    "credential_placeholder": "Paste API key or JWT",
+    "show_key": "Show API key",
+    "hide_key": "Hide API key",
+    "language_heading": "Interface language",
+    "language_help": "Also used as the default language for AI summaries.",
+    "appearance_heading": "Appearance",
+    "dark_mode": "Dark mode",
+    "light_mode": "Light mode",
+    "toggle_theme": "Toggle dark mode",
+    "switch_to_light": "Switch to Light",
+    "switch_to_dark": "Switch to Dark",
+    "save": "Save Settings",
+    "saved": "Saved!"
   }
 }

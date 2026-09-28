@@ -20,6 +20,11 @@ const ENV_KEYS = [
   'ANTHROPIC_API_KEY',
   'AI_PROVIDER',
   'ERROR_DOCS_BASE_URL',
+  'METRICS_BEARER_TOKEN',
+  'OPENAI_API_KEY',
+  'DATABASE_URL',
+  'AUDIT_PROFILE',
+  'ANTHROPIC_MODEL',
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -114,5 +119,50 @@ describe('loadConfig — newly validated env vars', () => {
   it('rejects an invalid ERROR_DOCS_BASE_URL', () => {
     process.env['ERROR_DOCS_BASE_URL'] = 'not-a-url';
     expect(() => loadConfig()).toThrow(/errorDocsBaseUrl/);
+  });
+});
+
+describe('loadConfig — copy-pasted .env.example ergonomics', () => {
+  beforeEach(() => {
+    process.env['JWT_SECRET'] = GOOD_JWT;
+    process.env['HMAC_SECRET'] = GOOD_HMAC;
+  });
+
+  it('treats empty values (`KEY=` lines in .env.example) as unset instead of failing boot', () => {
+    process.env['METRICS_BEARER_TOKEN'] = '';
+    process.env['ANTHROPIC_API_KEY'] = '';
+    process.env['OPENAI_API_KEY'] = '   ';
+    process.env['DATABASE_URL'] = '';
+    const config = loadConfig();
+    expect(config.metricsBearerToken).toBeUndefined();
+    expect(config.anthropicApiKey).toBeUndefined();
+    expect(config.openaiApiKey).toBeUndefined();
+    expect(config.databaseUrl).toBeUndefined();
+  });
+
+  it('names the environment variable (not just the config field) in errors', () => {
+    process.env['METRICS_BEARER_TOKEN'] = 'too-short';
+    expect(() => loadConfig()).toThrow(/METRICS_BEARER_TOKEN \(metricsBearerToken\)/);
+  });
+
+  it('reports a missing HMAC_SECRET as missing (no silent fallback to JWT_SECRET)', () => {
+    delete process.env['HMAC_SECRET'];
+    expect(() => loadConfig()).toThrow(/HMAC_SECRET \(hmacSecret\): HMAC_SECRET is required/);
+  });
+
+  it('keeps the min-length message for a too-short secret', () => {
+    process.env['JWT_SECRET'] = 'short';
+    expect(() => loadConfig()).toThrow(/JWT_SECRET must be at least 32 characters/);
+  });
+
+  it('points the operator at the setup script', () => {
+    delete process.env['JWT_SECRET'];
+    expect(() => loadConfig()).toThrow(/pnpm run setup/);
+  });
+
+  it('reads ANTHROPIC_MODEL as an optional model pin', () => {
+    expect(loadConfig().anthropicModel).toBeUndefined();
+    process.env['ANTHROPIC_MODEL'] = 'claude-opus-5';
+    expect(loadConfig().anthropicModel).toBe('claude-opus-5');
   });
 });

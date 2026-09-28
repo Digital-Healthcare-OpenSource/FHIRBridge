@@ -8,6 +8,7 @@
  * Exit 0 khi mọi migration applied/skipped; exit 1 khi fail (fail-fast).
  */
 
+import './load-env.js';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';
 import { loadMigrationsFromDir, runMigrations } from './services/migration-runner.js';

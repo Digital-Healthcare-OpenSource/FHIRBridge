@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { exportApi } from '../export-api';
+import { exportApi, clearSessionExports } from '../export-api';
 
 // Mock the apiClient so we never hit the network
 vi.mock('../api-client', () => ({
@@ -113,10 +113,32 @@ describe('exportApi.getStatus', () => {
 });
 
 describe('exportApi.listExports', () => {
-  it('returns empty array (no list endpoint on server)', async () => {
+  beforeEach(() => clearSessionExports());
+
+  it('returns empty array before any export in this tab (no list endpoint on server)', async () => {
     const jobs = await exportApi.listExports();
     expect(jobs).toEqual([]);
     expect(mockApiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('lists exports started in this tab with their latest polled status', async () => {
+    mockApiClient.post.mockResolvedValueOnce({ exportId: 'exp-1', status: 'processing' });
+    await exportApi.startExport({
+      connectorType: 'fhir',
+      connectorConfig: { url: 'http://his.local/fhir' },
+      patientId: 'demo-vn-001',
+    });
+    mockApiClient.get.mockResolvedValueOnce({ status: 'complete', resourceCount: 6 });
+    await exportApi.getStatus('exp-1');
+
+    const jobs = await exportApi.listExports();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({
+      id: 'exp-1',
+      patientId: 'demo-vn-001',
+      status: 'complete',
+      resourceCount: 6,
+    });
   });
 });
 

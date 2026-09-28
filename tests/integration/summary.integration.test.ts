@@ -82,7 +82,7 @@ describe('GET /api/v1/summary/:id/download', () => {
     expect(res.statusCode).toBe(404);
   });
 
-  it('returns 409 (Conflict) or 200 if summary is processing/complete', async () => {
+  it('returns 409 while processing, 200 when complete, or 502 once generation failed', async () => {
     const callerToken = userJwt('summary-processing');
     const postRes = await server.inject({
       method: 'POST',
@@ -101,6 +101,6 @@ describe('GET /api/v1/summary/:id/download', () => {
       url: `/api/v1/summary/${summaryId}/download`,
       headers: { authorization: bearerHeader(callerToken) },
     });
-    expect([200, 409]).toContain(downloadRes.statusCode);
+    expect([200, 409, 502]).toContain(downloadRes.statusCode);
   });
 });

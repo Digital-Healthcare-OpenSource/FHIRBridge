@@ -8,7 +8,7 @@ import type { AiProviderName, TokenUsage } from '@fhirbridge/types';
 
 /** Cost per 1K tokens by provider and direction (USD) */
 const TOKEN_COSTS_PER_1K: Record<AiProviderName, { input: number; output: number }> = {
-  claude: { input: 0.003, output: 0.015 }, // claude-sonnet-4 pricing estimate
+  claude: { input: 0.005, output: 0.025 }, // claude-opus-5 list price ($5 / $25 per 1M)
   openai: { input: 0.005, output: 0.015 }, // gpt-4o pricing estimate
 };
 

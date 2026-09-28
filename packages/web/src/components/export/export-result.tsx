@@ -6,7 +6,7 @@ import { useState, useCallback } from 'react';
 import { Download, FileJson } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { exportApi, type ExportJob } from '../../api/export-api';
-import { formatCount, maskPatientId, formatDate } from '../../lib/format-utils';
+import { formatResourceCount, maskPatientId, formatDate } from '../../lib/format-utils';
 import { Toast, type ToastState } from '../ui/toast';
 import { useTranslation } from '../../i18n/use-translation';
 
@@ -25,7 +25,8 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 export function ExportResult({ job, className }: Props) {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.resolvedLanguage;
   const { t: tError } = useTranslation('errors');
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -37,6 +38,8 @@ export function ExportResult({ job, className }: Props) {
       setToast({ message: tError('download_failed'), variant: 'error' });
     }
   }, [job.id, tError]);
+
+  const completedAt = job.updatedAt ?? job.createdAt;
 
   return (
     <>
@@ -58,7 +61,9 @@ export function ExportResult({ job, className }: Props) {
             </p>
             <p className="text-sm text-green-700 dark:text-green-300">
               {t('export_result.patient_id_label')}: {maskPatientId(job.patientId ?? '')} ·{' '}
-              {formatCount(job.resourceCount, 'resource')} · {formatDate(job.updatedAt ?? '')}
+              {formatResourceCount(job.resourceCount, locale)}
+              {/* The status API has no timestamps — only show a date when we have one. */}
+              {completedAt && <> · {formatDate(completedAt, locale)}</>}
             </p>
           </div>
         </div>

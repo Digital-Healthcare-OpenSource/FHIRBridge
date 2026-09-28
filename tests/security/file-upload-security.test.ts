@@ -1,7 +1,12 @@
 /**
  * Security tests — File upload hardening (POST /api/v1/connectors/import).
- * Covers: path traversal filenames, oversized uploads, null-byte injection.
+ * Covers: path traversal filenames, oversized uploads, null-byte injection,
+ * mapping part handling, content sniffing, no cell contents in errors, temp cleanup.
  */
+
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -166,5 +171,129 @@ describe('File upload — wrong content type', () => {
       payload: { file: 'data' },
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Column mapping part + content sniffing (canonical import)
+// ---------------------------------------------------------------------------
+
+interface Part {
+  name: string;
+  value: string | Buffer;
+  filename?: string;
+  contentType?: string;
+}
+
+function buildParts(boundary: string, parts: Part[]): Buffer {
+  const chunks: Buffer[] = [];
+  for (const p of parts) {
+    const disposition = p.filename
+      ? `form-data; name="${p.name}"; filename="${p.filename}"`
+      : `form-data; name="${p.name}"`;
+    const type = p.filename ? `Content-Type: ${p.contentType ?? 'text/csv'}\r\n` : '';
+    chunks.push(
+      Buffer.from(`--${boundary}\r\nContent-Disposition: ${disposition}\r\n${type}\r\n`),
+      Buffer.isBuffer(p.value) ? p.value : Buffer.from(p.value),
+      Buffer.from('\r\n'),
+    );
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`));
+  return Buffer.concat(chunks);
+}
+
+const MAPPING = JSON.stringify({ fields: { 'Patient.name.family': 'name' } });
+
+async function upload(parts: Part[]) {
+  const boundary = 'security-boundary';
+  return server.inject({
+    method: 'POST',
+    url: IMPORT_URL,
+    headers: {
+      authorization: AUTH_HEADER,
+      'content-type': `multipart/form-data; boundary=${boundary}`,
+    },
+    payload: buildParts(boundary, parts),
+  });
+}
+
+describe('File upload — mapping part and content sniffing', () => {
+  it('a traversal filename on the mapping part is never used as a path', async () => {
+    const res = await upload([
+      { name: 'file', filename: 'p.csv', value: VALID_CSV },
+      {
+        name: 'mapping',
+        filename: '../../../etc/passwd',
+        contentType: 'application/json',
+        value: MAPPING,
+      },
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().resourceCount).toBe(1);
+    expect(res.body).not.toMatch(/\/etc\/passwd/);
+  });
+
+  it('binary content disguised as .csv is rejected with 400 (not parsed)', async () => {
+    const res = await upload([
+      { name: 'file', filename: 'x.csv', value: Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x00, 0x02]) },
+      { name: 'mapping', value: MAPPING },
+    ]);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().message).toMatch(/binary, not a text CSV/);
+  });
+
+  it('non-zip content named .xlsx is rejected with 400 instead of a 500', async () => {
+    const res = await upload([
+      {
+        name: 'file',
+        filename: 'x.xlsx',
+        contentType: 'application/octet-stream',
+        value: VALID_CSV,
+      },
+      { name: 'mapping', value: MAPPING },
+    ]);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).not.toMatch(/at Object\.<anonymous>|node:internal/);
+  });
+
+  it('CSV parse errors never echo cell contents', async () => {
+    const res = await upload([
+      { name: 'file', filename: 'x.csv', value: 'name,dob\nDoe,"PHI-SECRET-VALUE\n' },
+      { name: 'mapping', value: MAPPING },
+    ]);
+    expect(res.statusCode).toBe(400);
+    expect(res.body).not.toContain('PHI-SECRET-VALUE');
+  });
+
+  it('an oversized mapping part is rejected with 413', async () => {
+    const res = await upload([
+      { name: 'file', filename: 'p.csv', value: VALID_CSV },
+      { name: 'mapping', filename: 'm.json', value: 'x'.repeat(300 * 1024) },
+    ]);
+    expect(res.statusCode).toBe(413);
+  });
+
+  it('temp upload files are removed after success and failure (no PHI at rest)', async () => {
+    // Private temp root: the shared OS temp dir also sees uploads from test files
+    // running in parallel, which made a before/after count racy.
+    const privateTmp = mkdtempSync(join(tmpdir(), 'fhirbridge-upload-test-'));
+    const savedTmp = process.env['TMPDIR'];
+    process.env['TMPDIR'] = privateTmp;
+    try {
+      await upload([
+        { name: 'file', filename: 'p.csv', value: VALID_CSV },
+        { name: 'mapping', value: MAPPING },
+      ]);
+      await upload([{ name: 'file', filename: 'p.csv', value: VALID_CSV }]);
+      await upload([
+        { name: 'file', filename: 'x.xlsx', value: VALID_CSV },
+        { name: 'mapping', value: MAPPING },
+      ]);
+      expect(readdirSync(privateTmp)).toEqual([]);
+    } finally {
+      if (savedTmp === undefined) delete process.env['TMPDIR'];
+      else process.env['TMPDIR'] = savedTmp;
+      rmSync(privateTmp, { recursive: true, force: true });
+    }
   });
 });

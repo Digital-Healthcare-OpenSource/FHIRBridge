@@ -6,24 +6,37 @@ Thanks for considering a contribution. FHIRBridge is a small, single-maintainer 
 
 ## What is in scope
 
-| Welcome                                                 | Out of scope                                                                                                           |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Bug fixes                                               | Hosted SaaS / billing / quota / tier features (see [docs/adr/0007-oss-only-pivot.md](docs/adr/0007-oss-only-pivot.md)) |
-| New HIS connector adapters (e.g., HL7 v2 → FHIR mapper) | DICOM imaging, e-prescribing, PHR storage                                                                              |
-| New `AiProvider` adapters (Azure OpenAI, AWS Bedrock)   | Multi-tenant infrastructure                                                                                            |
-| New FHIR R4 resource validators                         | Forks targeting non-FHIR-R4 standards                                                                                  |
-| Test coverage on adversarial / privacy invariants       | Test suites without realistic FHIR fixtures                                                                            |
-| i18n strings (VI / EN / JA)                             | New UI languages without first-language coverage                                                                       |
-| Performance fixes that come with a perf test            | Performance changes without measurement                                                                                |
-| Documentation improvements                              | Marketing copy / hosted-tier copy                                                                                      |
+| Welcome                                                    | Out of scope                                                                                                      |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Bug fixes                                                  | Hosted SaaS / billing / quota / tier features (FHIRBridge is self-host only — see [README](README.md#what-it-is)) |
+| New HIS connector adapters (e.g., HL7 v2 → FHIR mapper)    | DICOM imaging, e-prescribing, PHR storage                                                                         |
+| New `AiProvider` adapters (Azure OpenAI, AWS Bedrock)      | Multi-tenant infrastructure                                                                                       |
+| New FHIR R4 resource validators                            | Forks targeting non-FHIR-R4 standards                                                                             |
+| Test coverage on adversarial / privacy invariants          | Test suites without realistic FHIR fixtures                                                                       |
+| i18n strings (VI / EN / JA / KO) and native-speaker review | New UI languages without first-language coverage                                                                  |
+| Performance fixes that come with a perf test               | Performance changes without measurement                                                                           |
+| Documentation improvements                                 | Marketing copy / hosted-tier copy                                                                                 |
 
 If you are unsure whether your idea is in scope, **open an issue first** before writing code.
 
+## Getting a development environment
+
+```bash
+pnpm install
+pnpm run setup      # .env with random secrets + an API key, then a full build
+pnpm demo           # API + web UI + synthetic Demo HIS → http://localhost:8080
+```
+
+See [README → Development](README.md#development) for the per-package dev servers.
+
 ## Before you submit a PR
 
-1. Read [docs/code-standards.md](docs/code-standards.md) — the maintainer enforces these.
-2. Read [docs/test-strategy.md](docs/test-strategy.md) — every behavior change needs a test.
-3. Read [docs/system-architecture.md](docs/system-architecture.md) — understand DI bootstrap, streaming export, the 3-gate AI flow, and the de-identifier invariants.
+1. Read the code around your change and its tests — match the existing style (strict TypeScript,
+   small modules, comments may be English or Vietnamese).
+2. Every behavior change needs a test next to the code (`src/**/__tests__/`) or in `tests/`.
+3. Understand the invariants you might touch: DI bootstrap (`packages/api/src/index.ts`,
+   `server.ts`), streaming export, the de-identifier (`packages/core/src/ai/deidentifier.ts`),
+   SSRF validation and IDOR ownership checks — see [README → Privacy & security](README.md#privacy--security).
 4. Run the verification chain locally:
 
 ```bash
@@ -77,13 +90,22 @@ Please don't file an issue that is just "doesn't work for me" without the above 
 
 **Do not** file a public issue with exploit details. Use the GitHub private security advisory flow:
 
-→ https://github.com/tranhoangtu-it/FHIRBridge/security/advisories/new
+→ https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/security/advisories/new
 
 See [SECURITY.md](.github/SECURITY.md) for the full policy.
 
+## Translations (VI / EN / JA / KO)
+
+- Web UI strings: `packages/web/src/i18n/locales/<lang>/<namespace>.json`. Every key must exist in
+  all four languages — a unit test fails on missing keys or mismatched `{{placeholders}}`.
+- AI summary instructions: `packages/core/src/ai/prompt-templates.ts`.
+- Quickstart docs: `README.vi.md`, `README.ko.md`, `README.ja.md` (the full reference stays in `README.md`).
+- Use the medical / IT terminology your hospitals actually use, and keep FHIR, API, JSON and code
+  system names untranslated.
+
 ## Code of conduct
 
-This project follows the spirit of the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). Be respectful in issues, PRs, and discussion. The maintainer reserves the right to remove abusive comments and block repeat offenders.
+This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). Be respectful in issues, PRs, and discussion. The maintainer reserves the right to remove abusive comments and block repeat offenders.
 
 ## License
 

@@ -101,6 +101,8 @@ describe('DashboardPage', () => {
       expect(screen.getByText('****-001')).toBeInTheDocument();
       // Resource count
       expect(screen.getByText('42 resources')).toBeInTheDocument();
+      // Status enum → translated label
+      expect(screen.getByText('Complete')).toBeInTheDocument();
     });
   });
 
@@ -136,7 +138,8 @@ describe('DashboardPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/api status/i)).toBeInTheDocument();
-      expect(screen.getByText('ok')).toBeInTheDocument();
+      // Trạng thái health được dịch ('ok' → 'OK'), không hiển thị enum thô
+      expect(screen.getByText('OK')).toBeInTheDocument();
     });
   });
 

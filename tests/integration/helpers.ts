@@ -9,6 +9,10 @@ import type { FastifyInstance } from 'fastify';
 import { createServer } from '../../packages/api/src/server.js';
 import type { ApiConfig } from '../../packages/api/src/config.js';
 
+// The summary route accepts jobs because TEST_CONFIG carries a (fake) provider key;
+// point the SDK at a closed local port so no test ever calls the real provider API.
+process.env['ANTHROPIC_BASE_URL'] ??= 'http://127.0.0.1:9';
+
 export const TEST_JWT_SECRET = 'test-jwt-secret-for-testing-only-min32chars';
 export const TEST_HMAC_SECRET = 'test-hmac-secret-for-testing-only-min32ch';
 
@@ -21,6 +25,9 @@ export const TEST_CONFIG: ApiConfig = {
   corsOrigins: ['http://localhost:4173'],
   logLevel: 'silent',
   trustProxy: false,
+  // Summary generate fails fast (503) without a provider key; a fake one lets the
+  // route accept the job — the async generation then fails without network access.
+  anthropicApiKey: 'sk-ant-test-not-a-real-key',
   // No databaseUrl / redisUrl — uses in-memory fallbacks
 };
 

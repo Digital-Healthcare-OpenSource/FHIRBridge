@@ -5,43 +5,68 @@
  *  - correct dependency array (pendingJobId, completedJob)
  *  - 5-minute max polling timeout
  *  - AbortController cleanup on unmount
+ *
+ * Lỗi hiển thị = tiêu đề đã dịch + message nguyên văn từ server (vd. 503 "AI summaries
+ * are not configured…", 502 "Summary generation failed: <reason>"). Poll dừng ở mọi
+ * lỗi khác 409 (summaryApi.getStatus trả status 'error' → shouldStop).
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { Trans } from 'react-i18next';
 import { PageContainer } from '../components/layout/page-container';
-import { SummaryConfig } from '../components/summary/summary-config';
+import {
+  SummaryConfig,
+  DEFAULT_SUMMARY_PROVIDER,
+  defaultSummaryLanguage,
+  providerLabel,
+  type SummaryConfigValue,
+} from '../components/summary/summary-config';
 import { SummaryDisplay } from '../components/summary/summary-display';
 import { SummaryActions } from '../components/summary/summary-actions';
 import { LoadingSpinner } from '../components/shared/loading-spinner';
 import { usePolling } from '../hooks/use-polling';
-import { summaryApi, type GenerateSummaryRequest, type SummaryJob } from '../api/summary-api';
+import { summaryApi, type SummaryJob } from '../api/summary-api';
+import { ApiError } from '../api/api-client';
 import { CrossBorderConsentModal } from '../components/consent';
 import { useConsent } from '../hooks/use-consent';
 import { BaaDisclaimerModal } from '../components/baa';
 import { useBaaAcknowledgment } from '../hooks/use-baa-acknowledgment';
+import { useTranslation } from '../i18n/use-translation';
 
 /** Feature flag — AI chỉ bật nếu VITE_AI_ENABLED=true. Hosted SaaS default OFF. */
 const AI_FEATURE_ENABLED = import.meta.env.VITE_AI_ENABLED === 'true';
 
-type SummaryConfig_ = Omit<GenerateSummaryRequest, 'exportId'>;
-
-const DEFAULT_CONFIG: SummaryConfig_ = {
-  provider: 'openai',
-  language: 'English',
-  detailLevel: 'standard',
-};
-
 /** Max time to poll before declaring a timeout (5 minutes). */
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
+type ErrorTitleKey =
+  | 'viewer.baa_required'
+  | 'viewer.consent_required'
+  | 'viewer.error_not_configured'
+  | 'viewer.error_start'
+  | 'viewer.error_failed'
+  | 'viewer.error_timeout';
+
+/** Lưu key (không lưu chuỗi đã dịch) để đổi ngôn ngữ thì tiêu đề lỗi đổi theo. */
+interface GenError {
+  titleKey: ErrorTitleKey;
+  /** Message nguyên văn từ server — không dịch */
+  detail?: string;
+}
+
 export function SummaryViewerPage() {
   const { id: exportId } = useParams<{ id: string }>();
-  const [summaryConfig, setSummaryConfig] = useState<SummaryConfig_>(DEFAULT_CONFIG);
+  const { t, i18n } = useTranslation('summary');
+  const [summaryConfig, setSummaryConfig] = useState<SummaryConfigValue>(() => ({
+    provider: DEFAULT_SUMMARY_PROVIDER,
+    language: defaultSummaryLanguage(i18n.resolvedLanguage),
+    detailLevel: 'standard',
+  }));
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const [completedJob, setCompletedJob] = useState<SummaryJob | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
+  const [genError, setGenError] = useState<GenError | null>(null);
 
   // BAA gate — first-time acknowledgment trước khi gửi data ra AI provider
   const baa = useBaaAcknowledgment();
@@ -63,6 +88,7 @@ export function SummaryViewerPage() {
   }, [pendingJobId, completedJob]);
 
   const shouldStopPolling = useCallback((job: SummaryJob): boolean => {
+    // 'error' = mọi lỗi khác 409 (vd. 502 generation failed) → dừng poll
     if (job.status === 'complete' || job.status === 'error') return true;
     // Enforce max polling duration
     if (pollStartRef.current != null && Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
@@ -88,7 +114,7 @@ export function SummaryViewerPage() {
       setCompletedJob(polledJob);
       setPendingJobId(null);
     } else if (polledJob.status === 'error') {
-      setGenError(polledJob.error ?? 'Summary generation failed');
+      setGenError({ titleKey: 'viewer.error_failed', detail: polledJob.error });
       setPendingJobId(null);
     }
   }, [polledJob]);
@@ -97,7 +123,7 @@ export function SummaryViewerPage() {
   useEffect(() => {
     if (!pendingJobId || completedJob || pollStartRef.current == null) return;
     if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
-      setGenError('Summary generation timed out after 5 minutes.');
+      setGenError({ titleKey: 'viewer.error_timeout' });
       setPendingJobId(null);
     }
   }, [polledJob, pendingJobId, completedJob]);
@@ -105,7 +131,7 @@ export function SummaryViewerPage() {
   // Surface polling network errors
   useEffect(() => {
     if (pollError) {
-      setGenError(pollError);
+      setGenError({ titleKey: 'viewer.error_failed', detail: pollError });
       setPendingJobId(null);
     }
   }, [pollError]);
@@ -117,7 +143,7 @@ export function SummaryViewerPage() {
     if (!baa.acknowledged) {
       const acked = await baa.requestAcknowledgment();
       if (!acked) {
-        setGenError('Bạn cần xác nhận BAA disclaimer trước khi sử dụng AI Summary.');
+        setGenError({ titleKey: 'viewer.baa_required' });
         return;
       }
     }
@@ -126,9 +152,7 @@ export function SummaryViewerPage() {
     if (!hasConsent) {
       const granted = await requestConsent();
       if (!granted) {
-        setGenError(
-          'Bạn cần đồng ý để sử dụng tính năng AI summary (Consent required for AI summary).',
-        );
+        setGenError({ titleKey: 'viewer.consent_required' });
         return;
       }
     }
@@ -140,7 +164,12 @@ export function SummaryViewerPage() {
       const job = await summaryApi.generateSummary({ ...summaryConfig, exportId });
       setPendingJobId(job.id);
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : 'Failed to start summary generation');
+      // 503 = server chưa cấu hình provider key (ANTHROPIC_API_KEY / OPENAI_API_KEY)
+      const notConfigured = err instanceof ApiError && err.status === 503;
+      setGenError({
+        titleKey: notConfigured ? 'viewer.error_not_configured' : 'viewer.error_start',
+        detail: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setGenerating(false);
     }
@@ -148,15 +177,15 @@ export function SummaryViewerPage() {
 
   return (
     <PageContainer
-      title="Summary Viewer"
-      description="Generate an AI-powered clinical summary for this export"
+      title={t('viewer.title')}
+      description={t('viewer.description')}
       actions={completedJob ? <SummaryActions summaryId={completedJob.id} /> : undefined}
     >
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Config */}
         <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
           <h2 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-            Configuration
+            {t('viewer.configuration')}
           </h2>
           <SummaryConfig
             value={summaryConfig}
@@ -170,19 +199,36 @@ export function SummaryViewerPage() {
               disabled={generating || !!pendingJobId || !exportId || !AI_FEATURE_ENABLED}
               className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
             >
-              {generating ? 'Starting…' : pendingJobId ? 'Generating…' : 'Generate Summary'}
+              {generating
+                ? t('viewer.starting')
+                : pendingJobId
+                  ? t('viewer.generating')
+                  : t('section.generate_button')}
             </button>
             {pendingJobId && !completedJob && (
-              <LoadingSpinner size="sm" label="Generating summary" />
+              <LoadingSpinner size="sm" label={t('section.loading')} />
             )}
           </div>
           {!AI_FEATURE_ENABLED && (
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Tính năng AI Summary chưa được bật trên deployment này. Liên hệ admin hoặc self-host
-              với cờ <code>VITE_AI_ENABLED=true</code>.
+              <Trans t={t} i18nKey="viewer.ai_disabled" components={{ code: <code /> }} />
             </p>
           )}
-          {genError && <p className="mt-2 text-sm text-red-600">{genError}</p>}
+          {genError && (
+            <div
+              role="alert"
+              className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20"
+            >
+              <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                {t(genError.titleKey)}
+              </p>
+              {genError.detail && (
+                <p className="mt-1 break-words text-sm text-red-600 dark:text-red-400">
+                  {genError.detail}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Summary output */}
@@ -194,7 +240,7 @@ export function SummaryViewerPage() {
 
         {!exportId && (
           <p className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300">
-            No export ID provided. Navigate here from the Dashboard with a valid export.
+            {t('viewer.no_export_id')}
           </p>
         )}
       </div>
@@ -205,13 +251,7 @@ export function SummaryViewerPage() {
       {/* Cross-border consent modal — hiện mỗi request AI nếu chưa có consent */}
       <CrossBorderConsentModal
         open={modalOpen}
-        providerName={
-          summaryConfig.provider === 'anthropic'
-            ? 'Claude (Anthropic)'
-            : summaryConfig.provider === 'openai'
-              ? 'GPT (OpenAI)'
-              : summaryConfig.provider
-        }
+        providerName={providerLabel(summaryConfig.provider)}
         onAccept={handleModalAccept}
         onDecline={handleModalDecline}
       />
