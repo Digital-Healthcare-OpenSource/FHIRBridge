@@ -38,28 +38,32 @@ export interface SummaryJob {
   error?: string;
 }
 
+/** Codes accepted by the server (packages/api/src/schemas/summary-schemas.ts). */
+export type SummaryLanguageCode = 'en' | 'vi' | 'ja' | 'ko';
+export type SummaryProvider = 'claude' | 'openai';
+
 export interface GenerateSummaryRequest {
   exportId: string;
-  provider: string;
+  provider: SummaryProvider | string;
+  /** Ignored by the server (the operator pins models via ANTHROPIC_MODEL / OPENAI_MODEL). */
   model?: string;
-  language: string;
+  language: SummaryLanguageCode | string;
   detailLevel: 'brief' | 'standard' | 'detailed';
 }
 
 export const summaryApi = {
   /**
    * POST /api/v1/summary/generate
-   * Server requires `bundle` field — exportId alone is not enough server-side.
-   * We pass exportId via summaryConfig for now; server may look it up internally.
+   * The server resolves `exportId` to the caller's finished export bundle
+   * (ownership-checked), so the browser never has to hold or re-upload it.
    */
   async generateSummary(req: GenerateSummaryRequest): Promise<SummaryJob> {
     const body = {
+      exportId: req.exportId,
       summaryConfig: {
-        exportId: req.exportId,
         provider: req.provider,
         language: req.language,
         detailLevel: req.detailLevel,
-        model: req.model,
       },
     };
     const res = await apiClient.post<StartSummaryResponse>('/v1/summary/generate', body);
@@ -76,7 +80,8 @@ export const summaryApi = {
 
   /**
    * Server does not expose a summary status endpoint.
-   * Polls download endpoint — 409 means still processing, 200 means complete.
+   * Polls download endpoint — 409 means still processing, 200 means complete,
+   * anything else (e.g. 502 generation failed) is terminal.
    * Returns a SummaryJob with content when complete.
    */
   async getStatus(summaryId: string): Promise<SummaryJob> {

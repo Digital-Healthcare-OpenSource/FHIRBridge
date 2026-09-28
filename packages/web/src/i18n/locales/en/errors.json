@@ -13,6 +13,8 @@
   "download_failed": "Download failed. Please try again.",
   "markdown_download_failed": "Markdown download failed. Please try again.",
   "file_rejected": "File rejected: {{reason}}",
+  "boundary_title": "Something went wrong",
+  "unexpected": "An unexpected error occurred",
   "validation": {
     "required": "This field is required.",
     "invalid_url": "Invalid URL.",

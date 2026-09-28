@@ -33,7 +33,7 @@ import { AuditService, ConsoleAuditSink } from './services/audit-service.js';
 import { PostgresAuditSink } from './services/postgres-audit-sink.js';
 import { AuditRetentionService } from './services/audit-retention-service.js';
 import type { IRedisStore } from './services/redis-store.js';
-import type { ExportService } from './services/export-service.js';
+import { ExportService } from './services/export-service.js';
 import type { SummaryService } from './services/summary-service.js';
 
 /** Max upload size for multipart (50 MB) */
@@ -189,13 +189,20 @@ export async function createServer(optsOrConfig: ServerOpts | ApiConfig): Promis
     redisStore: opts.redisStore,
   });
 
-  await fastify.register(exportRoutes, {
-    exportService: opts.exportService,
+  // One ExportService shared by export + summary routes, so a summary can be
+  // generated from an export id (the web UI never holds the bundle itself).
+  const exportService = opts.exportService ?? new ExportService({ redis: opts.redisStore });
+
+  await fastify.register(exportRoutes, { exportService });
+
+  // RRN values in imports are HMAC-hashed with the configured secret (masked without one).
+  await fastify.register(connectorRoutes, { hmacSecret: config.hmacSecret });
+
+  await fastify.register(summaryRoutes, {
+    config,
+    summaryService: opts.summaryService,
+    exportService,
   });
-
-  await fastify.register(connectorRoutes);
-
-  await fastify.register(summaryRoutes, { config });
 
   await fastify.register(consentRoutes, { auditSink: resolvedAuditSink });
 

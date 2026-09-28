@@ -8,15 +8,34 @@
     "loading": "要約を生成中…",
     "empty": "まだ要約はありません。「要約を生成」をクリックして開始してください。",
     "provider_label": "AI プロバイダー",
-    "model_label": "モデル",
-    "language_label": "要約の言語"
+    "language_label": "要約の言語",
+    "detail_label": "詳細レベル"
+  },
+  "detail": {
+    "brief": "簡潔",
+    "standard": "標準",
+    "detailed": "詳細"
+  },
+  "viewer": {
+    "title": "要約ビューアー",
+    "description": "このエクスポートの AI 臨床要約を生成します",
+    "configuration": "設定",
+    "starting": "開始中…",
+    "generating": "生成中…",
+    "ai_disabled": "このデプロイでは AI 要約機能が有効になっていません。管理者にお問い合わせいただくか、<code>VITE_AI_ENABLED=true</code> を指定してセルフホストしてください。",
+    "no_export_id": "エクスポート ID が指定されていません。ダッシュボードから有効なエクスポートを選んでこのページを開いてください。",
+    "baa_required": "AI 要約を使用する前に、BAA に関する免責事項を確認してください。",
+    "consent_required": "AI 要約を使用するには、国外でのデータ処理に同意する必要があります。",
+    "error_not_configured": "このサーバーでは AI 要約が構成されていません",
+    "error_start": "要約の生成を開始できませんでした",
+    "error_failed": "要約の生成に失敗しました",
+    "error_timeout": "要約の生成が 5 分でタイムアウトしました。"
   },
   "disclaimer": {
     "label": "AI により生成された要約",
     "body": "— この内容は AI モデルによって生成されたものであり、誤りが含まれる可能性があります。臨床情報は必ず有資格の医療従事者にご確認ください。"
   },
   "actions": {
-    "download_markdown": "Markdown をダウンロード",
-    "download_pdf": "PDF をダウンロード"
+    "download_markdown": "Markdown をダウンロード"
   }
 }

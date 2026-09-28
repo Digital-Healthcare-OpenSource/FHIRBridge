@@ -8,15 +8,34 @@
     "loading": "요약 생성 중…",
     "empty": "아직 요약이 없습니다. \"요약 생성\"을 클릭하여 시작하세요.",
     "provider_label": "AI 제공업체",
-    "model_label": "모델",
-    "language_label": "요약 언어"
+    "language_label": "요약 언어",
+    "detail_label": "상세 수준"
+  },
+  "detail": {
+    "brief": "간략",
+    "standard": "표준",
+    "detailed": "상세"
+  },
+  "viewer": {
+    "title": "요약 보기",
+    "description": "이 내보내기에 대한 AI 임상 요약을 생성합니다",
+    "configuration": "구성",
+    "starting": "시작 중…",
+    "generating": "생성 중…",
+    "ai_disabled": "이 배포 환경에서는 AI 요약 기능이 활성화되어 있지 않습니다. 관리자에게 문의하거나 <code>VITE_AI_ENABLED=true</code> 플래그로 셀프 호스팅하십시오.",
+    "no_export_id": "내보내기 ID가 없습니다. 대시보드에서 유효한 내보내기를 선택하여 이 페이지로 이동하십시오.",
+    "baa_required": "AI 요약을 사용하려면 먼저 BAA 고지 사항을 확인해야 합니다.",
+    "consent_required": "AI 요약을 사용하려면 국외 데이터 처리에 동의해야 합니다.",
+    "error_not_configured": "이 서버에는 AI 요약이 구성되어 있지 않습니다",
+    "error_start": "요약 생성을 시작할 수 없습니다",
+    "error_failed": "요약 생성에 실패했습니다",
+    "error_timeout": "요약 생성이 5분 후 시간 초과되었습니다."
   },
   "disclaimer": {
     "label": "AI가 생성한 요약",
     "body": "— 이 내용은 AI 모델이 생성한 것으로 오류가 포함될 수 있습니다. 임상 정보는 반드시 자격을 갖춘 의료 전문가에게 확인하십시오."
   },
   "actions": {
-    "download_markdown": "Markdown 다운로드",
-    "download_pdf": "PDF 다운로드"
+    "download_markdown": "Markdown 다운로드"
   }
 }

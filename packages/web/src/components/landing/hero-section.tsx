@@ -5,6 +5,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '../../lib/constants';
+import { useTranslation } from '../../i18n/use-translation';
+import { SUPPORTED_LANGUAGES } from '../../i18n/index';
+
+// Terminal mockup = output CLI thật → giữ nguyên tiếng Anh (không dịch).
 
 const FHIR_LINES = [
   '$ fhirbridge export --patient P-10291 --format R4',
@@ -46,7 +50,7 @@ function TerminalMockup() {
   }, [visibleLines]);
 
   return (
-    <div className="relative w-full max-w-lg mx-auto lg:mx-0">
+    <div className="relative w-full max-w-lg mx-auto lg:mx-0" aria-hidden="true">
       {/* Glow backdrop */}
       <div className="absolute -inset-4 bg-teal-500/10 rounded-2xl blur-2xl" />
       <div className="relative rounded-xl overflow-hidden border border-slate-700 shadow-2xl bg-slate-900">
@@ -92,7 +96,16 @@ function TerminalMockup() {
   );
 }
 
+const STATS = [
+  // Resource types có type + validator trong packages/types/src/fhir (README: FHIR R4 Export)
+  { value: 15, labelKey: 'hero.stat_resources' },
+  // Số ngôn ngữ UI + tóm tắt AI thực tế (VI/EN/JA/KO)
+  { value: SUPPORTED_LANGUAGES.length, labelKey: 'hero.stat_languages' },
+  { value: 0, labelKey: 'hero.stat_phi' },
+] as const;
+
 export function HeroSection() {
+  const { t } = useTranslation('landing');
   return (
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden bg-white dark:bg-slate-950">
       {/* Background grid */}
@@ -113,21 +126,16 @@ export function HeroSection() {
           <div className="flex flex-col gap-8">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300 text-sm font-medium w-fit">
               <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-              FHIR R4 Compliant · HL7 Certified
+              {t('hero.badge')}
             </div>
 
-            <h1
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 dark:text-white leading-[1.05] tracking-tight"
-              style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}
-            >
-              Your Medical Data,{' '}
-              <span className="text-teal-600 dark:text-teal-400">Finally Free</span>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 dark:text-white leading-[1.1] tracking-tight">
+              {t('hero.title_lead')}{' '}
+              <span className="text-teal-600 dark:text-teal-400">{t('hero.title_highlight')}</span>
             </h1>
 
             <p className="text-lg md:text-xl text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-              FHIRBridge converts hospital records locked in proprietary HIS systems into open FHIR
-              R4 bundles — giving patients and clinicians true data portability across Vietnam,
-              Japan, and beyond.
+              {t('hero.subtitle')}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -135,8 +143,9 @@ export function HeroSection() {
                 to={ROUTES.DASHBOARD}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold text-base transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-teal-500/25 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
               >
-                Start Exporting
+                {t('hero.cta_start')}
                 <svg
+                  aria-hidden="true"
                   className="w-4 h-4"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -156,44 +165,26 @@ export function HeroSection() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl border-2 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-teal-500 dark:hover:border-teal-500 hover:text-teal-600 dark:hover:text-teal-400 font-semibold text-base transition-all focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
                 </svg>
-                View on GitHub
+                {t('hero.cta_github')}
               </a>
             </div>
 
             {/* Social proof */}
             <div className="flex items-center gap-6 pt-2">
-              <div className="text-center">
-                <div
-                  className="text-2xl font-bold text-slate-900 dark:text-white"
-                  style={{ fontFamily: 'Outfit, sans-serif' }}
-                >
-                  8
+              {STATS.map((stat, i) => (
+                <div key={stat.labelKey} className="flex items-center gap-6">
+                  {i > 0 && <div className="w-px h-8 bg-slate-200 dark:bg-slate-800" />}
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                      {stat.value}
+                    </div>
+                    <div className="text-xs text-slate-500">{t(stat.labelKey)}</div>
+                  </div>
                 </div>
-                <div className="text-xs text-slate-500">FHIR Resources</div>
-              </div>
-              <div className="w-px h-8 bg-slate-200 dark:bg-slate-800" />
-              <div className="text-center">
-                <div
-                  className="text-2xl font-bold text-slate-900 dark:text-white"
-                  style={{ fontFamily: 'Outfit, sans-serif' }}
-                >
-                  3
-                </div>
-                <div className="text-xs text-slate-500">Languages</div>
-              </div>
-              <div className="w-px h-8 bg-slate-200 dark:bg-slate-800" />
-              <div className="text-center">
-                <div
-                  className="text-2xl font-bold text-slate-900 dark:text-white"
-                  style={{ fontFamily: 'Outfit, sans-serif' }}
-                >
-                  0
-                </div>
-                <div className="text-xs text-slate-500">PHI Stored</div>
-              </div>
+              ))}
             </div>
           </div>
 

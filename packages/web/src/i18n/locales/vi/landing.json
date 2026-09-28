@@ -1,0 +1,139 @@
+{
+  "nav": {
+    "features": "Tính năng",
+    "self_host": "Tự triển khai",
+    "docs": "Tài liệu",
+    "github": "GitHub",
+    "get_started": "Bắt đầu",
+    "home_aria": "Trang chủ FHIRBridge",
+    "open_menu": "Mở menu",
+    "close_menu": "Đóng menu"
+  },
+  "hero": {
+    "badge": "FHIR R4 · Mã nguồn mở (MIT) · Tự vận hành",
+    "title_lead": "Dữ liệu y tế của bạn,",
+    "title_highlight": "cuối cùng đã được tự do",
+    "subtitle": "FHIRBridge chuyển đổi hồ sơ bệnh án đang bị khóa trong các hệ thống HIS độc quyền thành bundle FHIR R4 mở — giúp bệnh nhân và nhân viên y tế thực sự mang dữ liệu theo mình, tại Việt Nam, Hàn Quốc, Nhật Bản và nhiều nơi khác.",
+    "cta_start": "Bắt đầu xuất dữ liệu",
+    "cta_github": "Xem trên GitHub",
+    "stat_resources": "Tài nguyên FHIR",
+    "stat_languages": "Ngôn ngữ",
+    "stat_phi": "PHI được lưu trữ"
+  },
+  "problem": {
+    "badge": "Vấn đề",
+    "title": "Hồ sơ bệnh án bị giam trong những hệ thống mà bệnh nhân không thể truy cập",
+    "p1": "Tại Việt Nam và Nhật Bản, các hệ thống thông tin bệnh viện (HIS) lưu dữ liệu bệnh nhân ở những định dạng độc quyền, rời rạc. Khi bệnh nhân chuyển viện hoặc ra nước ngoài, hồ sơ bệnh án không đi theo họ.",
+    "p2": "FHIRBridge giải quyết vấn đề này bằng cách chuyển đổi mọi dữ liệu có cấu trúc xuất ra từ bệnh viện thành bundle FHIR R4 mở, dễ mang theo — tiêu chuẩn quốc tế mà mọi hệ thống y tế hiện đại đều đọc được.",
+    "stats": {
+      "markets": "Thị trường có sẵn mẫu ánh xạ dữ liệu và ghi chú tuân thủ: Việt Nam, Hàn Quốc, Nhật Bản và quốc tế",
+      "sources": "Cách kết nối hệ thống bệnh viện: qua FHIR API hoặc file xuất CSV / Excel",
+      "stored": "Hồ sơ bệnh nhân bị FHIRBridge lưu lại — dữ liệu chỉ truyền qua, không bao giờ được lưu"
+    }
+  },
+  "features": {
+    "title": "Mọi thứ bạn cần để dữ liệu bệnh nhân lưu chuyển tự do",
+    "subtitle": "Được xây dựng cho thực tế của các hệ thống y tế châu Á — dữ liệu lộn xộn, nhiều định dạng, yêu cầu nghiêm ngặt về quyền riêng tư.",
+    "fhir": {
+      "title": "Chuẩn FHIR R4",
+      "desc": "15 loại resource — Patient, Encounter, Condition, Observation, MedicationRequest và nhiều loại khác, kèm bundle Tóm tắt Bệnh nhân Quốc tế (IPS)."
+    },
+    "ai": {
+      "title": "Tóm tắt bệnh nhân bằng AI",
+      "desc": "Claude và OpenAI tạo bản tóm tắt lâm sàng đã khử định danh bằng ngôn ngữ dễ hiểu. Không bao giờ lưu trữ PHI."
+    },
+    "interfaces": {
+      "title": "Ba giao diện",
+      "desc": "CLI cho người dùng chuyên sâu, REST API để tích hợp và Web Dashboard trực quan — tất cả trong một gói."
+    },
+    "import": {
+      "title": "Nhập CSV / Excel",
+      "desc": "Ánh xạ cột bằng file JSON để chuyển dữ liệu CSV / Excel sang FHIR — có sẵn mẫu cho Việt Nam, Hàn Quốc và Nhật Bản."
+    },
+    "privacy": {
+      "title": "Quyền riêng tư ngay từ thiết kế",
+      "desc": "Không lưu trữ PHI — dữ liệu chỉ được xử lý dạng luồng trong bộ nhớ. Tích hợp sẵn ẩn danh hoá bằng HMAC và cơ chế chống SSRF/IDOR."
+    },
+    "multilang": {
+      "title": "Đa ngôn ngữ",
+      "desc": "Toàn bộ giao diện và bản tóm tắt AI bằng tiếng Anh, tiếng Việt, tiếng Nhật (日本語) và tiếng Hàn (한국어)."
+    }
+  },
+  "how": {
+    "title": "Từ dữ liệu bệnh viện thô sang FHIR chỉ trong vài phút",
+    "subtitle": "Ba bước đơn giản. Chỉ một lệnh cài đặt để bắt đầu.",
+    "connect": {
+      "title": "Kết nối",
+      "desc": "Kết nối tới HIS qua FHIR API, hoặc tải lên file xuất CSV / Excel kèm file ánh xạ cột."
+    },
+    "export": {
+      "title": "Xuất",
+      "desc": "FHIRBridge ánh xạ dữ liệu của bạn sang các tài nguyên FHIR R4 theo thời gian thực — Patient, Condition, Medication, Observation và nhiều loại khác."
+    },
+    "summarize": {
+      "title": "Tóm tắt",
+      "desc": "Tùy chọn tạo bản tóm tắt lâm sàng bằng AI bằng tiếng Anh, tiếng Việt, tiếng Nhật hoặc tiếng Hàn — đã khử định danh và chỉ xử lý dạng luồng."
+    }
+  },
+  "security": {
+    "badge": "Bảo mật & Tuân thủ",
+    "title": "Được xây dựng cho môi trường lâm sàng",
+    "subtitle": "Dữ liệu y tế đòi hỏi tiêu chuẩn bảo mật cao nhất. FHIRBridge được trang bị các lớp bảo vệ đạt chuẩn vận hành thực tế ngay từ ngày đầu.",
+    "zero_phi": {
+      "title": "Không lưu trữ PHI",
+      "desc": "Dữ liệu bệnh nhân không bao giờ được lưu lại. Mọi xử lý đều diễn ra trong bộ nhớ, dạng luồng."
+    },
+    "hmac": {
+      "title": "Ẩn danh hoá bằng HMAC-SHA256",
+      "desc": "Mã định danh được thay bằng giá trị băm HMAC-SHA256 có khoá trước mọi lần gọi AI; nhật ký kiểm toán chỉ lưu giá trị băm."
+    },
+    "ssrf": {
+      "title": "Chống SSRF",
+      "desc": "Chặn truy cập tới mạng nội bộ và địa chỉ metadata của cloud; máy chủ HIS nội bộ phải được khai báo cho phép một cách tường minh."
+    },
+    "jwt": {
+      "title": "Xác thực bằng JWT và API key",
+      "desc": "Token HS256 bắt buộc có chủ thể và thời hạn, hoặc API key được so sánh trong thời gian hằng định. Đăng xuất sẽ thu hồi các token có mã jti."
+    },
+    "idor": {
+      "title": "Chống IDOR",
+      "desc": "Quyền sở hữu tài nguyên được xác minh ở mọi request. Không có lỗ hổng dò quét ID."
+    },
+    "rate_limit": {
+      "title": "Giới hạn tần suất",
+      "desc": "Giới hạn theo người dùng và theo IP giúp ngăn lạm dụng và bảo vệ các endpoint HIS phía sau."
+    },
+    "audit": {
+      "title": "Nhật ký kiểm toán",
+      "desc": "Mọi thao tác xuất dữ liệu đều được ghi thời điểm và lưu nhật ký phục vụ tuân thủ và truy vết."
+    },
+    "headers": {
+      "title": "Header bảo mật",
+      "desc": "Content-Security-Policy, HSTS, chống nhúng khung (frame) và chống đoán kiểu MIME trên mọi phản hồi."
+    }
+  },
+  "open_source": {
+    "title": "Phát triển công khai",
+    "subtitle": "FHIRBridge là phần mềm mã nguồn mở. Hãy xem mã nguồn, đóng góp cải tiến hoặc tự triển khai với toàn quyền kiểm soát. Không có hộp đen trong y tế.",
+    "cta_github": "Xem trên GitHub"
+  },
+  "footer": {
+    "tagline": "Chuẩn mở cho việc di chuyển dữ liệu bệnh nhân tại Việt Nam, Hàn Quốc, Nhật Bản và nhiều nơi khác.",
+    "product": "Sản phẩm",
+    "resources": "Tài nguyên",
+    "legal": "Pháp lý",
+    "connect": "Kết nối",
+    "features": "Tính năng",
+    "self_host_guide": "Hướng dẫn tự triển khai",
+    "cli": "CLI",
+    "rest_api": "REST API",
+    "documentation": "Tài liệu",
+    "github": "GitHub",
+    "changelog": "Nhật ký thay đổi",
+    "copyright": "© {{year}} FHIRBridge. Mã nguồn mở theo giấy phép MIT.",
+    "built_with": "Xây dựng với FHIR R4 · HL7 · TypeScript",
+    "license": "Giấy phép (MIT)",
+    "security_policy": "Chính sách bảo mật",
+    "issues": "Báo lỗi"
+  }
+}

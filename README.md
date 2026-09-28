@@ -5,8 +5,15 @@
     Self-host. Pull from your HIS. Export FHIR R4. Generate AI summaries. Zero PHI persisted.
   </p>
   <p align="center">
-    <a href="#features">Features</a> &bull;
+    <b>English</b> &bull;
+    <a href="README.vi.md">Tiếng Việt</a> &bull;
+    <a href="README.ko.md">한국어</a> &bull;
+    <a href="README.ja.md">日本語</a>
+  </p>
+  <p align="center">
     <a href="#quickstart">Quickstart</a> &bull;
+    <a href="#features">Features</a> &bull;
+    <a href="#regional-support-vn--kr--jp--international">Regional support</a> &bull;
     <a href="#api-endpoints">API</a> &bull;
     <a href="#cli-usage">CLI</a> &bull;
     <a href="#self-host-deployment">Self-host</a> &bull;
@@ -22,18 +29,94 @@ Patient medical records are locked inside hospital information systems (HIS). In
 
 **No SaaS. No hosted tier. No billing. No quotas.** You pull the repo, you run it. The hospital, clinic, or research group is the operator and the data controller.
 
+## Quickstart
+
+Pick one. Both give you the web UI at **http://localhost:8080** with a synthetic **Demo HIS**
+(fake patients from Vietnam, Korea, Japan and the US), so you can try a full export without a
+real hospital system or internet access.
+
+### Option A — Node.js (Linux / macOS / Windows)
+
+Requires Node.js ≥ 20 and pnpm ≥ 9 (`corepack enable` installs pnpm).
+
+```bash
+git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
+cd FHIRBridge
+pnpm install
+pnpm run setup     # creates .env (random secrets + an API key) and builds everything
+pnpm demo          # API + web UI + Demo HIS → http://localhost:8080
+```
+
+> `pnpm run setup`, not `pnpm setup` — the latter is a built-in pnpm command.
+
+### Option B — Docker (no Node.js needed on the host)
+
+```bash
+git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
+cd FHIRBridge
+# Create .env with random secrets + an API key (uses a throwaway Node container)
+docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker compose --profile demo up --build     # → http://localhost:8080
+```
+
+Drop `--profile demo` to run without the Demo HIS.
+
+### First export (both options)
+
+1. Open **http://localhost:8080** → **Settings**, paste the API key printed by the setup step
+   (also in `.env` → `API_KEYS`), click **Save Settings**. The key stays in browser memory only.
+2. Pick your language (Tiếng Việt / English / 日本語 / 한국어) from the language switcher.
+3. **Export** → **FHIR Endpoint** → server URL
+   - `pnpm demo`: `http://localhost:8090/fhir`
+   - Docker demo profile: `http://demo-his:8090/fhir`
+4. Patient ID: `demo-vn-001`, `demo-kr-001`, `demo-jp-001` or `demo-en-001` → start the export
+   → download the FHIR R4 Bundle (JSON or NDJSON).
+5. **Import** → pick your country's example column mapping → **Try with sample data** → **Import**
+   → download the FHIR Bundle built from a CSV / Excel export.
+
+Check an installation from the command line at any time with `pnpm smoke` (health → HIS
+connection → export → download; Docker demo: `node scripts/smoke-test.mjs --his http://demo-his:8090/fhir`).
+
+### Connect your real HIS
+
+SSRF protection blocks private and loopback addresses by default — and your HIS almost
+certainly lives on the hospital network. List it explicitly in `.env`, then run `pnpm start`
+(or `docker compose up`):
+
+```bash
+# hostnames, IPv4 addresses, IPv4 CIDRs or host:port pairs, comma-separated
+CONNECTOR_ALLOWED_HOSTS=his.hospital.local,10.20.0.0/16
+```
+
+Cloud-metadata addresses (169.254.0.0/16, `metadata.google.internal`, …) stay blocked even if
+listed. For CSV / Excel exports from your HIS, see [Column mappings](examples/README.md).
+
 ## Features
 
 - **FHIR R4 Export** — Patient, Encounter, Condition, Observation, MedicationRequest, AllergyIntolerance, Procedure, DiagnosticReport, Immunization, CarePlan, CareTeam, Specimen, DocumentReference, Practitioner, Medication
-- **HIS Connectors** — FHIR endpoint (SMART on FHIR / OAuth2) + CSV / Excel import with visual column mapping
-- **AI Summaries (optional)** — Claude or OpenAI providers, de-identified before any external call (HMAC-SHA256 + date shifting), supports VI / EN / JA / KO
-- **Three interfaces** — CLI tool, REST API (Fastify), React web dashboard
+- **HIS Connectors** — FHIR endpoint (SMART on FHIR / OAuth2) + CSV / Excel import with JSON column mappings
+- **AI Summaries (optional)** — Claude or OpenAI providers, de-identified before any external call (HMAC-SHA256 + date shifting), summaries in VI / EN / JA / KO
+- **Three interfaces** — CLI tool, REST API (Fastify), React web dashboard in VI / EN / JA / KO
 - **Privacy-by-design** — Stream-only architecture, no PHI persisted to durable storage, audit log stores hashes only
 - **IPS Bundle support** — International Patient Summary `Bundle.type=document` profile
+- **Runs anywhere** — one-command setup, Docker Compose, or a single Node.js process; works offline / air-gapped (no third-party fonts, CDNs or telemetry)
+
+## Regional support (VN / KR / JP / international)
+
+|                        | 🇻🇳 Vietnam                                                      | 🇰🇷 Korea                                                                    | 🇯🇵 Japan                                                                    | 🌐 International                                                      |
+| ---------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Web UI language        | Tiếng Việt                                                      | 한국어                                                                      | 日本語                                                                      | English                                                               |
+| AI summary language    | `vi`                                                            | `ko`                                                                        | `ja`                                                                        | `en`                                                                  |
+| Column-mapping example | [csv-vneid-vn.json](examples/column-mappings/csv-vneid-vn.json) | [csv-korea-hospital.json](examples/column-mappings/csv-korea-hospital.json) | [excel-japan-clinic.json](examples/column-mappings/excel-japan-clinic.json) | [csv-generic-hl7.json](examples/column-mappings/csv-generic-hl7.json) |
+| National ID handling   | VneID identifiers stay on your servers                          | RRN (주민등록번호) HMAC-hashed / masked at ingest                           | —                                                                           | —                                                                     |
+| Compliance notes       | [PDPD (Decree 13/2023)](#data-residency--vietnam-pdpd)          | [PIPA](#data-residency--korea-pipa), `AUDIT_PROFILE=kr` access log          | [APPI](#data-residency--japan-appi)                                         | [Privacy & security](#privacy--security)                              |
+
+The UI language is detected from the browser (unsupported languages fall back to English) and
+can be changed at any time from the language switcher; the choice is remembered per browser.
 
 ## Tech stack
 
-TypeScript (strict, ES2022) · Turborepo + pnpm workspaces · Fastify 5 · Vite 6 + React 18 + Tailwind · Commander.js · Vitest + Playwright · PostgreSQL 16 (audit logs only, no PHI) · Redis 7 (rate limit + caching, optional) · Anthropic SDK · OpenAI SDK · i18next (VI / EN / JA / KO)
+TypeScript (strict, ES2022) · Turborepo + pnpm workspaces · Fastify 5 · Vite 7 + React 18 + Tailwind · Commander.js · Vitest + Playwright · PostgreSQL 16 (audit logs only, no PHI) · Redis 7 (rate limit + caching, optional) · Anthropic SDK · OpenAI SDK · i18next (VI / EN / JA / KO)
 
 ## Project layout
 
@@ -42,114 +125,60 @@ fhirbridge/
 ├── packages/
 │   ├── types/   FHIR R4 types, AI types, connector types
 │   ├── core/    FHIR engine, validators, connectors, AI pipeline, security utilities
-│   ├── api/     Fastify REST server (JWT, rate limit, audit, helmet, swagger)
+│   ├── api/     Fastify REST server (JWT / API key, rate limit, audit, helmet, swagger)
 │   ├── cli/     Commander.js CLI tool
 │   └── web/     Vite + React + Tailwind dashboard (i18n VI/EN/JA/KO)
-├── docker/      Postgres 16 + Redis 7 (optional, only needed for audit log + multi-replica rate limit)
-└── tests/       1100+ tests across unit, integration, E2E, security, performance
+├── scripts/     setup.mjs (one-command setup), start.mjs (`pnpm start` / `pnpm demo`)
+├── examples/    column mappings for VN / KR / JP / generic HIS exports, synthetic Demo HIS
+├── docker/      web image (nginx), Postgres 16 + Redis 7 for persistent audit / multi-replica
+├── docker-compose.yml   API + web UI (+ Demo HIS with --profile demo)
+└── tests/       integration, E2E (CLI + Playwright), security, performance
 ```
 
-## Prerequisites
+## API walkthrough — first export with curl
 
-- Node.js >= 20 LTS
-- pnpm >= 9
-- (Optional) Docker + Docker Compose — only needed if you want persistent audit logs (Postgres) or distributed rate limiting (Redis). The server runs fine with both off, falling back to Console-audit + in-memory rate limit.
-
-## Quickstart — 2-minute Docker
-
-The fastest way to try FHIRBridge is the pre-built image. The API runs with no Postgres / Redis — audit goes to stdout, rate limit is in-memory.
+With `pnpm demo` (or the Docker demo profile) running:
 
 ```bash
-# Generate two secrets (each ≥ 32 chars, must differ)
-JWT_SECRET=$(openssl rand -hex 48)
-HMAC_SECRET=$(openssl rand -hex 48)
+API=http://localhost:8080/api/v1
+KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
+HIS=http://localhost:8090/fhir        # Docker demo profile: http://demo-his:8090/fhir
 
-# Pull and run — pin to a released version tag (not :latest) so a deploy is
-# reproducible. For production, pin to an immutable digest instead:
-#   ghcr.io/tranhoangtu-it/fhirbridge-api@sha256:<digest>
-# Images are cosign-signed and ship SBOM + provenance attestations; verify with
-#   cosign verify ghcr.io/tranhoangtu-it/fhirbridge-api:v0.1.0 \
-#     --certificate-identity-regexp '.*' --certificate-oidc-issuer-regexp '.*'
-docker run --rm \
-  -e JWT_SECRET=$JWT_SECRET \
-  -e HMAC_SECRET=$HMAC_SECRET \
-  -p 3001:3001 \
-  ghcr.io/tranhoangtu-it/fhirbridge-api:v0.1.0
+# 1. Probe the HIS
+curl -s -X POST $API/connectors/test -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d "{\"type\":\"fhir-endpoint\",\"config\":{\"baseUrl\":\"$HIS\"}}"
+# → {"connected":true,"serverVersion":"4.0.1",...}
 
-# In another terminal:
-curl http://localhost:3001/api/v1/health
-# → {"status":"ok","version":"0.1.0",...,"checks":{"server":"ok","database":"disabled","redis":"disabled"}}
-```
-
-To run the web dashboard alongside, build it once and serve `packages/web/dist/` from any static host (nginx / Caddy / S3+CloudFront / Cloudflare Pages). It points at `VITE_API_BASE_URL`.
-
-For full Postgres + Redis posture, see [Self-host deployment](#self-host-deployment).
-
-## 5-minute walkthrough — first export
-
-This walkthrough hits the public HAPI FHIR sandbox so you can verify everything end-to-end without an HIS handy.
-
-```bash
-# 1. Issue a JWT for yourself (uses the same JWT_SECRET as the server)
-JWT=$(node -e "const j=require('jsonwebtoken');console.log(j.sign({sub:'demo'},process.env.JWT_SECRET))")
-
-# 2. Probe the public HAPI FHIR endpoint
-curl -X POST http://localhost:3001/api/v1/connectors/test \
-  -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"type":"fhir-endpoint","baseUrl":"https://hapi.fhir.org/baseR4"}'
-
-# 3. Kick off an export of patient #1
-EXPORT_ID=$(curl -s -X POST http://localhost:3001/api/v1/export \
-  -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
-  -d '{"patientId":"1","connectorConfig":{"type":"fhir-endpoint","baseUrl":"https://hapi.fhir.org/baseR4"}}' \
+# 2. Start an export
+EXPORT_ID=$(curl -s -X POST $API/export -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d "{\"patientId\":\"demo-vn-001\",\"connectorConfig\":{\"type\":\"fhir-endpoint\",\"baseUrl\":\"$HIS\"}}" \
   | jq -r .exportId)
-echo "Export id: $EXPORT_ID"
 
-# 4. Poll until complete
-curl -s http://localhost:3001/api/v1/export/$EXPORT_ID/status -H "Authorization: Bearer $JWT" | jq
+# 3. Poll, then download the FHIR R4 Bundle
+curl -s $API/export/$EXPORT_ID/status -H "X-API-Key: $KEY"
+curl -s "$API/export/$EXPORT_ID/download?format=json" -H "X-API-Key: $KEY" -o bundle.json
 
-# 5. Download as NDJSON
-curl -s "http://localhost:3001/api/v1/export/$EXPORT_ID/download?format=ndjson" \
-  -H "Authorization: Bearer $JWT" \
-  -o patient-bundle.ndjson
-wc -l patient-bundle.ndjson
+# 4. (Optional, needs ANTHROPIC_API_KEY or OPENAI_API_KEY on the server) AI summary in Vietnamese
+curl -s -X POST $API/summary/generate -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d "{\"exportId\":\"$EXPORT_ID\",\"summaryConfig\":{\"language\":\"vi\",\"provider\":\"claude\"}}"
 ```
 
-For CSV / Excel imports, drop in one of the [examples/column-mappings/](examples/column-mappings/) files — they cover Vietnamese, Japanese, and generic HL7-flavored exports.
+JWT (HS256, signed with `JWT_SECRET`, `sub` + `exp` claims required) works too, via
+`Authorization: Bearer <jwt>`. The OpenAPI UI is served at `/api/v1/docs` when `ENABLE_DOCS=true`.
 
-## Build from source
+## Development
 
 ```bash
-# 1. Clone and install
-git clone https://github.com/tranhoangtu-it/FHIRBridge.git
-cd FHIRBridge
 pnpm install
+pnpm run setup --no-build                    # .env only
+pnpm build                                   # build all packages (the API dev server runs from dist/)
+pnpm --filter @fhirbridge/api dev            # API → http://localhost:3001
+pnpm --filter @fhirbridge/web dev            # Web → http://localhost:5173 (proxies /api to :3001)
 
-# 2. Configure environment (only the security secrets are required)
-cp .env.example .env
-#   Required:  JWT_SECRET, HMAC_SECRET (each >= 32 chars, must be different)
-#   Optional:  DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY, OPENAI_API_KEY
-
-# 3. Build + run the unit tests
-pnpm build
-pnpm test                                    # ~1100 tests, no Docker required
-
-# 4. Start dev servers (no infra dependencies — uses Console audit + in-memory store)
-pnpm --filter @fhirbridge/api dev            # API   → http://localhost:3001
-pnpm --filter @fhirbridge/web dev            # Web   → http://localhost:5173
-```
-
-That's it for development. Optional infra (Postgres + Redis) below in [Self-host deployment](#self-host-deployment).
-
-## Development commands
-
-```bash
-pnpm build              # Build all packages
-pnpm dev                # Start all dev servers via turbo
-pnpm test               # All unit tests (~1100, no Docker)
+pnpm test               # unit tests (no Docker needed)
 pnpm typecheck          # TypeScript strict check
-pnpm lint               # ESLint + Prettier
+pnpm lint               # ESLint
+pnpm format:check       # Prettier
 
 # Extended test suites
 pnpm test:integration   # Fastify server.inject() integration tests
@@ -162,71 +191,77 @@ pnpm test:a11y          # axe-core via Playwright
 
 ## API endpoints
 
-| Method | Endpoint                       | Description                                                                    |
-| ------ | ------------------------------ | ------------------------------------------------------------------------------ |
-| `POST` | `/api/v1/export`               | Initiate patient data export                                                   |
-| `GET`  | `/api/v1/export/:id/status`    | Check export progress                                                          |
-| `GET`  | `/api/v1/export/:id/download`  | Download FHIR R4 Bundle (`?format=json` or `?format=ndjson`)                   |
-| `POST` | `/api/v1/connectors/test`      | Test HIS connection                                                            |
-| `POST` | `/api/v1/connectors/import`    | Upload CSV / Excel file                                                        |
-| `POST` | `/api/v1/summary/generate`     | Generate AI patient summary (requires `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) |
-| `GET`  | `/api/v1/summary/:id/download` | Download summary (Markdown / FHIR Composition)                                 |
-| `POST` | `/api/v1/consent/record`       | Record cross-border AI consent                                                 |
-| `GET`  | `/api/v1/health`               | Liveness + dependency health                                                   |
+| Method | Endpoint                       | Description                                                                          |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------ |
+| `POST` | `/api/v1/export`               | Initiate patient data export                                                         |
+| `GET`  | `/api/v1/export/:id/status`    | Check export progress                                                                |
+| `GET`  | `/api/v1/export/:id/download`  | Download FHIR R4 Bundle (`?format=json` or `?format=ndjson`)                         |
+| `POST` | `/api/v1/connectors/test`      | Test HIS connection                                                                  |
+| `POST` | `/api/v1/connectors/import`    | Upload CSV / Excel file + column mapping                                             |
+| `POST` | `/api/v1/summary/generate`     | Generate AI summary from `exportId` or an inline `bundle` (needs an AI provider key) |
+| `GET`  | `/api/v1/summary/:id/download` | Download summary (Markdown / JSON)                                                   |
+| `POST` | `/api/v1/consent/record`       | Record cross-border AI consent                                                       |
+| `POST` | `/api/v1/auth/logout`          | Revoke the caller's JWT (`jti`) and audit the sign-out                               |
+| `GET`  | `/api/v1/health`               | Liveness + dependency health                                                         |
 
-OpenAPI spec served at `/api/v1/docs` (only outside production, or set `ENABLE_DOCS=true`).
-
-**Authentication:** `Authorization: Bearer <jwt>` or `X-API-Key: <key>`. `/api/v1/health` is public.
+**Authentication:** `X-API-Key: <key>` (keys from `API_KEYS`) or `Authorization: Bearer <jwt>`. `/api/v1/health` is public.
 
 ## CLI usage
 
+From the repo root (after `pnpm run setup`), prefix commands with `pnpm fhirbridge`:
+
 ```bash
-# Export from a FHIR endpoint
-fhirbridge export --patient-id 123 --endpoint https://hapi.fhir.org/baseR4
+# Export from a FHIR endpoint (private / localhost addresses must be allowlisted)
+CONNECTOR_ALLOWED_HOSTS=localhost:8090 \
+  pnpm fhirbridge export --patient-id demo-vn-001 --endpoint http://localhost:8090/fhir --output bundle.json
 
-# Import CSV / Excel into a FHIR Bundle
-fhirbridge import --file patients.csv --mapping mapping.json --output bundle.json
-
-# Generate an AI summary (de-identified before the API call)
-fhirbridge summarize --input bundle.json --provider claude --language vi
+# Import CSV / Excel into a FHIR Bundle using a column mapping
+pnpm fhirbridge import --file examples/data/vn-hospital.csv --mapping examples/column-mappings/csv-vneid-vn.json --output bundle.json
 
 # Validate a FHIR Bundle
-fhirbridge validate --input bundle.json
+pnpm fhirbridge validate --input bundle.json
 
-# Manage saved connection profiles
-fhirbridge config add-profile my-hospital
-fhirbridge config list
+# AI summary (de-identified before the API call; needs ANTHROPIC_API_KEY or OPENAI_API_KEY)
+export ANTHROPIC_API_KEY=...
+pnpm fhirbridge summarize --input bundle.json --provider claude --language vi
+
+# Saved connection profiles
+pnpm fhirbridge config add-profile my-hospital
+pnpm fhirbridge config list
 ```
+
+Run `pnpm fhirbridge <command> --help` for every option. The CLI reads settings from its
+environment (not from `.env`): export `CONNECTOR_ALLOWED_HOSTS` / provider keys in your shell.
 
 ## Self-host deployment
 
-The simplest deployment is a single Node.js process. Docker compose for Postgres + Redis is provided but optional.
+| Setup                         | Command                                   | Audit log        | Rate limit / caches    |
+| ----------------------------- | ----------------------------------------- | ---------------- | ---------------------- |
+| Single machine, Node.js       | `pnpm start`                              | stdout           | in-memory (1 instance) |
+| Single machine, Docker        | `docker compose up -d --build`            | container stdout | in-memory (1 instance) |
+| Persistent audit + multi-node | API with `DATABASE_URL` + `REDIS_URL` set | PostgreSQL       | Redis (shared)         |
+
+For PostgreSQL + Redis, start `docker/docker-compose.yml` (passwords come from `.env`), uncomment
+`DATABASE_URL` / `REDIS_URL` in `.env` (the setup script already filled in matching passwords),
+and apply migrations:
 
 ```bash
-# 1. Build the production bundle
-pnpm build
-
-# 2. (Optional) Start Postgres + Redis for persistent audit logs and distributed rate limit.
-#    POSTGRES_PASSWORD and REDIS_PASSWORD are REQUIRED (compose fails fast if unset)
-#    and both services bind to 127.0.0.1 only. Redis persistence is disabled and
-#    /data is tmpfs, so no cached record is ever written to durable disk.
-export POSTGRES_PASSWORD=$(openssl rand -hex 24)
-export REDIS_PASSWORD=$(openssl rand -hex 24)
+set -a; . ./.env; set +a                       # export POSTGRES_PASSWORD / REDIS_PASSWORD
 docker compose -f docker/docker-compose.yml up -d
-
-# 3. Start the API server
-NODE_ENV=production pnpm --filter @fhirbridge/api start
-
-# 4. Serve the web bundle (any static host works — nginx, Caddy, etc.)
-pnpm --filter @fhirbridge/web build
-# upload packages/web/dist to your static host
+pnpm --filter @fhirbridge/api migrate
+pnpm start
 ```
 
 Behavior under degraded infra:
 
 - No `DATABASE_URL` set → audit log writes to stdout (Console sink). Use `journalctl` / log aggregator.
 - No `REDIS_URL` set → rate limit + caches stay in-memory per process. Single-replica only.
-- No `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` → AI summary endpoints return a clear error; export + connector endpoints unaffected.
+- No `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` → summary generation answers `503` with the variable to set; export + connector endpoints unaffected.
+
+A pre-built API image is published by CI for each release
+(`ghcr.io/digital-healthcare-opensource/fhirbridge-api:<version>`, cosign-signed with SBOM +
+provenance — see the [release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases)).
+The web UI image is built locally by `docker compose`.
 
 ### Production hardening
 
@@ -254,19 +289,19 @@ cosign signature / SBOM / provenance attestations published with each release.
 
 ## Privacy & security
 
-| Protection           | Implementation                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| Zero PHI at rest     | Stream-only export pipeline; in-memory record TTL 10 min                                   |
-| De-identification    | HMAC-SHA256 + per-patient deterministic date shift before AI call                          |
-| Safe Harbor age cap  | `birthDate` removed when computed age ≥ 89 (HIPAA §164.514(b)(2)(i)(C))                    |
-| SSRF protection      | Blocks private IPs, link-local, IPv6 loopback, cloud metadata                              |
-| IDOR protection      | Ownership verified on every export / summary access; cross-tenant attempts audited as 404  |
-| Authentication       | JWT (HS256) + API key with `crypto.timingSafeEqual` comparison                             |
-| Rate limiting        | Per-user / per-IP, 100 req/min default (configurable via `RATE_LIMIT_PER_MINUTE`)          |
-| Audit logging        | HMAC-SHA256 hashes of user IDs, action types, resource counts only — never raw identifiers |
-| Cross-border consent | Per-session consent recording before sending data to non-domestic AI providers             |
-| BAA disclaimer       | Hospital operator owns the BAA decision; UI surfaces the disclaimer for end users          |
-| HMAC secret reuse    | Boot fails if `HMAC_SECRET == JWT_SECRET` (Zod-enforced)                                   |
+| Protection           | Implementation                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Zero PHI at rest     | Stream-only export pipeline; in-memory record TTL 10 min                                                                                |
+| De-identification    | HMAC-SHA256 + per-patient deterministic date shift before AI call                                                                       |
+| Safe Harbor age cap  | `birthDate` removed when computed age ≥ 89 (HIPAA §164.514(b)(2)(i)(C))                                                                 |
+| SSRF protection      | Blocks private IPs, link-local, IPv6 loopback, cloud metadata; internal HIS hosts opt-in via `CONNECTOR_ALLOWED_HOSTS` (metadata never) |
+| IDOR protection      | Ownership verified on every export / summary access; cross-tenant attempts audited as 404                                               |
+| Authentication       | JWT (HS256) + API key with `crypto.timingSafeEqual` comparison                                                                          |
+| Rate limiting        | Per-user / per-IP, 100 req/min default (configurable via `RATE_LIMIT_PER_MINUTE`)                                                       |
+| Audit logging        | HMAC-SHA256 hashes of user IDs, action types, resource counts only — never raw identifiers                                              |
+| Cross-border consent | Per-session consent recording before sending data to non-domestic AI providers                                                          |
+| BAA disclaimer       | Hospital operator owns the BAA decision; UI surfaces the disclaimer for end users                                                       |
+| HMAC secret reuse    | Boot fails if `HMAC_SECRET == JWT_SECRET` (Zod-enforced)                                                                                |
 
 ### Data residency — Japan (APPI)
 
@@ -351,35 +386,53 @@ legal advice.
 
 ## Testing
 
-Roughly 1100 unit + integration tests pass on every commit.
+```bash
+pnpm test               # unit tests: types, core, api, cli, web
+pnpm test:integration   # API integration (Fastify inject)
+pnpm test:e2e:cli       # CLI as a real subprocess
+pnpm test:security      # XSS, SSRF, IDOR, JWT, upload, RRN masking
+```
 
-```
-core: ~627 tests (validators, connectors, AI pipeline, de-identifier invariants)
-api:  ~179 tests (routes, services, plugins, IDOR + auth security)
-web:  ~238 tests (components, hooks, i18n, accessibility)
-cli:  test commands for every CLI verb
-```
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs build, typecheck, lint, a
+production dependency audit, unit, integration, CLI E2E and security tests, plus CodeQL and a
+gitleaks secret scan, on every push and pull request to `main`. The Playwright suites
+(`pnpm test:e2e`, `pnpm test:a11y`) run locally.
 
 ## Environment variables
 
-See `.env.example` for full documentation.
+`pnpm run setup` writes a working `.env`; see [`.env.example`](.env.example) for every option.
 
-| Variable                | Required | Description                                                             |
-| ----------------------- | -------- | ----------------------------------------------------------------------- |
-| `JWT_SECRET`            | Yes      | JWT signing key (>= 32 chars)                                           |
-| `HMAC_SECRET`           | Yes      | De-identification HMAC key (>= 32 chars, must differ from `JWT_SECRET`) |
-| `API_KEYS`              | No       | Comma-separated list of static API keys                                 |
-| `CORS_ORIGINS`          | No       | Comma-separated allow-list (default `http://localhost:3000`)            |
-| `DATABASE_URL`          | No       | PostgreSQL connection for persistent audit logs                         |
-| `REDIS_URL`             | No       | Redis connection for distributed rate limit + caches                    |
-| `ANTHROPIC_API_KEY`     | For AI   | Claude API key                                                          |
-| `OPENAI_API_KEY`        | For AI   | OpenAI API key                                                          |
-| `RATE_LIMIT_PER_MINUTE` | No       | Override the default 100 req/min budget                                 |
-| `METRICS_BEARER_TOKEN`  | No       | Bearer token for `/metrics`; off when unset                             |
-| `TRUST_PROXY`           | No       | `true` or a CIDR string when running behind a load balancer             |
-| `ENABLE_DOCS`           | No       | Set to `true` to expose `/api/v1/docs` in production                    |
+| Variable                  | Required | Description                                                                               |
+| ------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `JWT_SECRET`              | Yes      | JWT signing key (>= 32 chars, no placeholder text)                                        |
+| `HMAC_SECRET`             | Yes      | De-identification HMAC key (>= 32 chars, must differ from `JWT_SECRET`)                   |
+| `API_KEYS`                | No       | Comma-separated static API keys (web UI Settings / `X-API-Key` header)                    |
+| `PORT` / `HOST`           | No       | API listen address (default `3001` / `127.0.0.1`; Docker uses `0.0.0.0` in the container) |
+| `WEB_PORT` / `WEB_HOST`   | No       | Web UI address for `pnpm start` and Docker (default `8080` / `127.0.0.1`)                 |
+| `CONNECTOR_ALLOWED_HOSTS` | No       | Internal HIS hosts to allow through SSRF protection (hostnames, IPv4, CIDRs, `host:port`) |
+| `CORS_ORIGINS`            | No       | Comma-separated allow-list (only needed when the UI is served from another origin)        |
+| `DATABASE_URL`            | No       | PostgreSQL connection for persistent audit logs                                           |
+| `REDIS_URL`               | No       | Redis connection for distributed rate limit + caches                                      |
+| `AUDIT_PROFILE`           | No       | `kr` = Korean access-log fields (`patientRefHash`, `sourceIp`)                            |
+| `AUDIT_RETENTION_DAYS`    | No       | Opt-in daily purge of audit rows older than N days (KR needs >= 730)                      |
+| `AI_PROVIDER`             | No       | Default summary provider when a request does not name one: `anthropic` or `openai`        |
+| `ANTHROPIC_API_KEY`       | For AI   | Claude API key                                                                            |
+| `ANTHROPIC_MODEL`         | No       | Claude model (default `claude-opus-5`)                                                    |
+| `OPENAI_API_KEY`          | For AI   | OpenAI API key                                                                            |
+| `OPENAI_MODEL`            | No       | OpenAI model (default `gpt-4o`)                                                           |
+| `RATE_LIMIT_PER_MINUTE`   | No       | Override the default 100 req/min budget                                                   |
+| `METRICS_BEARER_TOKEN`    | No       | Bearer token (>= 16 chars) for `/metrics`; off when unset                                 |
+| `TRUST_PROXY`             | No       | `true`, a CIDR or `loopback` when running behind a reverse proxy                          |
+| `ENABLE_DOCS`             | No       | `true` exposes the OpenAPI UI at `/api/v1/docs`                                           |
+
+Empty values (`KEY=`) are treated as unset.
 
 ## Contributing
+
+Contributions are welcome — translations (VI / KO / JA review by native speakers is especially
+valuable), HIS column mappings, connectors and bug reports. Start with
+[CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report
+security issues privately as described in [SECURITY.md](.github/SECURITY.md).
 
 ```bash
 pnpm build && pnpm test && pnpm typecheck && pnpm lint
@@ -387,4 +440,4 @@ pnpm build && pnpm test && pnpm typecheck && pnpm lint
 
 ## License
 
-MIT
+[MIT](LICENSE)

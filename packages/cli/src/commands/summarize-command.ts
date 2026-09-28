@@ -1,24 +1,46 @@
 /**
- * Summarize command — generate AI clinical summary from a FHIR bundle.
- * AI module is an optional dependency; gracefully handles absence.
+ * Summarize command — generate an AI clinical summary from a FHIR bundle.
+ * Runs the same core pipeline as the API: de-identify → section summaries →
+ * synthesis → Markdown / FHIR Composition. Needs ANTHROPIC_API_KEY or
+ * OPENAI_API_KEY in the environment; fails with a clear message otherwise.
  */
 
 import type { Command } from 'commander';
+import { randomBytes } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
-import type { Bundle } from '@fhirbridge/core';
-import { promptProviderOptions } from '../prompts/provider-prompts.js';
+import {
+  CLAUDE_DEFAULT_MODEL,
+  OPENAI_DEFAULT_MODEL,
+  ProviderGateway,
+  formatComposition,
+  formatMarkdown,
+} from '@fhirbridge/core';
+import type { Bundle, SummaryConfig } from '@fhirbridge/types';
+import { promptProviderOptions, type ProviderPromptResult } from '../prompts/provider-prompts.js';
 import { writeOutput } from '../utils/file-writer.js';
-import { info, success, error, warn } from '../utils/logger.js';
+import { info, success, error, warn, useStderrForStatus } from '../utils/logger.js';
 import { loadConfig } from '../config/config-manager.js';
+
+const PROVIDERS = ['claude', 'openai'] as const;
+const LANGUAGES = ['en', 'vi', 'ja', 'ko'] as const;
+const DETAILS = ['brief', 'standard', 'detailed'] as const;
+const FORMATS = ['markdown', 'composition'] as const;
+
+/** Env var holding the key for each provider. */
+const KEY_ENV: Record<ProviderPromptResult['provider'], string> = {
+  claude: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+};
 
 export function registerSummarizeCommand(program: Command): void {
   program
     .command('summarize')
     .description('Generate AI clinical summary from a FHIR bundle')
     .option('--input <path>', 'Path to FHIR bundle JSON file')
-    .option('--provider <claude|openai|gemini>', 'AI provider')
-    .option('--language <en|vi|ja|ko|zh>', 'Summary language')
+    .option('--provider <claude|openai>', 'AI provider')
+    .option('--language <en|vi|ja|ko>', 'Summary language')
     .option('--detail <brief|standard|detailed>', 'Detail level', 'standard')
+    .option('--model <id>', 'Override the provider model (default: ANTHROPIC_MODEL / OPENAI_MODEL)')
     .option('--output <path>', 'Output file path (default: stdout)')
     .option('--format <markdown|composition>', 'Output format', 'markdown')
     .action(async (opts: SummarizeOptions) => {
@@ -36,8 +58,31 @@ interface SummarizeOptions {
   provider?: string;
   language?: string;
   detail?: string;
+  model?: string;
   output?: string;
   format?: string;
+}
+
+/** Validate an enum-like CLI option, naming the allowed values on error. */
+function oneOf<T extends string>(
+  flag: string,
+  value: string | undefined,
+  allowed: readonly T[],
+): T | undefined {
+  if (value === undefined) return undefined;
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  throw new Error(`Invalid ${flag} "${value}". Allowed: ${allowed.join(', ')}`);
+}
+
+function envValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
+/** Local id of the first Patient in the bundle — used as Composition.subject. */
+function findPatientRef(bundle: Bundle): string {
+  const patient = bundle.entry?.find((e) => e.resource?.resourceType === 'Patient')?.resource;
+  return patient?.id ? `Patient/${patient.id}` : 'Patient/unknown';
 }
 
 async function runSummarize(opts: SummarizeOptions): Promise<void> {
@@ -48,16 +93,27 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
   if (!existsSync(inputPath)) {
     throw new Error(`File not found: ${inputPath}`);
   }
+  const format = oneOf('--format', opts.format ?? 'markdown', FORMATS) ?? 'markdown';
 
   const config = loadConfig();
 
   const providerOpts = await promptProviderOptions({
-    provider: (opts.provider ?? config.defaultProvider) as
-      'claude' | 'openai' | 'gemini' | undefined,
-    language: (opts.language ?? config.defaultLanguage) as 'en' | 'vi' | 'ja' | 'ko' | undefined,
-    detail: opts.detail as 'brief' | 'standard' | 'detailed' | undefined,
+    provider: oneOf('--provider', opts.provider ?? config.defaultProvider, PROVIDERS),
+    language: oneOf('--language', opts.language ?? config.defaultLanguage, LANGUAGES),
+    detail: oneOf('--detail', opts.detail, DETAILS),
   });
 
+  const keyEnv = KEY_ENV[providerOpts.provider];
+  const apiKey = envValue(keyEnv);
+  if (!apiKey) {
+    throw new Error(
+      `${keyEnv} is not set. Export it first, e.g. \`export ${keyEnv}=...\` ` +
+        '(read the data-residency notes in README before sending data abroad).',
+    );
+  }
+
+  // Summary on stdout → keep stdout pure data (status lines go to stderr).
+  useStderrForStatus(!opts.output);
   info(`Reading bundle from: ${inputPath}`);
   let bundle: Bundle;
   try {
@@ -65,58 +121,59 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
   } catch {
     throw new Error(`Failed to parse FHIR bundle from: ${inputPath}`);
   }
-
-  info(
-    `Summarizing with ${providerOpts.provider} (${providerOpts.language}, ${providerOpts.detail})...`,
-  );
-
-  let summary = '';
-  try {
-    // Dynamic import — ai package may not exist in all environments
-    const aiModule = (await import('@fhirbridge/ai' as string).catch(() => null)) as Record<
-      string,
-      unknown
-    > | null;
-    if (aiModule && 'generateSummary' in aiModule) {
-      const generateSummary = aiModule['generateSummary'] as (params: {
-        bundle: Bundle;
-        provider: string;
-        language: string;
-        detail: string;
-      }) => Promise<{ text: string; tokens?: number }>;
-
-      const result = await generateSummary({
-        bundle,
-        provider: providerOpts.provider,
-        language: providerOpts.language,
-        detail: providerOpts.detail,
-      });
-      summary = result.text;
-      if (result.tokens) info(`Token usage: ${result.tokens}`);
-    } else {
-      warn('AI module (@fhirbridge/ai) not available. Generating placeholder summary.');
-      summary = generatePlaceholderSummary(bundle, providerOpts);
-    }
-  } catch (aiErr) {
-    error(`AI summarization failed: ${(aiErr as Error).message}`);
-    throw aiErr;
+  if (bundle.resourceType !== 'Bundle') {
+    throw new Error(`Not a FHIR Bundle: ${inputPath}`);
   }
 
-  writeOutput(summary, opts.output);
-  success(`Summary written` + (opts.output ? ` → ${opts.output}` : ' → stdout'));
-}
+  const model =
+    opts.model ??
+    (providerOpts.provider === 'openai'
+      ? (envValue('OPENAI_MODEL') ?? OPENAI_DEFAULT_MODEL)
+      : (envValue('ANTHROPIC_MODEL') ?? CLAUDE_DEFAULT_MODEL));
 
-function generatePlaceholderSummary(
-  bundle: Bundle,
-  opts: { provider: string; language: string; detail: string },
-): string {
-  const count = bundle.entry?.length ?? 0;
-  return [
-    `# Clinical Summary`,
-    ``,
-    `**Provider:** ${opts.provider} | **Language:** ${opts.language} | **Detail:** ${opts.detail}`,
-    `**Resources:** ${count}`,
-    ``,
-    `> Note: AI module not installed. Install @fhirbridge/ai to generate real summaries.`,
-  ].join('\n');
+  // Pseudonyms only need to be stable within one run: without a configured
+  // HMAC_SECRET a fresh random key keeps them unlinkable across runs.
+  const configuredSecret = envValue('HMAC_SECRET');
+  const hmacSecret =
+    configuredSecret && configuredSecret.length >= 32
+      ? configuredSecret
+      : randomBytes(32).toString('hex');
+
+  const summaryConfig: SummaryConfig = {
+    language: providerOpts.language,
+    detailLevel: providerOpts.detail,
+    outputFormats: [format],
+    hmacSecret,
+    providerConfig: {
+      provider: providerOpts.provider,
+      model,
+      apiKey,
+      maxTokens: 16000,
+      temperature: 0,
+      timeoutMs: 120_000,
+    },
+  };
+
+  warn(
+    `De-identified data will be sent to ${providerOpts.provider === 'openai' ? 'OpenAI' : 'Anthropic'} ` +
+      '(identifiers hashed, names redacted, dates shifted).',
+  );
+  info(
+    `Summarizing with ${providerOpts.provider}/${model} (${providerOpts.language}, ${providerOpts.detail})...`,
+  );
+
+  const gateway = new ProviderGateway(summaryConfig);
+  let output: string;
+  try {
+    const summary = await gateway.summarize(bundle, summaryConfig);
+    output =
+      format === 'composition'
+        ? JSON.stringify(formatComposition(summary, findPatientRef(bundle)), null, 2)
+        : formatMarkdown(summary);
+  } catch (aiErr) {
+    throw new Error(`AI summarization failed: ${(aiErr as Error).message}`);
+  }
+
+  writeOutput(output, opts.output);
+  success(`Summary written` + (opts.output ? ` → ${opts.output}` : ' → stdout'));
 }

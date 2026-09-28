@@ -1,6 +1,9 @@
 /**
  * Raw data to FHIR resource transformer.
  * Maps arbitrary key-value records to typed FHIR R4 resources.
+ *
+ * Không dùng cho CSV/Excel import nữa — xem row-transformer.ts / tabular-import.ts
+ * (canonical column mapping, examples/column-mappings/).
  */
 
 import type { Resource } from '@fhirbridge/types';

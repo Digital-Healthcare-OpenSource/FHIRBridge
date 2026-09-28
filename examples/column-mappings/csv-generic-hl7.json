@@ -1,6 +1,6 @@
 {
-  "$schema": "https://github.com/tranhoangtu-it/FHIRBridge/blob/main/packages/types/src/connectors/mapping.schema.json",
-  "description": "Generic HL7-flavored CSV with MRN / DOB / ICD-10 / LOINC columns. Most US hospital export tools default to a layout near this.",
+  "$schema": "./mapping.schema.json",
+  "description": "Generic HL7-flavored CSV with MRN / DOB / ICD-10-CM / LOINC columns, one row per encounter. Most US hospital export tools default to a layout near this. VISIT_DATE carries its own UTC offset (format token Z), so no \"timezone\" is needed. Sample data: examples/data/generic-hl7.csv.",
   "patientId": {
     "column": "MRN",
     "system": "urn:oid:2.16.840.1.113883.19.5"
@@ -32,6 +32,11 @@
     "Condition.code.text": "DIAGNOSIS_TEXT",
     "Observation.code.coding[].system": { "literal": "http://loinc.org" },
     "Observation.code.coding[].code": "LOINC",
+    "Observation.effectiveDateTime": {
+      "column": "VISIT_DATE",
+      "transform": "datetime",
+      "format": "YYYY-MM-DDTHH:mm:ssZ"
+    },
     "Observation.valueQuantity.value": "RESULT_VALUE",
     "Observation.valueQuantity.unit": "RESULT_UNIT"
   },

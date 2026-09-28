@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FHIRBridge CSV/Excel column mapping",
+  "description": "Canonical column-mapping format for `fhirbridge import` and POST /api/v1/connectors/import. Each row of the file produces at most one resource per entry in resourceTypes. See examples/README.md for the semantics (valueMap, transforms, literals, timezone). The importer (parseMappingConfig in @fhirbridge/core) additionally checks every path against the FHIR R4 elements it supports and reports precise errors.",
+  "type": "object",
+  "required": ["fields"],
+  "additionalProperties": false,
+  "patternProperties": {
+    "^\\$": {}
+  },
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "patientId": {
+      "description": "Column that identifies the patient on every row. Its value becomes Patient.identifier (with `system`), deduplicates Patients across rows and links the other resources to them.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "required": ["column"],
+          "additionalProperties": false,
+          "properties": {
+            "column": {
+              "type": "string",
+              "minLength": 1
+            },
+            "system": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:\\S+$",
+              "description": "Identifier namespace URI, e.g. urn:oid:... or https://..."
+            }
+          }
+        }
+      ]
+    },
+    "sheet": {
+      "description": "Excel only. One sheet name for every resource type, or an object naming a sheet for each entry in resourceTypes (the Patient sheet is read first; other sheets link rows to patients through the patientId column). Default: the first sheet.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "$ref": "#/definitions/resourceType"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      ]
+    },
+    "timezone": {
+      "description": "UTC offset applied to datetime values that carry a time but no offset (FHIR requires one). Without it such values are emitted as dates only.",
+      "type": "string",
+      "pattern": "^(Z|[+-](0\\d|1[0-4]):[0-5]\\d)$",
+      "examples": ["+07:00", "+09:00", "-05:00", "Z"]
+    },
+    "resourceTypes": {
+      "description": "Resource types produced per row, in output order. Defaults to the types used in `fields`.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/definitions/resourceType"
+      }
+    },
+    "fields": {
+      "description": "\"<ResourceType>.<path>\" → column name, column spec or literal. Repeating elements take [] or [n]; without an index the first item is used (\"Patient.name.family\" = \"Patient.name[0].family\").",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^(Patient|Encounter|Condition|Observation|Procedure|AllergyIntolerance)(\\.[A-Za-z][A-Za-z0-9]*(\\[\\d*\\])?)+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/fieldSpec"
+      }
+    }
+  },
+  "definitions": {
+    "resourceType": {
+      "enum": [
+        "Patient",
+        "Encounter",
+        "Condition",
+        "Observation",
+        "Procedure",
+        "AllergyIntolerance"
+      ]
+    },
+    "fieldSpec": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source column name"
+        },
+        {
+          "$ref": "#/definitions/columnSpec"
+        },
+        {
+          "$ref": "#/definitions/literalSpec"
+        }
+      ]
+    },
+    "columnSpec": {
+      "type": "object",
+      "required": ["column"],
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transform": {
+          "enum": ["lowercase", "uppercase", "trim", "date", "datetime", "number"]
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Input layout for date/datetime. Tokens: YYYY, MM, DD, HH, mm, ss, Z (UTC offset in the value); everything else is literal, e.g. \"DD/MM/YYYY HH:mm\"."
+        },
+        "valueMap": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Source value → output value; looked up (exact, then case-insensitive) before the transform. Unmapped values pass through."
+        }
+      },
+      "if": {
+        "required": ["format"]
+      },
+      "then": {
+        "required": ["transform"],
+        "properties": {
+          "transform": {
+            "enum": ["date", "datetime"]
+          }
+        }
+      }
+    },
+    "literalSpec": {
+      "type": "object",
+      "required": ["literal"],
+      "additionalProperties": false,
+      "properties": {
+        "literal": {
+          "type": ["string", "number", "boolean"],
+          "description": "Constant. Emitted only when its element (nearest array item, else the top-level element) also gets a value from a column in that row."
+        }
+      }
+    }
+  }
+}

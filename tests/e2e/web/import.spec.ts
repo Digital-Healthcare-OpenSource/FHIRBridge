@@ -1,7 +1,7 @@
 /**
  * Import Page E2E tests.
- * Covers: page load, dropzone, accept types, unauthenticated error state,
- * and an authenticated CSV upload round trip against the real API.
+ * Covers: page load, dropzone, accept types, example mappings, unauthenticated error
+ * state, and authenticated imports (bundled sample data) against the real API.
  */
 
 import { test, expect } from '@playwright/test';
@@ -17,7 +17,7 @@ test.describe('Import Page', () => {
 
   test('shows page description text', async ({ page }) => {
     await page.goto('/app/import');
-    await expect(page.getByText(/upload csv, xlsx or fhir json/i).first()).toBeVisible();
+    await expect(page.getByText(/csv or excel export/i).first()).toBeVisible();
   });
 
   test('file dropzone input is attached', async ({ page }) => {
@@ -27,19 +27,31 @@ test.describe('Import Page', () => {
     await expect(fileInput).toBeAttached();
   });
 
-  test('file input accepts CSV, XLSX and JSON types', async ({ page }) => {
+  test('data file input accepts CSV and Excel (the API rejects anything else)', async ({
+    page,
+  }) => {
     await page.goto('/app/import');
     const fileInput = page.locator('input[type="file"]').first();
     const accept = await fileInput.getAttribute('accept');
     expect(accept?.toLowerCase()).toMatch(/csv/);
     expect(accept?.toLowerCase()).toMatch(/xlsx|spreadsheet/);
-    expect(accept?.toLowerCase()).toMatch(/json/);
+    expect(accept?.toLowerCase()).not.toMatch(/json/);
+  });
+
+  test('offers VN / KR / JP / international example mappings', async ({ page }) => {
+    const importPage = new ImportPage(page);
+    await importPage.goto();
+    const values = await importPage.mappingSelect
+      .locator('option')
+      .evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value));
+    expect(values).toEqual(['vn', 'kr', 'jp', 'generic', 'custom']);
   });
 
   test('uploading without credentials surfaces the error state', async ({ page }) => {
     const importPage = new ImportPage(page);
     await importPage.goto();
     await importPage.uploadFixture('test-patients.csv');
+    await importPage.importNow();
     // Server rejects with 401 → UI switches to the error stage
     await expect(page.getByText(/import failed/i)).toBeVisible();
     await expect(page.getByText(/authentication required/i)).toBeVisible();
@@ -48,22 +60,27 @@ test.describe('Import Page', () => {
     await expect(page.locator('input[type="file"]').first()).toBeAttached();
   });
 
-  test('authenticated CSV upload round-trips through the real API', async ({ page }) => {
+  test('authenticated import of each example round-trips through the real API', async ({
+    page,
+  }) => {
     // Sign in qua Settings UI (token in-memory) rồi điều hướng bằng click SPA
     await signInViaSettings(page);
     await page.getByRole('link', { name: 'Import', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/import$/);
 
     const importPage = new ImportPage(page);
-    const [response] = await Promise.all([
-      page.waitForResponse((r) => r.url().includes('/api/v1/connectors/import')),
-      importPage.uploadFixture('test-patients.csv'),
-    ]);
-    expect(response.status()).toBe(200);
-    // Server xử lý đồng bộ → UI chuyển sang done stage với resource count
-    await expect(page.getByText(/import complete — \d+ resources processed/i)).toBeVisible();
-    await expect(page.getByText('test-patients.csv')).toBeVisible();
-    await expect(page.getByText(/import failed/i)).toBeHidden();
+    for (const preset of ['vn', 'kr', 'jp', 'generic']) {
+      await importPage.mappingSelect.selectOption(preset);
+      await importPage.useSampleButton.click();
+      const [response] = await Promise.all([
+        page.waitForResponse((r) => r.url().includes('/api/v1/connectors/import')),
+        importPage.importNow(),
+      ]);
+      expect(response.status(), `preset ${preset}`).toBe(200);
+      await expect(page.getByText(/import complete — \d+ resources? processed/i)).toBeVisible();
+      await expect(page.getByRole('button', { name: /download fhir bundle/i })).toBeVisible();
+      await page.getByRole('button', { name: /import another file/i }).click();
+    }
   });
 
   test('API-key sign-in routes via x-api-key and uploads successfully', async ({ page }) => {
@@ -73,9 +90,10 @@ test.describe('Import Page', () => {
     await expect(page).toHaveURL(/\/app\/import$/);
 
     const importPage = new ImportPage(page);
+    await importPage.useSampleButton.click();
     const [response] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/v1/connectors/import')),
-      importPage.uploadFixture('test-patients.csv'),
+      importPage.importNow(),
     ]);
     expect(response.status()).toBe(200);
     expect(response.request().headers()['x-api-key']).toBe('test-key-free');

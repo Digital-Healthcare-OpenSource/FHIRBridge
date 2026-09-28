@@ -17,9 +17,13 @@ const ApiConfigSchema = z
 
     host: z.string().default('0.0.0.0'),
 
-    jwtSecret: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+    jwtSecret: z
+      .string({ error: 'JWT_SECRET is required' })
+      .min(32, 'JWT_SECRET must be at least 32 characters'),
 
-    hmacSecret: z.string().min(32, 'HMAC_SECRET must be at least 32 characters'),
+    hmacSecret: z
+      .string({ error: 'HMAC_SECRET is required' })
+      .min(32, 'HMAC_SECRET must be at least 32 characters'),
 
     apiKeys: z
       .string()
@@ -149,36 +153,61 @@ function isLowEntropySecret(secret: string): boolean {
   return distinct < 8;
 }
 
+/**
+ * Config field → environment variable. Single source of truth for both reading
+ * the environment and naming the offending variable in error messages.
+ */
+const ENV_VARS = {
+  port: 'PORT',
+  host: 'HOST',
+  jwtSecret: 'JWT_SECRET',
+  hmacSecret: 'HMAC_SECRET',
+  apiKeys: 'API_KEYS',
+  corsOrigins: 'CORS_ORIGINS',
+  databaseUrl: 'DATABASE_URL',
+  redisUrl: 'REDIS_URL',
+  logLevel: 'LOG_LEVEL',
+  trustProxy: 'TRUST_PROXY',
+  metricsBearerToken: 'METRICS_BEARER_TOKEN',
+  rateLimitPerMinute: 'RATE_LIMIT_PER_MINUTE',
+  enableDocs: 'ENABLE_DOCS',
+  anthropicApiKey: 'ANTHROPIC_API_KEY',
+  openaiApiKey: 'OPENAI_API_KEY',
+  aiProvider: 'AI_PROVIDER',
+  errorDocsBaseUrl: 'ERROR_DOCS_BASE_URL',
+  auditRetentionDays: 'AUDIT_RETENTION_DAYS',
+  auditProfile: 'AUDIT_PROFILE',
+} as const satisfies Record<keyof ApiConfig, string>;
+
+/**
+ * Read one variable, treating empty / whitespace-only values as unset.
+ * `.env.example` ships lines like `METRICS_BEARER_TOKEN=` — dotenv turns those
+ * into '' which previously failed validation (e.g. min(16)) and blocked boot.
+ */
+function readEnv(name: string): string | undefined {
+  const value = process.env[name];
+  return value === undefined || value.trim() === '' ? undefined : value;
+}
+
 /** Load and validate configuration from environment variables. Throws on failure. */
 export function loadConfig(): ApiConfig {
-  const raw = {
-    port: process.env['PORT'],
-    host: process.env['HOST'],
-    jwtSecret: process.env['JWT_SECRET'],
-    hmacSecret: process.env['HMAC_SECRET'] ?? process.env['JWT_SECRET'],
-    apiKeys: process.env['API_KEYS'],
-    corsOrigins: process.env['CORS_ORIGINS'],
-    databaseUrl: process.env['DATABASE_URL'],
-    redisUrl: process.env['REDIS_URL'],
-    logLevel: process.env['LOG_LEVEL'],
-    trustProxy: process.env['TRUST_PROXY'],
-    metricsBearerToken: process.env['METRICS_BEARER_TOKEN'],
-    rateLimitPerMinute: process.env['RATE_LIMIT_PER_MINUTE'],
-    enableDocs: process.env['ENABLE_DOCS'],
-    anthropicApiKey: process.env['ANTHROPIC_API_KEY'],
-    openaiApiKey: process.env['OPENAI_API_KEY'],
-    aiProvider: process.env['AI_PROVIDER'],
-    errorDocsBaseUrl: process.env['ERROR_DOCS_BASE_URL'],
-    auditRetentionDays: process.env['AUDIT_RETENTION_DAYS'],
-    auditProfile: process.env['AUDIT_PROFILE'],
-  };
+  const raw = Object.fromEntries(
+    Object.entries(ENV_VARS).map(([field, envName]) => [field, readEnv(envName)]),
+  );
 
   const result = ApiConfigSchema.safeParse(raw);
   if (!result.success) {
     const messages = result.error.issues
-      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
+      .map((issue) => {
+        const field = issue.path.join('.');
+        const envName = ENV_VARS[field as keyof typeof ENV_VARS];
+        return `  - ${envName ? `${envName} (${field})` : field}: ${issue.message}`;
+      })
       .join('\n');
-    throw new Error(`FHIRBridge configuration error:\n${messages}`);
+    throw new Error(
+      `FHIRBridge configuration error:\n${messages}\n` +
+        'Hint: run `pnpm run setup` to generate a working .env (random secrets + API key).',
+    );
   }
 
   return result.data;

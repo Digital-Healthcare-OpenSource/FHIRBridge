@@ -1,6 +1,6 @@
 /**
  * Settings E2E tests.
- * Covers: API key input masking, provider/language dropdowns, theme toggle, save feedback.
+ * Covers: API key input masking, interface-language selector, theme toggle, save feedback.
  */
 
 import { test, expect } from '@playwright/test';
@@ -33,24 +33,23 @@ test.describe('Settings', () => {
     await expect(settings.apiKeyInput).toHaveAttribute('type', 'password');
   });
 
-  test('provider dropdown has openai, anthropic, google options', async ({ page }) => {
-    const settings = new SettingsPage(page);
-    await settings.goto();
-    await expect(settings.providerSelect).toBeVisible();
-    const options = await settings.providerSelect.locator('option').allTextContents();
-    const lower = options.map((o) => o.toLowerCase());
-    expect(lower).toContain('openai');
-    expect(lower).toContain('anthropic');
-    expect(lower).toContain('google');
-  });
-
-  test('language dropdown has English and multiple options', async ({ page }) => {
+  test('language selector offers the four supported UI languages', async ({ page }) => {
     const settings = new SettingsPage(page);
     await settings.goto();
     await expect(settings.languageSelect).toBeVisible();
     const options = await settings.languageSelect.locator('option').allTextContents();
-    expect(options.length).toBeGreaterThan(1);
-    expect(options).toContain('English');
+    for (const label of ['English', 'Tiếng Việt', '日本語', '한국어']) {
+      expect(options).toContain(label);
+    }
+  });
+
+  test('switching language updates <html lang>', async ({ page }) => {
+    const settings = new SettingsPage(page);
+    await settings.goto();
+    await settings.selectLanguage('ko');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ko');
+    await settings.selectLanguage('en');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
 
   test('theme toggle button is visible', async ({ page }) => {

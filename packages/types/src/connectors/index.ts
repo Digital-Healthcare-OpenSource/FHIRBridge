@@ -14,4 +14,11 @@ export type {
   CodeMapping,
   MappedRecord,
   TransformType,
+  FieldTransform,
+  FieldSpec,
+  ColumnMappingDocument,
+  FieldSource,
+  FhirPathSegment,
+  FieldMapping,
+  ImportMapping,
 } from './mapping-config.js';

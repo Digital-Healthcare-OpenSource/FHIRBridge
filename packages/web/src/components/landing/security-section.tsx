@@ -3,11 +3,13 @@
  */
 
 import { useScrollAnimation } from '../../hooks/use-scroll-animation';
+import { useTranslation } from '../../i18n/use-translation';
 
 const SECURITY_FEATURES = [
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -21,12 +23,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'Zero PHI Storage',
-    desc: 'Patient data never persists. All processing is in-memory, stream-only.',
+    key: 'zero_phi',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -40,12 +42,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'HMAC-SHA256 Signing',
-    desc: 'Every export bundle is cryptographically signed to ensure integrity.',
+    key: 'hmac',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -59,12 +61,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'SSRF Protection',
-    desc: 'All outbound requests are validated against allowlists to prevent server-side request forgery.',
+    key: 'ssrf',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -78,12 +80,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'JWT Authentication',
-    desc: 'Stateless, short-lived tokens with refresh rotation. No session storage on server.',
+    key: 'jwt',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -97,12 +99,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'IDOR Protection',
-    desc: 'Resource ownership is verified on every request. No ID enumeration vulnerabilities.',
+    key: 'idor',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -116,12 +118,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'Rate Limiting',
-    desc: 'Per-user and per-IP throttling prevents abuse and protects upstream HIS endpoints.',
+    key: 'rate_limit',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -135,12 +137,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'Audit Logging',
-    desc: 'Every export action is timestamped and logged for compliance and traceability.',
+    key: 'audit',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-5 h-5"
         fill="none"
         viewBox="0 0 24 24"
@@ -154,12 +156,12 @@ const SECURITY_FEATURES = [
         />
       </svg>
     ),
-    title: 'Quota Enforcement',
-    desc: 'Hard limits enforced at the API layer. Overages are rejected, not silently billed.',
+    key: 'headers',
   },
-];
+] as const;
 
 export function SecuritySection() {
+  const { t } = useTranslation('landing');
   const { ref, isVisible } = useScrollAnimation();
 
   return (
@@ -173,6 +175,7 @@ export function SecuritySection() {
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-900/50 border border-teal-800 text-teal-400 text-sm font-medium mb-4">
             <svg
+              aria-hidden="true"
               className="w-3.5 h-3.5"
               fill="none"
               viewBox="0 0 24 24"
@@ -185,31 +188,27 @@ export function SecuritySection() {
                 d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
               />
             </svg>
-            Security & Compliance
+            {t('security.badge')}
           </div>
-          <h2
-            className="text-3xl md:text-4xl font-bold text-white mb-4"
-            style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}
-          >
-            Built for clinical environments
-          </h2>
-          <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            Healthcare data demands the highest security standards. FHIRBridge ships with
-            production-grade protections from day one.
-          </p>
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">{t('security.title')}</h2>
+          <p className="text-lg text-slate-400 max-w-2xl mx-auto">{t('security.subtitle')}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {SECURITY_FEATURES.map((feat, i) => (
+          {SECURITY_FEATURES.map((feat) => (
             <div
-              key={i}
+              key={feat.key}
               className="p-5 rounded-xl bg-slate-800/60 border border-slate-700/60 hover:border-teal-700/60 hover:bg-slate-800 transition-all duration-300"
             >
               <div className="w-9 h-9 rounded-lg bg-teal-900/60 text-teal-400 flex items-center justify-center mb-3">
                 {feat.icon}
               </div>
-              <h3 className="text-sm font-semibold text-white mb-1.5">{feat.title}</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">{feat.desc}</p>
+              <h3 className="text-sm font-semibold text-white mb-1.5">
+                {t(`security.${feat.key}.title`)}
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {t(`security.${feat.key}.desc`)}
+              </p>
             </div>
           ))}
         </div>

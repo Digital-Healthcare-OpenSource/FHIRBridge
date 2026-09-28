@@ -14,7 +14,8 @@
  *   6. Graceful shutdown hooks
  */
 
-import 'dotenv/config';
+// Must stay the first import: populates process.env before config is read.
+import './load-env.js';
 import { loadConfig } from './config.js';
 import { createServer } from './server.js';
 import { RedisStore } from './services/redis-store.js';

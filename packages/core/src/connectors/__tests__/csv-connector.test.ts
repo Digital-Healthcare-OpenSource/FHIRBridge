@@ -277,3 +277,46 @@ describe('CsvConnector', () => {
     });
   });
 });
+
+describe('CsvConnector.streamRows (raw rows for the canonical importer)', () => {
+  it('yields header-keyed rows with 1-based line numbers and reports headers', async () => {
+    const connector = new CsvConnector();
+    await connector.connect({ type: 'csv', filePath: PATIENTS_CSV });
+    let headers: string[] = [];
+    const rows = [];
+    for await (const row of connector.streamRows({ onHeaders: (h) => (headers = h) })) {
+      rows.push(row);
+    }
+    await connector.disconnect();
+
+    expect(headers[0]).toBe('patient_id');
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toEqual({
+      rowNumber: 2,
+      values: expect.objectContaining({ patient_id: 'P001', first_name: 'John' }),
+    });
+    expect(rows[4]!.rowNumber).toBe(6);
+  });
+
+  it('throws when called before connect()', async () => {
+    const connector = new CsvConnector();
+    await expect(async () => {
+      for await (const row of connector.streamRows()) void row;
+    }).rejects.toThrow('Call connect() before streamRows()');
+  });
+
+  it('propagates CSV parse errors instead of hanging', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fhirbridge-csv-'));
+    const file = path.join(dir, 'bad.csv');
+    fs.writeFileSync(file, 'a,b\n1,2,3\n');
+    try {
+      const connector = new CsvConnector();
+      await connector.connect({ type: 'csv', filePath: file });
+      await expect(async () => {
+        for await (const row of connector.streamRows()) void row;
+      }).rejects.toMatchObject({ code: 'CSV_RECORD_INCONSISTENT_COLUMNS' });
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

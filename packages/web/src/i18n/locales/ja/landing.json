@@ -1,0 +1,139 @@
+{
+  "nav": {
+    "features": "機能",
+    "self_host": "セルフホスト",
+    "docs": "ドキュメント",
+    "github": "GitHub",
+    "get_started": "はじめる",
+    "home_aria": "FHIRBridge ホーム",
+    "open_menu": "メニューを開く",
+    "close_menu": "メニューを閉じる"
+  },
+  "hero": {
+    "badge": "FHIR R4 · オープンソース (MIT) · セルフホスト",
+    "title_lead": "あなたの医療データを、",
+    "title_highlight": "ついに自由に",
+    "subtitle": "FHIRBridge は、独自仕様の HIS に閉じ込められた診療記録をオープンな FHIR R4 バンドルに変換し、ベトナム、韓国、日本、そしてその先の患者と医療従事者に真のデータポータビリティを提供します。",
+    "cta_start": "エクスポートを始める",
+    "cta_github": "GitHub で見る",
+    "stat_resources": "FHIR リソース",
+    "stat_languages": "対応言語",
+    "stat_phi": "保存される PHI"
+  },
+  "problem": {
+    "badge": "課題",
+    "title": "診療記録は、患者自身がアクセスできないシステムに閉じ込められています",
+    "p1": "ベトナムと日本では、病院情報システム（HIS）が患者データを独自仕様の分断された形式で保存しています。患者が転院したり海外へ移住したりしても、診療記録はついてきません。",
+    "p2": "FHIRBridge は、病院から出力されたあらゆる構造化データを、持ち運び可能なオープンな FHIR R4 バンドルに変換することで、この課題を解決します。FHIR R4 は、現代の医療システムであればどこでも読み取れる国際標準です。",
+    "stats": {
+      "markets": "マッピング例とコンプライアンス情報を用意している市場:ベトナム、韓国、日本、国際",
+      "sources": "病院システムとの接続方法:FHIR API または CSV / Excel エクスポート",
+      "stored": "FHIRBridge が保存する患者記録 — データはストリーム処理のみで保存されません"
+    }
+  },
+  "features": {
+    "title": "患者データのポータビリティに必要なすべてを",
+    "subtitle": "雑多なデータ、多様な形式、厳格なプライバシー要件 — アジアの医療システムの現実に合わせて設計されています。",
+    "fhir": {
+      "title": "FHIR R4 標準",
+      "desc": "Patient、Encounter、Condition、Observation、MedicationRequest など 15 種類のリソースと、国際患者サマリー (IPS) バンドルに対応。"
+    },
+    "ai": {
+      "title": "AI による患者要約",
+      "desc": "Claude と OpenAI が、匿名化された臨床要約をわかりやすい言葉で生成します。PHI は一切保存しません。"
+    },
+    "interfaces": {
+      "title": "3 つのインターフェース",
+      "desc": "上級ユーザー向けの CLI、システム連携用の REST API、視覚的な Web ダッシュボードを 1 つのパッケージで提供します。"
+    },
+    "import": {
+      "title": "CSV / Excel インポート",
+      "desc": "JSON のカラムマッピングで CSV / Excel エクスポートを FHIR に変換。ベトナム・韓国・日本向けのサンプル付き。"
+    },
+    "privacy": {
+      "title": "プライバシー・バイ・デザイン",
+      "desc": "PHI は一切保存せず、データはメモリ上でストリーム処理されるのみです。HMAC による仮名化と SSRF/IDOR 対策を標準搭載しています。"
+    },
+    "multilang": {
+      "title": "多言語対応",
+      "desc": "UI と AI 要約のすべてを英語、ベトナム語（Tiếng Việt）、日本語、韓国語（한국어）で利用できます。"
+    }
+  },
+  "how": {
+    "title": "病院の生データから FHIR まで、わずか数分で",
+    "subtitle": "シンプルな 3 ステップ。セットアップコマンド 1 つで始められます。",
+    "connect": {
+      "title": "接続",
+      "desc": "FHIR API で HIS に接続するか、CSV / Excel エクスポートをカラムマッピングと一緒にアップロードします。"
+    },
+    "export": {
+      "title": "エクスポート",
+      "desc": "FHIRBridge がデータを FHIR R4 リソース（Patient、Condition、Medication、Observation など）にリアルタイムでマッピングします。"
+    },
+    "summarize": {
+      "title": "要約",
+      "desc": "必要に応じて、英語、ベトナム語、日本語、韓国語で AI による臨床要約を生成できます。データは匿名化され、ストリーム処理のみで扱われます。"
+    }
+  },
+  "security": {
+    "badge": "セキュリティとコンプライアンス",
+    "title": "臨床現場のために設計",
+    "subtitle": "医療データには最高水準のセキュリティが求められます。FHIRBridge は、本番運用に耐える保護機能を初日から備えています。",
+    "zero_phi": {
+      "title": "PHI を保存しない",
+      "desc": "患者データは永続化されません。すべての処理はメモリ上でのストリーム処理です。"
+    },
+    "hmac": {
+      "title": "HMAC-SHA256 による仮名化",
+      "desc": "AI を呼び出す前に識別子を鍵付き HMAC-SHA256 ハッシュに置き換え、監査ログにはハッシュのみを保存します。"
+    },
+    "ssrf": {
+      "title": "SSRF 対策",
+      "desc": "院内ネットワークやクラウドのメタデータへのリクエストをブロックします。院内の HIS ホストは明示的に許可する必要があります。"
+    },
+    "jwt": {
+      "title": "JWT と API キーによる認証",
+      "desc": "subject と有効期限が必須の HS256 トークン、または定数時間で比較される API キーを使用します。ログアウトすると jti を持つトークンは失効します。"
+    },
+    "idor": {
+      "title": "IDOR 対策",
+      "desc": "すべてのリクエストでリソースの所有者を検証します。ID の列挙による脆弱性はありません。"
+    },
+    "rate_limit": {
+      "title": "レート制限",
+      "desc": "ユーザー単位・IP 単位のスロットリングで不正利用を防ぎ、上流の HIS エンドポイントを保護します。"
+    },
+    "audit": {
+      "title": "監査ログ",
+      "desc": "すべてのエクスポート操作をタイムスタンプ付きで記録し、コンプライアンスとトレーサビリティを確保します。"
+    },
+    "headers": {
+      "title": "セキュリティヘッダー",
+      "desc": "すべてのレスポンスに Content-Security-Policy、HSTS、フレーム埋め込み防止、MIME スニッフィング防止を適用します。"
+    }
+  },
+  "open_source": {
+    "title": "オープンな開発",
+    "subtitle": "FHIRBridge はオープンソースです。コードを確認し、改善に貢献し、完全な管理下でセルフホストできます。医療にブラックボックスは要りません。",
+    "cta_github": "GitHub で見る"
+  },
+  "footer": {
+    "tagline": "ベトナム、韓国、日本、そしてその先へ — オープン標準による患者データのポータビリティ。",
+    "product": "製品",
+    "resources": "リソース",
+    "legal": "法的情報",
+    "connect": "コミュニティ",
+    "features": "機能",
+    "self_host_guide": "セルフホストガイド",
+    "cli": "CLI",
+    "rest_api": "REST API",
+    "documentation": "ドキュメント",
+    "github": "GitHub",
+    "changelog": "変更履歴",
+    "copyright": "© {{year}} FHIRBridge. MIT ライセンスのオープンソースソフトウェアです。",
+    "built_with": "FHIR R4 · HL7 · TypeScript で構築",
+    "license": "ライセンス (MIT)",
+    "security_policy": "セキュリティポリシー",
+    "issues": "問題を報告"
+  }
+}

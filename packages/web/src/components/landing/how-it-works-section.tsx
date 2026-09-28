@@ -3,14 +3,15 @@
  */
 
 import { useScrollAnimation } from '../../hooks/use-scroll-animation';
+import { useTranslation } from '../../i18n/use-translation';
 
 const STEPS = [
   {
     num: '01',
-    title: 'Connect',
-    desc: 'Upload a CSV or Excel export from any HIS system, or connect via our REST API. No proprietary connectors required.',
+    key: 'connect',
     icon: (
       <svg
+        aria-hidden="true"
         className="w-7 h-7"
         fill="none"
         viewBox="0 0 24 24"
@@ -27,10 +28,10 @@ const STEPS = [
   },
   {
     num: '02',
-    title: 'Export',
-    desc: 'FHIRBridge maps your data to FHIR R4 resources in real time — Patient, Condition, Medication, Observation, and more.',
+    key: 'export',
     icon: (
       <svg
+        aria-hidden="true"
         className="w-7 h-7"
         fill="none"
         viewBox="0 0 24 24"
@@ -47,10 +48,10 @@ const STEPS = [
   },
   {
     num: '03',
-    title: 'Summarize',
-    desc: 'Optionally generate an AI-powered clinical summary in English, Vietnamese, or Japanese — de-identified and stream-only.',
+    key: 'summarize',
     icon: (
       <svg
+        aria-hidden="true"
         className="w-7 h-7"
         fill="none"
         viewBox="0 0 24 24"
@@ -65,9 +66,10 @@ const STEPS = [
       </svg>
     ),
   },
-];
+] as const;
 
 export function HowItWorksSection() {
+  const { t } = useTranslation('landing');
   const { ref, isVisible } = useScrollAnimation();
 
   return (
@@ -79,15 +81,10 @@ export function HowItWorksSection() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2
-            className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4"
-            style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}
-          >
-            From raw hospital data to FHIR in minutes
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+            {t('how.title')}
           </h2>
-          <p className="text-lg text-slate-500 dark:text-slate-400">
-            Three simple steps. Zero configuration required to get started.
-          </p>
+          <p className="text-lg text-slate-500 dark:text-slate-400">{t('how.subtitle')}</p>
         </div>
 
         {/* Steps row */}
@@ -96,26 +93,29 @@ export function HowItWorksSection() {
           <div className="hidden md:block absolute top-10 left-[calc(16.666%+2rem)] right-[calc(16.666%+2rem)] h-px bg-gradient-to-r from-teal-300 via-teal-400 to-teal-300 dark:from-teal-700 dark:via-teal-600 dark:to-teal-700" />
 
           {STEPS.map((step, i) => (
-            <div key={i} className="relative flex-1 flex flex-col items-center text-center px-6">
+            <div
+              key={step.key}
+              className="relative flex-1 flex flex-col items-center text-center px-6"
+            >
               {/* Number circle */}
               <div className="relative z-10 w-20 h-20 rounded-2xl bg-teal-600 text-white flex flex-col items-center justify-center shadow-lg shadow-teal-500/30 mb-6">
-                <div className="text-white/60 text-xs font-mono mb-0.5">{step.num}</div>
+                <div className="text-white/60 text-xs font-mono mb-0.5" aria-hidden="true">
+                  {step.num}
+                </div>
                 {step.icon}
               </div>
-              <h3
-                className="text-xl font-bold text-slate-900 dark:text-white mb-3"
-                style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}
-              >
-                {step.title}
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+                {t(`how.${step.key}.title`)}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs">
-                {step.desc}
+                {t(`how.${step.key}.desc`)}
               </p>
 
               {/* Mobile connector arrow */}
               {i < STEPS.length - 1 && (
                 <div className="md:hidden mt-6 text-teal-400">
                   <svg
+                    aria-hidden="true"
                     className="w-5 h-5 mx-auto"
                     fill="none"
                     viewBox="0 0 24 24"

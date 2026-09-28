@@ -8,15 +8,34 @@
     "loading": "Đang tạo tóm tắt…",
     "empty": "Chưa có tóm tắt. Nhấn \"Tạo tóm tắt\" để bắt đầu.",
     "provider_label": "Nhà cung cấp AI",
-    "model_label": "Mô hình",
-    "language_label": "Ngôn ngữ tóm tắt"
+    "language_label": "Ngôn ngữ tóm tắt",
+    "detail_label": "Mức độ chi tiết"
+  },
+  "detail": {
+    "brief": "Ngắn gọn",
+    "standard": "Tiêu chuẩn",
+    "detailed": "Chi tiết"
+  },
+  "viewer": {
+    "title": "Xem tóm tắt",
+    "description": "Tạo bản tóm tắt lâm sàng bằng AI cho lần xuất dữ liệu này",
+    "configuration": "Cấu hình",
+    "starting": "Đang khởi động…",
+    "generating": "Đang tạo…",
+    "ai_disabled": "Tính năng Tóm tắt AI chưa được bật trên bản triển khai này. Hãy liên hệ quản trị viên, hoặc tự triển khai với cờ <code>VITE_AI_ENABLED=true</code>.",
+    "no_export_id": "Chưa có mã lần xuất. Hãy mở trang này từ trang Tổng quan với một lần xuất hợp lệ.",
+    "baa_required": "Bạn cần xác nhận thông báo về BAA trước khi sử dụng Tóm tắt AI.",
+    "consent_required": "Bạn cần đồng ý cho phép xử lý dữ liệu xuyên biên giới để sử dụng Tóm tắt AI.",
+    "error_not_configured": "Máy chủ này chưa được cấu hình Tóm tắt AI",
+    "error_start": "Không thể bắt đầu tạo tóm tắt",
+    "error_failed": "Tạo tóm tắt thất bại",
+    "error_timeout": "Quá thời gian tạo tóm tắt (5 phút)."
   },
   "disclaimer": {
     "label": "Tóm tắt do AI tạo",
     "body": "— Nội dung này do mô hình AI tạo ra và có thể chứa sai sót. Luôn kiểm chứng thông tin lâm sàng với nhân viên y tế có chuyên môn."
   },
   "actions": {
-    "download_markdown": "Tải Markdown",
-    "download_pdf": "Tải PDF"
+    "download_markdown": "Tải Markdown"
   }
 }

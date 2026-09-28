@@ -8,8 +8,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { AiProviderConfig, AiResponse, GenerateOptions } from '@fhirbridge/types';
 import type { AiProvider } from './ai-provider-interface.js';
 
-/** Default Claude model used when no model is specified in config */
-export const CLAUDE_DEFAULT_MODEL = 'claude-sonnet-4-20250514';
+/**
+ * Default Claude model used when no model is specified in config.
+ * Operators can pin another one via ANTHROPIC_MODEL (API) / --model (CLI).
+ * (claude-sonnet-4-20250514, the previous default, is deprecated by Anthropic.)
+ */
+export const CLAUDE_DEFAULT_MODEL = 'claude-opus-5';
 
 /** Max retry attempts on rate limit (429) */
 const MAX_RETRIES = 3;
@@ -18,8 +22,6 @@ const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 1000;
 
 /** Defensive bounds for generation parameters (API layer sets real defaults). */
-const MIN_TEMPERATURE = 0;
-const MAX_TEMPERATURE = 1;
 const MIN_MAX_TOKENS = 1;
 const MAX_MAX_TOKENS = 100_000;
 
@@ -70,12 +72,8 @@ export class ClaudeProvider implements AiProvider {
           max_tokens: Math.floor(
             clampNumber(options.maxTokens, MIN_MAX_TOKENS, MAX_MAX_TOKENS, MAX_MAX_TOKENS),
           ),
-          temperature: clampNumber(
-            options.temperature,
-            MIN_TEMPERATURE,
-            MAX_TEMPERATURE,
-            MIN_TEMPERATURE,
-          ),
+          // No `temperature`: current Claude models (Opus 5 and later) reject
+          // sampling parameters with a 400, so options.temperature is ignored here.
           system: options.systemPrompt,
           messages,
         });

@@ -1,0 +1,139 @@
+{
+  "nav": {
+    "features": "Features",
+    "self_host": "Self-host",
+    "docs": "Docs",
+    "github": "GitHub",
+    "get_started": "Get Started",
+    "home_aria": "FHIRBridge home",
+    "open_menu": "Open menu",
+    "close_menu": "Close menu"
+  },
+  "hero": {
+    "badge": "FHIR R4 · Open source (MIT) · Self-hosted",
+    "title_lead": "Your Medical Data,",
+    "title_highlight": "Finally Free",
+    "subtitle": "FHIRBridge converts hospital records locked in proprietary HIS systems into open FHIR R4 bundles — giving patients and clinicians true data portability across Vietnam, Korea, Japan, and beyond.",
+    "cta_start": "Start Exporting",
+    "cta_github": "View on GitHub",
+    "stat_resources": "FHIR Resources",
+    "stat_languages": "Languages",
+    "stat_phi": "PHI Stored"
+  },
+  "problem": {
+    "badge": "The Problem",
+    "title": "Patient records are trapped in systems patients can't access",
+    "p1": "Across Vietnam and Japan, hospital information systems (HIS) store patient data in proprietary, siloed formats. When patients transfer to another hospital or move abroad, their records don't follow them.",
+    "p2": "FHIRBridge solves this by converting any structured hospital export into open, portable FHIR R4 bundles — the international standard that any modern healthcare system can read.",
+    "stats": {
+      "markets": "Markets with ready-made mappings and compliance notes: Vietnam, Korea, Japan and international",
+      "sources": "Ways to connect a hospital system: its FHIR API or a CSV / Excel export",
+      "stored": "Patient records stored by FHIRBridge — data is streamed, never persisted"
+    }
+  },
+  "features": {
+    "title": "Everything you need for patient data portability",
+    "subtitle": "Built for the realities of Asian healthcare systems — messy data, multiple formats, strict privacy requirements.",
+    "fhir": {
+      "title": "FHIR R4 Standard",
+      "desc": "15 resource types — Patient, Encounter, Condition, Observation, MedicationRequest and more, plus International Patient Summary (IPS) bundles."
+    },
+    "ai": {
+      "title": "AI Patient Summaries",
+      "desc": "Claude + OpenAI generate de-identified clinical summaries in plain language. Never stores PHI."
+    },
+    "interfaces": {
+      "title": "Three Interfaces",
+      "desc": "CLI for power users, REST API for integrations, and a visual Web Dashboard — all in one package."
+    },
+    "import": {
+      "title": "CSV / Excel Import",
+      "desc": "JSON column mappings turn CSV / Excel exports into FHIR — with ready-made examples for Vietnam, Korea and Japan."
+    },
+    "privacy": {
+      "title": "Privacy-by-Design",
+      "desc": "Zero PHI storage — data streams in memory only. HMAC pseudonymization and SSRF/IDOR protections built in."
+    },
+    "multilang": {
+      "title": "Multi-language",
+      "desc": "Full UI and AI summaries in English, Vietnamese (Tiếng Việt), Japanese (日本語), and Korean (한국어)."
+    }
+  },
+  "how": {
+    "title": "From raw hospital data to FHIR in minutes",
+    "subtitle": "Three simple steps. One setup command to get started.",
+    "connect": {
+      "title": "Connect",
+      "desc": "Connect to your HIS through its FHIR API, or upload a CSV / Excel export with a column mapping."
+    },
+    "export": {
+      "title": "Export",
+      "desc": "FHIRBridge maps your data to FHIR R4 resources in real time — Patient, Condition, Medication, Observation, and more."
+    },
+    "summarize": {
+      "title": "Summarize",
+      "desc": "Optionally generate an AI-powered clinical summary in English, Vietnamese, Japanese, or Korean — de-identified and stream-only."
+    }
+  },
+  "security": {
+    "badge": "Security & Compliance",
+    "title": "Built for clinical environments",
+    "subtitle": "Healthcare data demands the highest security standards. FHIRBridge ships with production-grade protections from day one.",
+    "zero_phi": {
+      "title": "Zero PHI Storage",
+      "desc": "Patient data never persists. All processing is in-memory, stream-only."
+    },
+    "hmac": {
+      "title": "HMAC-SHA256 Pseudonymization",
+      "desc": "Identifiers are replaced with keyed HMAC-SHA256 hashes before any AI call; audit logs store hashes only."
+    },
+    "ssrf": {
+      "title": "SSRF Protection",
+      "desc": "Requests to private networks and cloud metadata are blocked; internal HIS hosts must be allowlisted explicitly."
+    },
+    "jwt": {
+      "title": "JWT & API-key Authentication",
+      "desc": "HS256 tokens with required subject and expiry, or API keys compared in constant time. Logout revokes tokens that carry a jti."
+    },
+    "idor": {
+      "title": "IDOR Protection",
+      "desc": "Resource ownership is verified on every request. No ID enumeration vulnerabilities."
+    },
+    "rate_limit": {
+      "title": "Rate Limiting",
+      "desc": "Per-user and per-IP throttling prevents abuse and protects upstream HIS endpoints."
+    },
+    "audit": {
+      "title": "Audit Logging",
+      "desc": "Every export action is timestamped and logged for compliance and traceability."
+    },
+    "headers": {
+      "title": "Security Headers",
+      "desc": "Content-Security-Policy, HSTS, frame and MIME-sniffing protections on every response."
+    }
+  },
+  "open_source": {
+    "title": "Built in the open",
+    "subtitle": "FHIRBridge is open source. Inspect the code, contribute improvements, or self-host with full control. No black boxes in healthcare.",
+    "cta_github": "View on GitHub"
+  },
+  "footer": {
+    "tagline": "Open standard patient data portability for Vietnam, Korea, Japan, and beyond.",
+    "product": "Product",
+    "resources": "Resources",
+    "legal": "Legal",
+    "connect": "Connect",
+    "features": "Features",
+    "self_host_guide": "Self-host guide",
+    "cli": "CLI",
+    "rest_api": "REST API",
+    "documentation": "Documentation",
+    "github": "GitHub",
+    "changelog": "Changelog",
+    "copyright": "© {{year}} FHIRBridge. Open source under MIT License.",
+    "built_with": "Built with FHIR R4 · HL7 · TypeScript",
+    "license": "License (MIT)",
+    "security_policy": "Security policy",
+    "issues": "Report an issue"
+  }
+}

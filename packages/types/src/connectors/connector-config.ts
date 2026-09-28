@@ -51,8 +51,11 @@ export interface FileImportConfig {
   headerRow?: number;
   /** File encoding (default: 'utf-8') */
   encoding?: 'utf-8' | 'utf8' | 'utf-16le' | 'utf16le' | 'latin1' | 'ascii' | 'shift_jis';
-  /** Column-to-FHIR field mappings */
-  mapping: ColumnMapping[];
+  /**
+   * Legacy column-to-FHIR field mappings used by fetchPatientData().
+   * Optional: streamRows() reads raw rows and ignores it (default []).
+   */
+  mapping?: ColumnMapping[];
   /** Column name containing patient identifier for filtering */
   patientIdColumn?: string;
 }

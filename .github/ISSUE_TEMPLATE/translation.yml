@@ -1,0 +1,31 @@
+name: Translation feedback (VI / KO / JA / EN)
+description: Report an unnatural, wrong or missing translation.
+labels: [i18n]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options: [Tiếng Việt, 한국어, 日本語, English]
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where does it appear?
+      placeholder: Page / dialog, or the key in packages/web/src/i18n/locales/<lang>/*.json
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested text (and why)
+      description: The term your hospitals / clinicians actually use is the most helpful context.
+    validations:
+      required: true

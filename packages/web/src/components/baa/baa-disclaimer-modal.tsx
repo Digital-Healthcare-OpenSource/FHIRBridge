@@ -15,9 +15,11 @@ import { AlertTriangle, ExternalLink, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { UseBaaAcknowledgmentReturn } from '../../hooks/use-baa-acknowledgment';
 import { useTranslation } from '../../i18n/use-translation';
+import { ROUTES } from '../../lib/constants';
 
-// URL tới tài liệu BAA strategy — không i18n hoá vì là URL kỹ thuật cố định
-const BAA_DOCS_URL = 'https://github.com/your-org/fhirbridge/blob/main/docs/baa-strategy.md';
+// URL tới tài liệu BAA — không i18n hoá vì là URL kỹ thuật cố định.
+// URL cũ (your-org/.../docs/baa-strategy.md) là placeholder 404 — trỏ về mục Privacy & security của README
+const BAA_DOCS_URL = `${ROUTES.GITHUB}#privacy--security`;
 
 interface Props {
   /** Trạng thái từ useBaaAcknowledgment */

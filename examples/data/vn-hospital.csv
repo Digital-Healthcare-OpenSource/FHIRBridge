@@ -1,0 +1,5 @@
+VNEID,HoTen_Surname,HoTen_Given,GioiTinh,NgaySinh,DiaChi_Line,DiaChi_TinhThanh,NgayKham,LoaiKham,ChanDoan_ICD10,ChanDoan_MoTa,XetNghiem_LOINC,XetNghiem_KetQua,XetNghiem_DonVi
+000000000101,Nguyễn,Văn A,Nam,15/03/1985,1 Đường Thử Nghiệm,Hà Nội,04/03/2024 08:30,NgoaiTru,I10,Tăng huyết áp vô căn,8480-6,145,mm[Hg]
+000000000101,Nguyễn,Văn A,Nam,15/03/1985,1 Đường Thử Nghiệm,Hà Nội,01/04/2024 09:00,NgoaiTru,I10,Tăng huyết áp vô căn,8480-6,132,mm[Hg]
+000000000102,Trần,Thị B,Nu,22/07/1992,2 Phố Mẫu,Thành phố Hồ Chí Minh,12/03/2024 14:20,NoiTru,E11.9,Đái tháo đường type 2,2345-7,180,mg/dL
+000000000103,Lê,Văn C,Nam,08/11/1970,3 Ngõ Ví Dụ,Đà Nẵng,20/03/2024 10:05,NgoaiTru,J45.9,Hen phế quản,,,

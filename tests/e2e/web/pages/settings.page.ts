@@ -1,6 +1,6 @@
 /**
  * SettingsPage — Page Object Model for /settings.
- * Covers: API key input (password masked), provider select, language select,
+ * Covers: API key input (password masked), interface-language select,
  * theme toggle button, and save button.
  */
 
@@ -10,7 +10,6 @@ export class SettingsPage {
   readonly page: Page;
   readonly apiKeyInput: Locator;
   readonly showHideKeyButton: Locator;
-  readonly providerSelect: Locator;
   readonly languageSelect: Locator;
   readonly themeToggle: Locator;
   readonly saveButton: Locator;
@@ -28,7 +27,6 @@ export class SettingsPage {
       .getByRole('button', { name: /show api key|hide api key/i })
       .first();
     // Provider dropdown
-    this.providerSelect = page.locator('select#default-provider');
     // Language dropdown
     this.languageSelect = page.locator('select#default-language');
     // Theme toggle — aria-label="Toggle dark mode"
@@ -45,10 +43,6 @@ export class SettingsPage {
 
   async fillApiKey(key: string) {
     await this.apiKeyInput.fill(key);
-  }
-
-  async selectProvider(value: 'openai' | 'anthropic' | 'google') {
-    await this.providerSelect.selectOption(value);
   }
 
   async selectLanguage(value: string) {

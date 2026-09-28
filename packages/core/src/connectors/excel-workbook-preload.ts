@@ -7,8 +7,9 @@
  * zip → reader crash (`this.model.sheets` undefined) hoặc drop entry vì race
  * trong vòng lặp temp-file của nó.
  *
- * Fix: đọc 3 entry metadata qua central directory (random access — không giải
- * nén worksheet nào), parse bằng CHÍNH parser nội bộ của reader, rồi pre-set
+ * Fix: đọc các entry metadata (rels, workbook, sharedStrings, styles) qua
+ * central directory (random access — không giải nén worksheet nào), parse
+ * bằng CHÍNH parser nội bộ của reader, rồi pre-set
  * lên instance. Worksheet khi đó luôn đi đường immediate-parse (đường
  * battle-tested của exceljs), bất kể thứ tự entry.
  *
@@ -20,6 +21,8 @@ import unzip from 'unzipper';
 
 /** Trần kích thước giải nén cho entry metadata (workbook.xml / rels) — file thật chỉ vài KB. */
 const MAX_METADATA_BYTES = 4 * 1024 * 1024; // 4 MB
+/** Trần cho styles.xml — workbook nhiều định dạng có thể vài MB, vẫn chặn zip-bomb. */
+const MAX_STYLES_BYTES = 16 * 1024 * 1024; // 16 MB
 
 /**
  * Structural view over WorkbookReader internals used for preloading.
@@ -29,6 +32,7 @@ export interface PreloadableWorkbookReader {
   _parseRels(entry: NodeJS.ReadableStream): Promise<void>;
   _parseWorkbook(entry: NodeJS.ReadableStream): Promise<void>;
   _parseSharedStrings(entry: NodeJS.ReadableStream): AsyncGenerator<unknown>;
+  _parseStyles(entry: NodeJS.ReadableStream): Promise<void>;
   workbookRels?: unknown;
   model?: unknown;
   sharedStrings?: unknown[];
@@ -52,6 +56,7 @@ export async function preloadWorkbookMetadata(
   const relsEntry = findEntry('xl/_rels/workbook.xml.rels');
   const workbookEntry = findEntry('xl/workbook.xml');
   const sharedStringsEntry = findEntry('xl/sharedStrings.xml');
+  const stylesEntry = findEntry('xl/styles.xml');
 
   for (const entry of [relsEntry, workbookEntry]) {
     if (entry && entry.uncompressedSize > MAX_METADATA_BYTES) {
@@ -60,12 +65,20 @@ export async function preloadWorkbookMetadata(
       );
     }
   }
+  if (stylesEntry && stylesEntry.uncompressedSize > MAX_STYLES_BYTES) {
+    throw new Error(`Workbook styles entry exceeds ${MAX_STYLES_BYTES} byte limit`);
+  }
 
   if (relsEntry) {
     await reader._parseRels(relsEntry.stream());
   }
   if (workbookEntry) {
     await reader._parseWorkbook(workbookEntry.stream());
+  }
+
+  if (stylesEntry) {
+    // numFmt → reader nhận diện ô ngày (chỉ có tác dụng khi options.styles = 'cache')
+    await reader._parseStyles(stylesEntry.stream());
   }
 
   if (sharedStringsEntry) {

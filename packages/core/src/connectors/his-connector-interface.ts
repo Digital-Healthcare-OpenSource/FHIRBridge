@@ -20,6 +20,26 @@ export interface RawRecord {
 }
 
 /**
+ * A raw tabular row (CSV line / Excel row) keyed by header name, before any mapping.
+ * Excel date cells arrive as `Date` (UTC components = wall-clock in the sheet).
+ */
+export interface SourceRow {
+  /** 1-based row/line number in the source (header = 1) */
+  rowNumber: number;
+  /** Excel sheet name (undefined for CSV) */
+  sheet?: string;
+  values: Record<string, unknown>;
+}
+
+/** Options for CsvConnector/ExcelConnector.streamRows(). */
+export interface StreamRowsOptions {
+  /** Excel only: sheet to read (default: config.sheetName, else the first sheet) */
+  sheet?: string;
+  /** Called once with the header row's column names */
+  onHeaders?: (headers: string[]) => void;
+}
+
+/**
  * Health/connectivity status returned by testConnection().
  */
 export interface ConnectionStatus {

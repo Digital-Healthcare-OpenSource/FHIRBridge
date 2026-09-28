@@ -12,17 +12,19 @@ export interface ConnectionTestResult {
 
 /**
  * Kết quả import — server /connectors/import xử lý ĐỒNG BỘ trong một request:
- * parse file → build bundle → trả {message, resourceCount, bundle}. Không có
- * bước staged-upload (không id/columns) — client chỉ cần resourceCount để hiển
- * thị kết quả, không ôm cả `bundle`.
+ * file + column mapping → FHIR Bundle, trả về ngay kèm thống kê và cảnh báo.
  *
- * Result of an import — the server processes /connectors/import SYNCHRONOUSLY in
- * one request (parse → build bundle → return). There is no staged-upload step, so
- * no id/columns are returned; the client only needs the resource count.
+ * Result of an import — the server processes /connectors/import SYNCHRONOUSLY:
+ * data file + column mapping → FHIR Bundle, returned with stats and warnings.
  */
 export interface ImportResult {
   message?: string;
   resourceCount?: number;
+  resourcesByType?: Record<string, number>;
+  rowsRead?: number;
+  warnings?: string[];
+  warningCount?: number;
+  bundle?: unknown;
 }
 
 export const connectorApi = {
@@ -42,11 +44,10 @@ export const connectorApi = {
   },
 
   /**
-   * POST /api/v1/connectors/import — multipart upload.
-   * Server xử lý đồng bộ và trả kết quả import ngay trong response.
-   * Server endpoint is /import (not /upload).
+   * POST /api/v1/connectors/import — multipart: `file` (CSV / Excel) + `mapping`
+   * (column-mapping JSON text, see examples/column-mappings). Synchronous.
    */
-  async importFile(file: File): Promise<ImportResult> {
-    return apiClient.upload<ImportResult>('/v1/connectors/import', file);
+  async importFile(file: File, mapping: string): Promise<ImportResult> {
+    return apiClient.upload<ImportResult>('/v1/connectors/import', file, { mapping });
   },
 };

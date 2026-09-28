@@ -21,6 +21,9 @@ export const TEST_CONFIG: ApiConfig = {
   corsOrigins: ['http://localhost:4173'],
   logLevel: 'silent',
   trustProxy: false,
+  // Summary generate fails fast (503) without a provider key; a fake one lets the
+  // route accept the job — the async generation then fails without network access.
+  anthropicApiKey: 'sk-ant-test-not-a-real-key',
   // No databaseUrl / redisUrl — uses in-memory fallbacks
 };
 

@@ -1,0 +1,117 @@
+# Changelog
+
+All notable changes to FHIRBridge are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+[Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+
+- **One-command setup and run.** `pnpm run setup` creates `.env` with random secrets, an API key
+  and database / cache passwords (idempotent, cross-platform, `--env-only` for Docker), then
+  builds everything. `pnpm start` serves the web UI and API together on
+  `http://localhost:8080` (static files + streaming `/api` proxy, security headers).
+- **Demo HIS.** `pnpm demo` / `docker compose --profile demo up` start a synthetic FHIR R4 server
+  with fictional patients from Vietnam, Korea, Japan and the US, so the full export flow can be
+  tried without a hospital system or internet access.
+- **Full-stack Docker Compose** at the repo root: API + nginx web UI (+ optional Demo HIS),
+  read-only containers, UI bound to `127.0.0.1`. New web image in `docker/web/`.
+- **`CONNECTOR_ALLOWED_HOSTS`** — explicit allowlist (hostnames, IPv4, CIDRs, `host:port`) for
+  HIS servers on the hospital network, which SSRF protection previously made impossible to
+  reach. Cloud-metadata and link-local targets stay blocked even when listed (incl. IPv6 forms).
+- `pnpm smoke` — end-to-end installation check (health → HIS → export → download); also run in
+  CI against Docker Compose.
+- Summaries from an export id: `POST /api/v1/summary/generate` accepts `exportId` (ownership
+  checked) so the web UI no longer needs the bundle.
+- `ANTHROPIC_MODEL` / `OPENAI_MODEL` to pin provider models; `AI_PROVIDER` now selects the
+  default provider.
+- **Web UI fully localized in Tiếng Việt / English / 日本語 / 한국어** — every page, the landing
+  page (new `landing` namespace), status labels, dates and numbers follow the selected language;
+  a language switcher in the header and landing navbar; `<html lang>` follows the language;
+  browsers with unsupported languages fall back to English. A unit test enforces key and
+  placeholder parity across all four locales.
+- Dashboard "Recent exports" lists the exports started in the current tab (memory only).
+- **Import page with ready-made mappings**: pick the Vietnam / Korea / Japan / international
+  example mapping (or upload your own JSON), try it with bundled synthetic sample data, see
+  row-level warnings, and download the resulting FHIR Bundle.
+- `examples/column-mappings/mapping.schema.json` (JSON Schema for editors) and synthetic sample
+  files in `examples/data/` that match every example mapping.
+- `README.vi.md`, `README.ko.md`, `README.ja.md` quickstarts; `CODE_OF_CONDUCT.md`; issue forms
+  (bug, feature, translation feedback) and a pull-request template; CI job that builds the
+  Docker Compose stack and runs the smoke test.
+
+### Changed
+
+- Default Claude model is now `claude-opus-5` (the previous default,
+  `claude-sonnet-4-20250514`, is deprecated by Anthropic). `temperature` is no longer sent to
+  Claude (current models reject sampling parameters). Summary calls allow 16k output tokens and
+  a 120 s timeout.
+- `.env.example`: Postgres / Redis URLs are commented out by default (the documented
+  "no infrastructure" dev mode), `HOST` defaults to `127.0.0.1`.
+- Configuration errors name the environment variable (e.g. `METRICS_BEARER_TOKEN
+(metricsBearerToken)`) and point to `pnpm run setup`; a missing `HMAC_SECRET` is reported as
+  missing instead of silently falling back to `JWT_SECRET`.
+- Repository links point to `Digital-Healthcare-OpenSource/FHIRBridge`.
+- The import API requires a column mapping (part `mapping`, text or file) and returns
+  `resourcesByType`, `rowsRead` and `warnings` alongside the bundle. Example identifier systems
+  that could not be verified (a `vneid.gov.vn` URL, a Japanese OID) were replaced by clearly
+  marked placeholders; WHO ICD-10 (`http://hl7.org/fhir/sid/icd-10`) is now a known code system.
+- Web UI no longer loads Google Fonts (privacy, offline hospital networks, no CJK glyphs); it
+  uses a system font stack covering Latin, Vietnamese, Korean and Japanese.
+- Settings page: the credential field is clearly the FHIRBridge API key / token; the unused
+  AI-provider and summary-language selectors (which offered unsupported values) were removed in
+  favour of the interface-language selector.
+- Summary viewer offers only values the API accepts (`claude` / `openai`, `en` / `vi` / `ja` /
+  `ko`), defaults to the UI language, and downloads Markdown (the former "PDF" button already
+  downloaded Markdown).
+- The export wizard's "File upload" option now leads to the Import page — the export API only
+  exports from FHIR endpoints.
+- Landing page copy corrected to match the code: no "HL7 Certified" badge, 15 (not 8) resource
+  types, HMAC is described as pseudonymization (bundles are not signed), no quota or refresh-token
+  claims, no unsourced market statistics, Korea included, placeholder footer links replaced.
+
+### Fixed
+
+- **CSV / Excel import produced empty bundles on every path** (CLI, API, web): mappings were
+  never applied, the documented example format was not understood, and the API added raw rows
+  as invalid resources. Import now uses one canonical mapping format (the documented `fields`
+  format; the older formats are still accepted), builds valid, referenced FHIR resources
+  (Patient, Encounter, Condition, Observation, Procedure, AllergyIntolerance) and validates them.
+  Korean RRNs are HMAC-hashed with `HMAC_SECRET` (masked otherwise) and never appear raw.
+  The API reports mapping errors (`400`), content that yields nothing (`422`) and oversize
+  input (`413`) clearly; the CLI exits non-zero instead of writing an empty bundle.
+- Excel date cells were read as serial numbers.
+- `fhirbridge export` / `summarize` without `--output` mixed status lines into the data on
+  stdout; status now goes to stderr so the output can be redirected to a file.
+
+- The API ignored the documented root `.env` when started with
+  `pnpm --filter @fhirbridge/api dev|start|migrate` and refused to boot.
+- Empty values copied from `.env.example` (e.g. `METRICS_BEARER_TOKEN=`) failed validation and
+  blocked startup; empty values are now treated as unset.
+- AI summaries from the web UI always failed with `400` (language names instead of codes,
+  unsupported provider names, no bundle sent), and failed jobs looked like "still processing"
+  forever. Failed jobs now return `502` with the reason; a missing provider key returns `503`
+  naming the variable to set.
+- Summary routes ignored the Redis / audit-wired `SummaryService` built at startup.
+- `fhirbridge summarize` imported a package that does not exist and always printed a placeholder;
+  it now runs the real de-identify → summarize pipeline and fails clearly without an API key.
+  The CLI no longer offers the unsupported `gemini` provider.
+- The `fhirbridge` bin pointed at a module that never ran the CLI.
+- Summary errors from the server (e.g. "Summary generation failed: …") were replaced by a generic
+  `HTTP 502` message in the web UI.
+- Dark mode toggle had no effect and Markdown summaries were unstyled (Tailwind v4 ignored
+  `tailwind.config.ts`).
+- A finished export showed "Invalid date", a spinning last step and an "Exporting…" heading.
+- The export wizard showed a blank page when starting an export failed (e.g. not signed in).
+
+## [0.2.0] - 2026-07-24
+
+Four-market readiness release (EN / VI / JA / KO): Korean locale and PIPA features (RRN
+protection, Art. 28-8 cross-border consent, `AUDIT_PROFILE=kr` access log), Vietnam PDPD
+documentation, schema-migration runner, revived security and Playwright suites, accessibility
+and dependency hardening. See the
+[release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0).
+
+[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0

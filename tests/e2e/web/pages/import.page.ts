@@ -1,6 +1,6 @@
 /**
  * ImportPage — Page Object Model for /import.
- * Stages: upload → importing → done/error (server xử lý đồng bộ một request).
+ * Stages: upload (mapping + data file) → importing → done/error (one synchronous request).
  */
 
 import type { Page, Locator } from '@playwright/test';
@@ -12,6 +12,9 @@ export class ImportPage {
   readonly fileInput: Locator;
   readonly successBanner: Locator;
   readonly errorBanner: Locator;
+  readonly mappingSelect: Locator;
+  readonly useSampleButton: Locator;
+  readonly importButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -29,10 +32,20 @@ export class ImportPage {
     this.successBanner = page.getByText(/import complete/i);
     // Error state
     this.errorBanner = page.getByText(/import failed/i);
+    // Column mapping preset (vn | kr | jp | generic | custom)
+    this.mappingSelect = page.locator('select#mapping-preset');
+    // Loads the bundled synthetic sample matching the selected preset
+    this.useSampleButton = page.getByRole('button', { name: /try with sample data/i });
+    this.importButton = page.getByRole('button', { name: 'Import', exact: true });
   }
 
   async goto() {
     await this.page.goto('/app/import');
+  }
+
+  /** Submit the selected mapping + data file. */
+  async importNow() {
+    await this.importButton.click();
   }
 
   /** Upload a file via the hidden <input type="file"> element. */

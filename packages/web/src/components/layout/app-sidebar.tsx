@@ -12,12 +12,13 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ROUTES } from '../../lib/constants';
+import { useTranslation } from '../../i18n/use-translation';
 
 const NAV_ITEMS = [
-  { to: ROUTES.DASHBOARD, label: 'Dashboard', Icon: LayoutDashboard },
-  { to: ROUTES.EXPORT, label: 'Export', Icon: ArrowUpFromLine },
-  { to: ROUTES.IMPORT, label: 'Import', Icon: ArrowDownToLine },
-  { to: ROUTES.SETTINGS, label: 'Settings', Icon: Settings },
+  { to: ROUTES.DASHBOARD, labelKey: 'nav.dashboard', Icon: LayoutDashboard },
+  { to: ROUTES.EXPORT, labelKey: 'nav.export', Icon: ArrowUpFromLine },
+  { to: ROUTES.IMPORT, labelKey: 'nav.import', Icon: ArrowDownToLine },
+  { to: ROUTES.SETTINGS, labelKey: 'nav.settings', Icon: Settings },
 ] as const;
 
 interface Props {
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function AppSidebar({ healthOk }: Props) {
+  const { t } = useTranslation('common');
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
       {/* Logo */}
@@ -34,9 +36,9 @@ export function AppSidebar({ healthOk }: Props) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label="Main navigation">
+      <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t('nav.main_aria')}>
         <ul className="space-y-1">
-          {NAV_ITEMS.map(({ to, label, Icon }) => (
+          {NAV_ITEMS.map(({ to, labelKey, Icon }) => (
             <li key={to}>
               <NavLink
                 to={to}
@@ -51,7 +53,7 @@ export function AppSidebar({ healthOk }: Props) {
                 }
               >
                 <Icon className="h-4 w-4 flex-shrink-0" aria-hidden />
-                {label}
+                {t(labelKey)}
               </NavLink>
             </li>
           ))}
@@ -69,7 +71,11 @@ export function AppSidebar({ healthOk }: Props) {
           aria-hidden="true"
         />
         <span className="text-xs text-gray-500 dark:text-gray-400">
-          {healthOk === undefined ? 'Checking…' : healthOk ? 'API online' : 'API offline'}
+          {healthOk === undefined
+            ? t('status.checking')
+            : healthOk
+              ? t('status.api_online')
+              : t('status.api_offline')}
         </span>
       </div>
     </aside>

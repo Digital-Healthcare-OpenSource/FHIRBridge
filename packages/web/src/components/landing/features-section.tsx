@@ -4,11 +4,13 @@
  */
 
 import { useScrollAnimation } from '../../hooks/use-scroll-animation';
+import { useTranslation } from '../../i18n/use-translation';
 
 const FEATURES = [
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-6 h-6"
         fill="none"
         viewBox="0 0 24 24"
@@ -22,12 +24,12 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: 'FHIR R4 Standard',
-    desc: '8 resource types — Patient, Condition, Medication, Observation, and more. Fully HL7-compliant bundles.',
+    key: 'fhir',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-6 h-6"
         fill="none"
         viewBox="0 0 24 24"
@@ -41,12 +43,12 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: 'AI Patient Summaries',
-    desc: 'Claude + OpenAI generate de-identified clinical summaries in plain language. Never stores PHI.',
+    key: 'ai',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-6 h-6"
         fill="none"
         viewBox="0 0 24 24"
@@ -60,12 +62,12 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: 'Three Interfaces',
-    desc: 'CLI for power users, REST API for integrations, and a visual Web Dashboard — all in one package.',
+    key: 'interfaces',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-6 h-6"
         fill="none"
         viewBox="0 0 24 24"
@@ -79,12 +81,12 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: 'CSV / Excel Import',
-    desc: 'Visual column mapper with auto-detection. Drop your hospital export — we handle the rest.',
+    key: 'import',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-6 h-6"
         fill="none"
         viewBox="0 0 24 24"
@@ -98,12 +100,12 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: 'Privacy-by-Design',
-    desc: 'Zero PHI storage — data streams in memory only. HMAC signing, SSRF/IDOR protections built-in.',
+    key: 'privacy',
   },
   {
     icon: (
       <svg
+        aria-hidden="true"
         className="w-6 h-6"
         fill="none"
         viewBox="0 0 24 24"
@@ -117,12 +119,12 @@ const FEATURES = [
         />
       </svg>
     ),
-    title: 'Multi-language',
-    desc: 'Full UI and AI summaries in English, Vietnamese (Tiếng Việt), and Japanese (日本語).',
+    key: 'multilang',
   },
-];
+] as const;
 
 export function FeaturesSection() {
+  const { t } = useTranslation('landing');
   const { ref, isVisible } = useScrollAnimation();
 
   return (
@@ -135,32 +137,28 @@ export function FeaturesSection() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2
-            className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4"
-            style={{ fontFamily: 'Outfit, system-ui, sans-serif' }}
-          >
-            Everything you need for patient data portability
+          <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+            {t('features.title')}
           </h2>
           <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-            Built for the realities of Asian healthcare systems — messy data, multiple formats,
-            strict privacy requirements.
+            {t('features.subtitle')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {FEATURES.map((feat, i) => (
+          {FEATURES.map((feat) => (
             <div
-              key={i}
+              key={feat.key}
               className="group p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300"
             >
               <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-4 group-hover:bg-teal-100 dark:group-hover:bg-teal-900/60 transition-colors">
                 {feat.icon}
               </div>
               <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                {feat.title}
+                {t(`features.${feat.key}.title`)}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                {feat.desc}
+                {t(`features.${feat.key}.desc`)}
               </p>
             </div>
           ))}

@@ -7,6 +7,11 @@ import './i18n/index';
 import App from './App';
 import './styles/globals.css';
 
+// Dark mode is class-based (Settings toggle); start from the OS preference.
+if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark');
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Root element #root not found in DOM');

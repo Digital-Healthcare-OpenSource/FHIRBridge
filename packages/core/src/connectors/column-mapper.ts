@@ -1,6 +1,9 @@
 /**
  * Column mapper: transforms flat CSV/Excel rows into RawRecords
  * grouped by FHIR resource type using a ColumnMapping configuration.
+ *
+ * Legacy low-level API (kept for compatibility). CSV/Excel → FHIR import dùng
+ * parseMappingConfig() + importTabularFile() (canonical "fields" mapping).
  */
 
 import type { ColumnMapping, CodeMapping, MappedRecord } from '@fhirbridge/types';

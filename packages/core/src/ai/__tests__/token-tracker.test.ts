@@ -63,12 +63,12 @@ describe('TokenTracker', () => {
   describe('cost estimation', () => {
     it('estimates cost for claude', () => {
       const tracker = new TokenTracker();
-      tracker.track('claude', 'claude-sonnet-4-20250514', 'test', 1000, 1000);
+      tracker.track('claude', 'claude-opus-5', 'test', 1000, 1000);
 
       const { estimatedCostUsd, records } = tracker.getUsage();
-      // input: 1000/1000 * 0.003 = 0.003, output: 1000/1000 * 0.015 = 0.015 → total: 0.018
-      expect(records[0]?.estimatedCostUsd).toBeCloseTo(0.018, 5);
-      expect(estimatedCostUsd).toBeCloseTo(0.018, 5);
+      // input: 1000/1000 * 0.005 = 0.005, output: 1000/1000 * 0.025 = 0.025 → total: 0.030
+      expect(records[0]?.estimatedCostUsd).toBeCloseTo(0.03, 5);
+      expect(estimatedCostUsd).toBeCloseTo(0.03, 5);
     });
 
     it('estimates cost for openai', () => {
@@ -77,7 +77,7 @@ describe('TokenTracker', () => {
 
       const { records } = tracker.getUsage();
       // input: 1000/1000 * 0.005 = 0.005, output: 1000/1000 * 0.015 = 0.015 → total: 0.020
-      expect(records[0]?.estimatedCostUsd).toBeCloseTo(0.020, 5);
+      expect(records[0]?.estimatedCostUsd).toBeCloseTo(0.02, 5);
     });
 
     it('accumulates costs across records', () => {
@@ -86,7 +86,7 @@ describe('TokenTracker', () => {
       tracker.track('claude', 'model', 'B', 1000, 1000);
 
       const { estimatedCostUsd } = tracker.getUsage();
-      expect(estimatedCostUsd).toBeCloseTo(0.036, 5);
+      expect(estimatedCostUsd).toBeCloseTo(0.06, 5);
     });
   });
 
@@ -131,9 +131,7 @@ describe('TokenTracker', () => {
       const tracker = new TokenTracker(1000);
       tracker.track('claude', 'model', 'test', 500, 450);
 
-      expect(stderrSpy).toHaveBeenCalledWith(
-        expect.stringContaining('WARNING'),
-      );
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('WARNING'));
 
       stderrSpy.mockRestore();
     });

@@ -8,15 +8,34 @@
     "loading": "Generating summary…",
     "empty": "No summary yet. Click \"Generate summary\" to start.",
     "provider_label": "AI Provider",
-    "model_label": "Model",
-    "language_label": "Summary language"
+    "language_label": "Summary language",
+    "detail_label": "Detail level"
+  },
+  "detail": {
+    "brief": "Brief",
+    "standard": "Standard",
+    "detailed": "Detailed"
+  },
+  "viewer": {
+    "title": "Summary Viewer",
+    "description": "Generate an AI-powered clinical summary for this export",
+    "configuration": "Configuration",
+    "starting": "Starting…",
+    "generating": "Generating…",
+    "ai_disabled": "AI Summary is not enabled on this deployment. Contact your administrator, or self-host with <code>VITE_AI_ENABLED=true</code>.",
+    "no_export_id": "No export ID provided. Navigate here from the Dashboard with a valid export.",
+    "baa_required": "You must acknowledge the BAA disclaimer before using AI Summary.",
+    "consent_required": "You must consent to cross-border data processing to use AI Summary.",
+    "error_not_configured": "AI summaries are not configured on this server",
+    "error_start": "Could not start summary generation",
+    "error_failed": "Summary generation failed",
+    "error_timeout": "Summary generation timed out after 5 minutes."
   },
   "disclaimer": {
     "label": "AI-generated summary",
     "body": "— This content is produced by an AI model and may contain errors. Always verify clinical information with a qualified healthcare provider."
   },
   "actions": {
-    "download_markdown": "Download Markdown",
-    "download_pdf": "Download PDF"
+    "download_markdown": "Download Markdown"
   }
 }

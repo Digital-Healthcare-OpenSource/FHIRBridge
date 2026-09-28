@@ -6,7 +6,12 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { ProviderGateway, formatMarkdown } from '@fhirbridge/core';
+import {
+  CLAUDE_DEFAULT_MODEL,
+  OPENAI_DEFAULT_MODEL,
+  ProviderGateway,
+  formatMarkdown,
+} from '@fhirbridge/core';
 import type { Bundle, SummaryConfig, PatientSummary } from '@fhirbridge/types';
 import type { IRedisStore } from './redis-store.js';
 import type { AuditService } from './audit-service.js';
@@ -46,6 +51,12 @@ function resolveProvider(provider?: string): 'claude' | 'openai' {
   return 'claude';
 }
 
+/** Read an optional env var, treating empty / whitespace-only values as unset. */
+function envValue(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
 function buildSummaryConfig(
   options: SummaryRequestOptions = {},
   hmacSecret: string,
@@ -53,8 +64,14 @@ function buildSummaryConfig(
   const providerName = resolveProvider(options.provider);
   const apiKey =
     providerName === 'openai'
-      ? (process.env['OPENAI_API_KEY'] ?? '')
-      : (process.env['ANTHROPIC_API_KEY'] ?? '');
+      ? (envValue('OPENAI_API_KEY') ?? '')
+      : (envValue('ANTHROPIC_API_KEY') ?? '');
+  // Operators pin a model per provider (ANTHROPIC_MODEL / OPENAI_MODEL); the
+  // defaults live in core so API and CLI never drift apart.
+  const model =
+    providerName === 'openai'
+      ? (envValue('OPENAI_MODEL') ?? OPENAI_DEFAULT_MODEL)
+      : (envValue('ANTHROPIC_MODEL') ?? CLAUDE_DEFAULT_MODEL);
 
   return {
     language: options.language ?? 'en',
@@ -63,12 +80,16 @@ function buildSummaryConfig(
     hmacSecret,
     providerConfig: {
       provider: providerName,
-      model: providerName === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-20250514',
+      model,
       apiKey,
-      maxTokens: 2048,
-      // Clinical: deterministic output — không để model bịa/biến thiên trên nội dung y khoa.
+      // Headroom for current models, whose (adaptive) reasoning counts toward
+      // max_tokens — a tight cap truncated section summaries mid-sentence.
+      maxTokens: 16000,
+      // Clinical: deterministic output where the provider supports it (OpenAI).
+      // Current Claude models reject sampling params; ClaudeProvider omits it.
       temperature: 0,
-      timeoutMs: 30000,
+      // Background job — allow for reasoning time instead of failing at 30s.
+      timeoutMs: 120_000,
     },
   };
 }

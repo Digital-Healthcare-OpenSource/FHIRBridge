@@ -14,7 +14,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import ExcelJS from 'exceljs';
 import type { ConnectorConfig, FileImportConfig } from '@fhirbridge/types';
-import type { HisConnector, RawRecord, ConnectionStatus } from './his-connector-interface.js';
+import type {
+  HisConnector,
+  RawRecord,
+  ConnectionStatus,
+  SourceRow,
+  StreamRowsOptions,
+} from './his-connector-interface.js';
 import { ConnectorError } from './his-connector-interface.js';
 import { mapRow } from './column-mapper.js';
 import {
@@ -128,7 +134,7 @@ export class ExcelConnector implements HisConnector {
           continue;
         }
 
-        const records = mapRow(normalized, mapping, source, rowCount);
+        const records = mapRow(normalized, mapping ?? [], source, rowCount);
         for (const record of records) {
           yield record; // yield ngay — không gom mảng
         }
@@ -143,6 +149,54 @@ export class ExcelConnector implements HisConnector {
   async disconnect(): Promise<void> {
     this.config = null;
     this.sheetNames = [];
+  }
+
+  /**
+   * Stream raw rows of one sheet (header = first non-empty row) without any
+   * mapping — input for the canonical import transformer. Same guards as
+   * fetchPatientData (row ceiling across the workbook, cells-per-row cap).
+   * Date cells stay `Date` so date/datetime transforms keep the time part.
+   */
+  async *streamRows(options: StreamRowsOptions = {}): AsyncGenerator<SourceRow> {
+    if (!this.config) {
+      throw new ConnectorError('Call connect() before streamRows()', 'NOT_CONNECTED');
+    }
+    const target = options.sheet ?? this.config.sheetName ?? this.sheetNames[0];
+    if (!target) {
+      throw new ConnectorError('No sheets found in workbook', 'NO_SHEET');
+    }
+    if (!this.sheetNames.includes(target)) {
+      throw new ConnectorError(
+        `Sheet not found: "${target}" (workbook sheets: ${this.sheetNames.map((n) => `"${n}"`).join(', ')})`,
+        'SHEET_NOT_FOUND',
+      );
+    }
+
+    const reader = await this.openReader(this.config.filePath);
+    let rowCount = 0;
+
+    for await (const worksheet of reader) {
+      const isTarget = worksheet.name === target;
+      let headers: string[] | null = null;
+
+      for await (const row of worksheet) {
+        if (++rowCount > MAX_ROWS) {
+          throw new ConnectorError('Row count ceiling exceeded', 'ROW_LIMIT');
+        }
+        if (!isTarget) continue;
+
+        if (headers === null) {
+          headers = extractHeaders(row);
+          if (headers.some(Boolean)) options.onHeaders?.(headers.filter(Boolean));
+          else headers = null; // dòng trống trước header — bỏ qua
+          continue;
+        }
+
+        const values = normalizeRawCells(extractRow(row, headers));
+        if (Object.values(values).every((v) => v === null || v === undefined || v === '')) continue;
+        yield { rowNumber: row.number, sheet: target, values };
+      }
+    }
   }
 
   /** Return available sheet names discovered at connect() time. */
@@ -160,7 +214,8 @@ export class ExcelConnector implements HisConnector {
       worksheets: 'emit',
       sharedStrings: 'cache',
       hyperlinks: 'ignore',
-      styles: 'ignore',
+      // 'cache': cần numFmt để nhận diện ô ngày (không có → ô ngày thành serial number)
+      styles: 'cache',
       entries: 'ignore',
     });
     await preloadWorkbookMetadata(reader as unknown as PreloadableWorkbookReader, filePath);
@@ -209,6 +264,30 @@ function extractRow(row: StreamRow, headers: string[]): Record<string, unknown> 
     }
   });
   return rawRow;
+}
+
+/**
+ * Normalize cells for streamRows(): like normalizeCells() but keeps `Date`
+ * (with time), unwraps rich text / formula / hyperlink, drops error values.
+ */
+function normalizeRawCells(row: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(row)) {
+    let value = raw;
+    if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+      if ('richText' in value) {
+        value = (value as { richText: { text: string }[] }).richText.map((r) => r.text).join('');
+      } else if ('result' in value) {
+        value = (value as { result: unknown }).result;
+      } else if ('text' in value) {
+        value = (value as { text: unknown }).text; // hyperlink cell
+      } else if ('error' in value) {
+        value = null; // #N/A, #REF! ...
+      }
+    }
+    result[key] = typeof value === 'string' ? value.trim() : value;
+  }
+  return result;
 }
 
 /** Normalize cell values: trim strings, convert Date objects to ISO strings, unwrap ExcelJS rich text/formula */

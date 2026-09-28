@@ -1,0 +1,72 @@
+# FHIRBridge — run the whole thing with one command:
+#
+#   node scripts/setup.mjs --env-only      # or: pnpm run setup  (creates .env with secrets)
+#   docker compose up --build              # → http://localhost:8080
+#
+# No Node.js on the host? Create .env with a throwaway container instead:
+#   docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+#
+# Try it without a hospital system (synthetic Demo HIS at http://demo-his:8090/fhir):
+#   docker compose --profile demo up --build
+#
+# Defaults: audit log → container stdout, rate limit / caches in memory
+# (single instance). For persistent audit logs + Redis see docker/docker-compose.yml
+# and docs/operations/. The UI is bound to 127.0.0.1 — put a TLS reverse proxy in
+# front before exposing it to a network (docs/operations/reverse-proxy.md).
+
+name: fhirbridge
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fhirbridge-api:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Container-specific overrides (win over .env)
+      HOST: 0.0.0.0
+      PORT: '3001'
+      NODE_ENV: production
+      # Only nginx (the web service) can reach the API on the compose network
+      TRUST_PROXY: 'true'
+      # The Demo HIS only resolves when the `demo` profile is running
+      CONNECTOR_ALLOWED_HOSTS: ${CONNECTOR_ALLOWED_HOSTS:-}${CONNECTOR_ALLOWED_HOSTS:+,}demo-his:8090
+    expose:
+      - '3001'
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    image: fhirbridge-web:local
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8080}:8080'
+    security_opt:
+      - no-new-privileges:true
+
+  demo-his:
+    profiles: ['demo']
+    image: node:20-alpine
+    command: ['node', '/demo/server.mjs']
+    environment:
+      DEMO_HIS_HOST: 0.0.0.0
+      DEMO_HIS_PORT: '8090'
+    volumes:
+      - ./examples/demo-his:/demo:ro
+    user: node
+    expose:
+      - '8090'
+    read_only: true
+    security_opt:
+      - no-new-privileges:true

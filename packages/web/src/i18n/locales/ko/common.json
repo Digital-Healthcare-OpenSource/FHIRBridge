@@ -1,20 +1,32 @@
 {
+  "app": {
+    "loading": "불러오는 중…",
+    "skip_to_content": "본문으로 건너뛰기"
+  },
   "nav": {
-    "dashboard": "Dashboard",
+    "dashboard": "대시보드",
     "export": "데이터 내보내기",
     "import": "데이터 가져오기",
     "settings": "설정",
-    "summary": "AI 요약"
+    "summary": "AI 요약",
+    "main_aria": "주 메뉴",
+    "breadcrumb_aria": "현재 위치"
   },
   "status": {
     "checking": "확인 중…",
     "api_online": "API 온라인",
     "api_offline": "API 오프라인"
   },
+  "job_status": {
+    "pending": "대기 중",
+    "processing": "처리 중",
+    "running": "실행 중",
+    "generating": "생성 중",
+    "complete": "완료",
+    "error": "오류"
+  },
   "language": {
-    "label": "언어",
-    "vi": "Tiếng Việt",
-    "en": "English"
+    "label": "언어"
   },
   "action": {
     "cancel": "취소",
@@ -24,17 +36,41 @@
     "retry": "다시 시도",
     "back": "이전",
     "next": "다음",
-    "try_again": "다시 시도"
+    "try_again": "다시 시도",
+    "refresh": "새로 고침"
   },
   "toast": {
     "dismiss": "알림 닫기"
   },
+  "format": {
+    "invalid_date": "유효하지 않은 날짜",
+    "resource_count_other": "리소스 {{count, number}}개"
+  },
   "dropzone": {
     "instruction": "드래그 앤 드롭하거나 클릭하여 업로드",
     "drop_here": "여기에 파일을 놓으세요",
-    "hint": "CSV, XLSX 또는 FHIR JSON · 최대 {{size}}",
+    "hint": "CSV, XLSX 또는 XLS · 최대 {{size}}",
     "input_label": "파일 업로드",
     "remove_label": "파일 제거"
+  },
+  "dashboard": {
+    "description": "최근 활동 및 빠른 작업",
+    "api_status": "API 상태:",
+    "health": {
+      "ok": "정상",
+      "degraded": "성능 저하",
+      "error": "오류"
+    },
+    "new_export": "새 내보내기",
+    "new_export_desc": "환자의 FHIR 번들 내보내기",
+    "import_file": "파일 가져오기",
+    "import_file_desc": "CSV / Excel / FHIR JSON 업로드",
+    "recent_exports": "최근 내보내기",
+    "empty": "아직 내보내기 기록이 없습니다. \"새 내보내기\"로 시작하십시오.",
+    "col_date": "일시",
+    "col_patient": "환자 ID",
+    "col_resources": "리소스",
+    "col_status": "상태"
   },
   "wizard": {
     "title": "FHIR Bundle 내보내기",
@@ -54,9 +90,6 @@
     "source_file_title": "파일 업로드",
     "source_file_desc": "CSV, XLSX 또는 FHIR JSON 업로드",
     "fhir_connection": "FHIR 연결",
-    "upload_file": "파일 업로드",
-    "uploading": "업로드 중… {{progress}}%",
-    "file_uploaded": "파일을 업로드했습니다.",
     "patient_id": "환자 ID",
     "patient_identifier": "환자 식별자",
     "patient_placeholder": "예: patient-123",
@@ -68,29 +101,54 @@
     "review": "검토",
     "review_source": "소스",
     "review_fhir": "FHIR: {{url}}",
-    "review_file": "파일 업로드",
     "review_patient": "환자 ID",
     "review_format": "형식",
     "review_summary": "요약 포함",
     "yes": "예",
-    "no": "아니오",
+    "no": "아니요",
     "exporting": "내보내는 중…",
     "start_export": "내보내기 시작",
-    "back_to_dashboard": "Dashboard로 돌아가기",
+    "back_to_dashboard": "대시보드로 돌아가기",
     "new_export": "새 내보내기"
+  },
+  "connector": {
+    "fhir_url": "FHIR 서버 URL",
+    "client_id": "클라이언트 ID",
+    "client_id_placeholder": "선택 사항 — SMART on FHIR용",
+    "client_secret": "클라이언트 시크릿",
+    "client_secret_placeholder": "선택 사항",
+    "test": "연결 테스트",
+    "testing": "테스트 중…",
+    "test_failed": "연결에 실패했습니다"
   },
   "import": {
     "title": "파일 가져오기",
-    "description": "CSV, XLSX 또는 FHIR JSON을 업로드하여 FHIR R4로 매핑합니다",
-    "preview": "미리보기",
-    "rows_columns": "{{rows}}행 · {{columns}}열",
-    "map_columns": "열을 FHIR에 매핑",
-    "start_import": "가져오기 시작",
+    "description": "HIS에서 내보낸 CSV 또는 Excel 파일을 컬럼 매핑으로 FHIR R4 번들로 변환합니다",
     "processing": "가져오기 처리 중…",
-    "started": "가져오기를 시작했습니다",
-    "job_id": "작업 ID: {{id}}",
+    "complete": "가져오기 완료",
+    "complete_count_other": "가져오기 완료 — 리소스 {{count, number}}개를 처리했습니다",
     "import_another": "다른 파일 가져오기",
-    "failed": "가져오기 실패"
+    "failed": "가져오기 실패",
+    "mapping_label": "컬럼 매핑",
+    "mapping_help": "어느 열이 어떤 FHIR 필드인지 FHIRBridge에 알려 줍니다. 예시에서 시작하거나 직접 만든 JSON을 업로드하십시오.",
+    "mapping_docs": "매핑 형식 안내",
+    "preset": {
+      "vn": "베트남 — 병원 CSV (VneID)",
+      "kr": "한국 — 병원 CSV (주민등록번호 보호)",
+      "jp": "일본 — 의원 Excel",
+      "generic": "국제 — HL7 형식 CSV",
+      "custom": "사용자 매핑 (JSON 파일)…"
+    },
+    "mapping_file_label": "매핑 파일 (.json)",
+    "data_file_label": "데이터 파일",
+    "use_sample": "샘플 데이터로 체험 ({{file}})",
+    "sample_failed": "샘플 파일을 불러오지 못했습니다.",
+    "mapping_required": "먼저 컬럼 매핑을 선택하십시오.",
+    "file_required": "먼저 CSV 또는 Excel 파일을 선택하십시오.",
+    "mapping_invalid_json": "매핑 파일이 올바른 JSON이 아닙니다.",
+    "start": "가져오기",
+    "download_bundle": "FHIR 번들 다운로드 (JSON)",
+    "warnings_title": "경고"
   },
   "progress": {
     "label": "진행 상황",
@@ -101,17 +159,29 @@
     "step_complete": "완료",
     "error_generic": "내보내기 중 오류가 발생했습니다"
   },
-  "mapper": {
-    "source_column": "원본 열",
-    "fhir_path": "FHIR 경로",
-    "skip": "— 건너뛰기 —",
-    "map_aria": "{{col}}을(를) FHIR 경로에 매핑",
-    "duplicate_warning": "둘 이상의 열이 동일한 FHIR 경로({{paths}})에 매핑되어 있습니다. 값은 하나만 유지됩니다.",
-    "identifier_required": "계속하려면 환자 식별자(예: Patient.id)를 하나 이상 매핑하세요."
-  },
   "export_result": {
     "complete": "내보내기 완료",
     "patient_id_label": "환자 ID",
     "download": "FHIR Bundle 다운로드 (JSON)"
+  },
+  "settings": {
+    "description": "API 액세스 및 애플리케이션 환경설정을 구성합니다",
+    "credential_heading": "FHIRBridge API 키 / 액세스 토큰",
+    "credential_help": "서버 <code>.env</code> 파일의 <code>API_KEYS</code>에 설정된 API 키(<code>pnpm run setup</code>으로 생성) 중 하나 또는 JWT 액세스 토큰을 입력하십시오. 이는 FHIRBridge 인증 정보이며 AI 제공업체의 API 키가 아닙니다.",
+    "credential_memory": "메모리에만 보관되며 이 탭을 닫거나 새로 고치면 삭제됩니다. 디스크에는 저장되지 않습니다.",
+    "credential_label": "API 키 또는 액세스 토큰",
+    "credential_placeholder": "API 키 또는 JWT 붙여넣기",
+    "show_key": "API 키 표시",
+    "hide_key": "API 키 숨기기",
+    "language_heading": "표시 언어",
+    "language_help": "AI 요약의 기본 언어로도 사용됩니다.",
+    "appearance_heading": "테마",
+    "dark_mode": "다크 모드",
+    "light_mode": "라이트 모드",
+    "toggle_theme": "다크 모드 전환",
+    "switch_to_light": "라이트 모드로 전환",
+    "switch_to_dark": "다크 모드로 전환",
+    "save": "설정 저장",
+    "saved": "저장되었습니다!"
   }
 }

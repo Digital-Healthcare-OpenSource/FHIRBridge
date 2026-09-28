@@ -1,5 +1,6 @@
 /**
  * Tests for SummaryActions component.
+ * Server chỉ xuất Markdown — chỉ có một nút tải, không có nút "PDF" gây hiểu nhầm.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -20,37 +21,32 @@ beforeEach(() => {
 });
 
 describe('SummaryActions', () => {
-  it('renders Download Markdown button', () => {
+  it('renders a single Download Markdown button', () => {
     render(<SummaryActions summaryId="sum-1" />);
     expect(screen.getByRole('button', { name: /download markdown/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 
-  it('renders Download PDF button', () => {
+  it('does not offer a PDF download (server has no PDF export)', () => {
     render(<SummaryActions summaryId="sum-1" />);
-    expect(screen.getByRole('button', { name: /download pdf/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /pdf/i })).not.toBeInTheDocument();
   });
 
-  it('clicking Download Markdown calls summaryApi.downloadMarkdown', async () => {
+  it('clicking Download Markdown downloads summary-<id>.md', async () => {
     const { summaryApi } = await import('../../../api/summary-api');
     vi.mocked(summaryApi.downloadMarkdown).mockResolvedValueOnce(new Blob(['# md']));
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
 
     render(<SummaryActions summaryId="sum-1" />);
     screen.getByRole('button', { name: /download markdown/i }).click();
 
     await vi.waitFor(() => {
       expect(summaryApi.downloadMarkdown).toHaveBeenCalledWith('sum-1');
+      expect(clickSpy).toHaveBeenCalled();
     });
-  });
-
-  it('clicking Download PDF calls summaryApi.downloadPdf', async () => {
-    const { summaryApi } = await import('../../../api/summary-api');
-    vi.mocked(summaryApi.downloadPdf).mockResolvedValueOnce(new Blob(['%PDF']));
-
-    render(<SummaryActions summaryId="sum-1" />);
-    screen.getByRole('button', { name: /download pdf/i }).click();
-
-    await vi.waitFor(() => {
-      expect(summaryApi.downloadPdf).toHaveBeenCalledWith('sum-1');
-    });
+    const anchor = clickSpy.mock.contexts[0] as HTMLAnchorElement;
+    expect(anchor.download).toBe('summary-sum-1.md');
+    expect(summaryApi.downloadPdf).not.toHaveBeenCalled();
+    clickSpy.mockRestore();
   });
 });

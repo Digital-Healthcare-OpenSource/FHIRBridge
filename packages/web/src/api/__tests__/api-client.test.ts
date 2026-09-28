@@ -156,7 +156,22 @@ describe('apiClient.download', () => {
       ok: false,
       status: 403,
       statusText: 'Forbidden',
+      text: async () => '',
     });
     await expect(apiClient.download('/exports/1/bundle')).rejects.toThrow(ApiError);
+  });
+
+  it('surfaces the server error message from the body (e.g. failed summary job)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      statusText: '',
+      text: async () =>
+        JSON.stringify({ statusCode: 502, message: 'Summary generation failed: provider timeout' }),
+    });
+    await expect(apiClient.download('/v1/summary/s1/download')).rejects.toMatchObject({
+      status: 502,
+      message: 'Summary generation failed: provider timeout',
+    });
   });
 });

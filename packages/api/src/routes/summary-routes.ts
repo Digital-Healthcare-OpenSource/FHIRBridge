@@ -4,7 +4,12 @@
  *   GET  /api/v1/summary/:id/download — download formatted summary
  *
  * Self-host edition: AI summaries available to any authenticated user.
- * Operator must provide ANTHROPIC_API_KEY or OPENAI_API_KEY in env.
+ * Operator must provide ANTHROPIC_API_KEY or OPENAI_API_KEY in env — without the
+ * key for the requested provider, generate fails fast with 503 (not a job that
+ * silently fails later).
+ *
+ * The bundle comes either inline (`bundle`, CLI / API clients) or from a finished
+ * export the caller owns (`exportId`, web UI) — the web never holds the bundle.
  *
  * Bảo mật C-2 (IDOR): tất cả route đều pass userId để enforce ownership.
  * getStatus() trả undefined khi userId không khớp → route trả 404.
@@ -14,6 +19,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Bundle } from '@fhirbridge/types';
 import type { ApiConfig } from '../config.js';
 import { SummaryService, type SummaryRequestOptions } from '../services/summary-service.js';
+import type { ExportService } from '../services/export-service.js';
 import { requireScope } from '../plugins/auth-plugin.js';
 import { postSummaryGenerateSchema, getSummaryDownloadSchema } from '../schemas/summary-schemas.js';
 
@@ -31,32 +37,77 @@ interface DownloadQuery {
   format?: 'markdown' | 'composition';
 }
 
-const summaryService = new SummaryService();
+export interface SummaryRoutesOpts {
+  config: ApiConfig;
+  /** Pre-built service (redis + audit wired in index.ts); falls back to in-memory. */
+  summaryService?: SummaryService;
+  /** Resolves `exportId` → bundle, with the same ownership check as export download. */
+  exportService?: Pick<ExportService, 'getStatus'>;
+}
+
+/** Env var that must be set for each provider — surfaced verbatim in the 503 message. */
+const PROVIDER_KEY_ENV = { claude: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY' } as const;
 
 export async function summaryRoutes(
   fastify: FastifyInstance,
-  opts: { config: ApiConfig },
+  opts: SummaryRoutesOpts,
 ): Promise<void> {
+  const summaryService = opts.summaryService ?? new SummaryService();
+  // AI_PROVIDER (anthropic|openai) chọn provider mặc định khi request không chỉ định.
+  const defaultProvider: 'claude' | 'openai' =
+    opts.config.aiProvider === 'openai' ? 'openai' : 'claude';
+
   // POST /api/v1/summary/generate
   fastify.post<{ Body: SummaryGenerateBody }>(
     '/api/v1/summary/generate',
     { schema: postSummaryGenerateSchema, preHandler: requireScope('summary:write') },
     async (request: FastifyRequest<{ Body: SummaryGenerateBody }>, reply: FastifyReply) => {
-      const { bundle, summaryConfig } = request.body;
+      const { exportId } = request.body;
+      const summaryConfig = request.body.summaryConfig as SummaryRequestOptions | undefined;
+      let bundle = request.body.bundle;
+      const userId = request.authUser?.id ?? 'anonymous';
 
-      if (!bundle) {
+      if (!bundle && !exportId) {
         return reply.status(400).send({
           statusCode: 400,
           error: 'Bad Request',
-          message: 'bundle is required',
+          message: 'bundle or exportId is required',
         });
       }
 
-      const userId = request.authUser?.id ?? 'anonymous';
+      const provider = summaryConfig?.provider ?? defaultProvider;
+      const apiKey = provider === 'openai' ? opts.config.openaiApiKey : opts.config.anthropicApiKey;
+      if (!apiKey) {
+        return reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: `AI summaries are not configured on this server: set ${PROVIDER_KEY_ENV[provider]} and restart the API`,
+        });
+      }
+
+      if (!bundle) {
+        // IDOR: getStatus() enforces ownership — someone else's export is a plain 404.
+        const exportRecord = exportId
+          ? await opts.exportService?.getStatus(exportId, userId)
+          : undefined;
+        if (!exportRecord) {
+          return reply
+            .status(404)
+            .send({ statusCode: 404, error: 'Not Found', message: 'Export not found' });
+        }
+        if (exportRecord.status !== 'complete' || !exportRecord.bundle) {
+          return reply.status(409).send({
+            statusCode: 409,
+            error: 'Conflict',
+            message: `Export is ${exportRecord.status}`,
+          });
+        }
+        bundle = exportRecord.bundle;
+      }
 
       const summaryId = await summaryService.startGeneration({
         bundle,
-        summaryConfig: summaryConfig as SummaryRequestOptions | undefined,
+        summaryConfig: { ...summaryConfig, provider },
         hmacSecret: opts.config.hmacSecret,
         userId,
       });
@@ -80,6 +131,14 @@ export async function summaryRoutes(
         return reply
           .status(404)
           .send({ statusCode: 404, error: 'Not Found', message: 'Summary not found' });
+      }
+      if (record.status === 'failed') {
+        // Surface the failure — a 409 here made clients poll a dead job forever.
+        return reply.status(502).send({
+          statusCode: 502,
+          error: 'Bad Gateway',
+          message: `Summary generation failed: ${record.error ?? 'unknown error'}`,
+        });
       }
       if (record.status !== 'complete' || !record.summary) {
         return reply

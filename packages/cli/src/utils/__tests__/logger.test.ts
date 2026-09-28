@@ -3,7 +3,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { info, success, warn, error, debug, print, configureLogger } from '../logger.js';
+import {
+  info,
+  success,
+  warn,
+  error,
+  debug,
+  print,
+  configureLogger,
+  useStderrForStatus,
+} from '../logger.js';
 
 describe('logger function existence', () => {
   it('info is a function', () => {
@@ -136,5 +145,38 @@ describe('configureLogger quiet mode', () => {
     error('critical error');
     const written = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
     expect(written).toContain('critical error');
+  });
+});
+
+describe('useStderrForStatus (data on stdout stays parseable)', () => {
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    configureLogger({ quiet: false });
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  });
+
+  afterEach(() => {
+    useStderrForStatus(false);
+    stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
+
+  it('moves info and success lines to stderr while print() keeps stdout', () => {
+    useStderrForStatus(true);
+    info('Fetching…');
+    success('Exported 5 resources');
+    print('{"resourceType":"Bundle"}');
+    expect(stderrSpy).toHaveBeenCalledTimes(2);
+    expect(stdoutSpy).toHaveBeenCalledTimes(1);
+    expect(String(stdoutSpy.mock.calls[0]![0])).toContain('"Bundle"');
+  });
+
+  it('defaults to stdout for status lines', () => {
+    info('hello');
+    expect(stdoutSpy).toHaveBeenCalledTimes(1);
+    expect(stderrSpy).not.toHaveBeenCalled();
   });
 });

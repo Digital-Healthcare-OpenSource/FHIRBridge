@@ -3,6 +3,7 @@
  */
 
 import { cn } from '../../lib/utils';
+import { useTranslation } from '../../i18n/use-translation';
 
 export interface ConnectorConfig {
   url: string;
@@ -19,15 +20,23 @@ interface Props {
   className?: string;
 }
 
+const INPUT_CLASS =
+  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100';
+const LABEL_CLASS = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
+
 export function ConnectorForm({ value, onChange, onTest, testResult, testing, className }: Props) {
+  const { t } = useTranslation('common');
   const set = (key: keyof ConnectorConfig) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...value, [key]: e.target.value });
 
   return (
     <div className={cn('space-y-4', className)}>
       <div>
-        <label htmlFor="fhir-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          FHIR Server URL <span className="text-red-500">*</span>
+        <label htmlFor="fhir-url" className={LABEL_CLASS}>
+          {t('connector.fhir_url')}{' '}
+          <span className="text-red-500" aria-hidden>
+            *
+          </span>
         </label>
         <input
           id="fhir-url"
@@ -35,37 +44,38 @@ export function ConnectorForm({ value, onChange, onTest, testResult, testing, cl
           placeholder="https://fhir.example.com/r4"
           value={value.url}
           onChange={set('url')}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          required
+          className={INPUT_CLASS}
           autoComplete="off"
         />
       </div>
 
       <div>
-        <label htmlFor="client-id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Client ID
+        <label htmlFor="client-id" className={LABEL_CLASS}>
+          {t('connector.client_id')}
         </label>
         <input
           id="client-id"
           type="text"
-          placeholder="Optional — for SMART on FHIR"
+          placeholder={t('connector.client_id_placeholder')}
           value={value.clientId}
           onChange={set('clientId')}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          className={INPUT_CLASS}
           autoComplete="off"
         />
       </div>
 
       <div>
-        <label htmlFor="client-secret" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          Client Secret
+        <label htmlFor="client-secret" className={LABEL_CLASS}>
+          {t('connector.client_secret')}
         </label>
         <input
           id="client-secret"
           type="password"
-          placeholder="Optional"
+          placeholder={t('connector.client_secret_placeholder')}
           value={value.clientSecret}
           onChange={set('clientSecret')}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          className={INPUT_CLASS}
           autoComplete="new-password"
         />
       </div>
@@ -78,10 +88,13 @@ export function ConnectorForm({ value, onChange, onTest, testResult, testing, cl
             disabled={!value.url || testing}
             className="rounded-md bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
           >
-            {testing ? 'Testing…' : 'Test Connection'}
+            {testing ? t('connector.testing') : t('connector.test')}
           </button>
           {testResult && (
-            <span className={cn('text-sm', testResult.success ? 'text-green-600' : 'text-red-600')}>
+            <span
+              role="status"
+              className={cn('text-sm', testResult.success ? 'text-green-600' : 'text-red-600')}
+            >
               {testResult.message}
             </span>
           )}
