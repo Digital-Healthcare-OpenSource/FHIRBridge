@@ -36,6 +36,8 @@
     "body": "— Nội dung này do mô hình AI tạo ra và có thể chứa sai sót. Luôn kiểm chứng thông tin lâm sàng với nhân viên y tế có chuyên môn."
   },
   "actions": {
-    "download_markdown": "Tải Markdown"
+    "download_markdown": "Tải Markdown",
+    "print_pdf": "In / Lưu PDF",
+    "print_pdf_hint": "Mở hộp thoại in — chọn \"Lưu dưới dạng PDF\" làm máy in"
   }
 }

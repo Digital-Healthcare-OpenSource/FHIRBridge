@@ -33,6 +33,13 @@ All notable changes to FHIRBridge are documented here. The format follows
   uses the GHCR names (`FHIRBRIDGE_VERSION`, `FHIRBRIDGE_REGISTRY` to pin or mirror), so
   `docker compose pull && docker compose up` runs without building; `--build` still builds
   from source.
+- **Summary as PDF in all four languages.** The web Summary page has **Print / Save as PDF**: the
+  browser's print dialog prints only the summary (dark on white, also in dark mode) with the
+  browser's own fonts, so Vietnamese, Korean and Japanese render correctly.
+  `fhirbridge summarize --format pdf --output file.pdf` writes a PDF too; for Vietnamese, Korean
+  or Japanese text pass a Unicode font with `--pdf-font <file>` (plus `--pdf-font-family` for a
+  `.ttc` collection). `formatPdf()` in `@fhirbridge/core` takes the same options and is now
+  exported from the package root.
 - **AI summaries on your own endpoint.** `OPENAI_BASE_URL` points the `openai` provider at any
   server implementing the OpenAI Chat Completions API (e.g. a model run in-country or inside the
   hospital), `ANTHROPIC_BASE_URL` at a gateway for Claude — in the API (validated config) and the
@@ -116,6 +123,11 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ### Fixed
 
+- The PDF formatter printed Vietnamese letters such as ă / ơ / ế and all Korean and Japanese
+  text as wrong glyphs (its built-in Helvetica font is WinAnsi-only, one byte per character). It
+  now refuses such text unless a Unicode font is given, instead of producing a garbled PDF.
+- Legacy `.xls` stays unsupported by design; `examples/README.md` explains why (no maintained,
+  advisory-free reader on npm) and how to convert.
 - Playwright "tablet" projects ran with the desktop viewport (the device preset overrode the
   768×1024 viewport); three web e2e tests still described the pre-0.3 UI or raced the page load.
 - **CSV / Excel import produced empty bundles on every path** (CLI, API, web): mappings were

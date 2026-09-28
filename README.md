@@ -226,6 +226,10 @@ pnpm fhirbridge validate --input bundle.json
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language vi
 
+# Same summary as a PDF (Vietnamese / Korean / Japanese text needs a Unicode font file;
+# the web UI's "Print / Save as PDF" needs none)
+pnpm fhirbridge summarize --input bundle.json --language vi --format pdf --output summary.pdf --pdf-font /path/to/font.ttf
+
 # Saved connection profiles
 pnpm fhirbridge config add-profile my-hospital
 pnpm fhirbridge config list

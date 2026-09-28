@@ -107,6 +107,10 @@ pnpm fhirbridge validate --input bundle.json
 # 日本語の AI 要約(送信前に匿名化。ANTHROPIC_API_KEY または OPENAI_API_KEY が必要)
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language ja
+
+# PDF で保存 — 日本語には Unicode フォントファイルが必要です(.ttc の場合は --pdf-font-family も指定)。
+# Web UI の「印刷 / PDF として保存」ボタンではフォント指定は不要です
+pnpm fhirbridge summarize --input bundle.json --language ja --format pdf --output summary.pdf --pdf-font /path/to/font.otf
 ```
 
 ## 個人情報保護法(APPI)について

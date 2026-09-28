@@ -1,6 +1,6 @@
 /**
  * Tests for SummaryActions component.
- * Server chỉ xuất Markdown — chỉ có một nút tải, không có nút "PDF" gây hiểu nhầm.
+ * The server exports Markdown only; PDF comes from the browser's print dialog.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -21,15 +21,21 @@ beforeEach(() => {
 });
 
 describe('SummaryActions', () => {
-  it('renders a single Download Markdown button', () => {
+  it('renders Download Markdown and Print / Save as PDF', () => {
     render(<SummaryActions summaryId="sum-1" />);
     expect(screen.getByRole('button', { name: /download markdown/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /print \/ save as pdf/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(2);
   });
 
-  it('does not offer a PDF download (server has no PDF export)', () => {
+  it('Print / Save as PDF opens the browser print dialog (no server PDF export)', async () => {
+    const { summaryApi } = await import('../../../api/summary-api');
+    const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {});
     render(<SummaryActions summaryId="sum-1" />);
-    expect(screen.queryByRole('button', { name: /pdf/i })).not.toBeInTheDocument();
+    screen.getByRole('button', { name: /print \/ save as pdf/i }).click();
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    expect(summaryApi.downloadPdf).not.toHaveBeenCalled();
+    printSpy.mockRestore();
   });
 
   it('clicking Download Markdown downloads summary-<id>.md', async () => {

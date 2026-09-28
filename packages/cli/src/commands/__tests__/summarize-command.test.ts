@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, unlinkSync } from 'fs';
+import { writeFileSync, unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { buildProgram } from '../../index.js';
@@ -213,6 +213,91 @@ describe('summarize-command parseAsync', () => {
     } finally {
       delete process.env['ANTHROPIC_BASE_URL'];
     }
+  });
+
+  describe('--format pdf', () => {
+    const pdfOut = join(tmpdir(), 'summary-test.pdf');
+    const DEJAVU = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+
+    it('requires --output before spending anything on the AI call', async () => {
+      expect(await expectExit1(['summarize', '--input', tmpFile, '--format', 'pdf'])).toMatch(
+        /--format pdf needs --output/,
+      );
+      expect(mockSummarize).not.toHaveBeenCalled();
+    });
+
+    it('writes PDF bytes for Latin-script text with the built-in font', async () => {
+      const program = buildProgram();
+      program.exitOverride();
+      await program.parseAsync([
+        'node',
+        'fhirbridge',
+        'summarize',
+        '--input',
+        tmpFile,
+        '--format',
+        'pdf',
+        '--output',
+        pdfOut,
+      ]);
+      const [data, path] = vi.mocked(writeOutput).mock.calls[0]!;
+      expect(Buffer.isBuffer(data)).toBe(true);
+      expect((data as Buffer).subarray(0, 4).toString('ascii')).toBe('%PDF');
+      expect(path).toBe(pdfOut);
+    });
+
+    it('explains the --pdf-font option when the summary is not Latin-only', async () => {
+      mockSummarize.mockResolvedValue({ ...FAKE_SUMMARY, synthesis: 'Bệnh nhân ổn định.' });
+      const message = await expectExit1([
+        'summarize',
+        '--input',
+        tmpFile,
+        '--format',
+        'pdf',
+        '--output',
+        pdfOut,
+      ]);
+      expect(message).toMatch(/--pdf-font/);
+      expect(writeOutput).not.toHaveBeenCalled();
+    });
+
+    it.skipIf(!existsSync(DEJAVU))('embeds the --pdf-font font', async () => {
+      mockSummarize.mockResolvedValue({ ...FAKE_SUMMARY, synthesis: 'Bệnh nhân ổn định.' });
+      const program = buildProgram();
+      program.exitOverride();
+      await program.parseAsync([
+        'node',
+        'fhirbridge',
+        'summarize',
+        '--input',
+        tmpFile,
+        '--format',
+        'pdf',
+        '--output',
+        pdfOut,
+        '--pdf-font',
+        DEJAVU,
+      ]);
+      const data = vi.mocked(writeOutput).mock.calls[0]![0] as Buffer;
+      expect(data.toString('latin1')).toMatch(/\/BaseFont \/[A-Z]{6}\+DejaVuSans/);
+    });
+
+    it('rejects a missing font file up front', async () => {
+      expect(
+        await expectExit1([
+          'summarize',
+          '--input',
+          tmpFile,
+          '--format',
+          'pdf',
+          '--output',
+          pdfOut,
+          '--pdf-font',
+          '/nonexistent/font.ttf',
+        ]),
+      ).toMatch(/Font file not found/);
+      expect(mockSummarize).not.toHaveBeenCalled();
+    });
   });
 
   it('emits a FHIR Composition for --format composition', async () => {

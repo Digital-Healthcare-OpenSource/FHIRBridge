@@ -24,7 +24,14 @@ export { getSectionPrompt, getSynthesisPrompt, isSupportedSection } from './prom
 export type { PromptVariables, PromptPair, SectionName } from './prompt-templates.js';
 
 // Output formatters
-export { formatMarkdown, formatComposition, formatPdf } from './summary-formatter.js';
+export {
+  formatMarkdown,
+  formatComposition,
+  formatPdf,
+  fitsBuiltInPdfFont,
+  PdfFontRequiredError,
+} from './summary-formatter.js';
+export type { PdfFormatOptions } from './summary-formatter.js';
 export type { FhirComposition } from './summary-formatter.js';
 
 // Token tracking

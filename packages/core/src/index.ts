@@ -113,7 +113,14 @@ export { summarizeSections } from './ai/section-summarizer.js';
 export { synthesize } from './ai/synthesis-engine.js';
 export { getSectionPrompt, getSynthesisPrompt, isSupportedSection } from './ai/prompt-templates.js';
 export type { PromptVariables, PromptPair, SectionName } from './ai/prompt-templates.js';
-export { formatMarkdown, formatComposition } from './ai/summary-formatter.js';
+export {
+  formatMarkdown,
+  formatComposition,
+  formatPdf,
+  fitsBuiltInPdfFont,
+  PdfFontRequiredError,
+} from './ai/summary-formatter.js';
+export type { PdfFormatOptions } from './ai/summary-formatter.js';
 export type { FhirComposition } from './ai/summary-formatter.js';
 export { TokenTracker } from './ai/token-tracker.js';
 export type { TokenRecord, AggregatedTokenUsage } from './ai/token-tracker.js';

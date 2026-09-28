@@ -108,6 +108,10 @@ pnpm fhirbridge validate --input bundle.json
 # Tóm tắt bằng AI tiếng Việt (dữ liệu được ẩn danh trước khi gửi; cần ANTHROPIC_API_KEY hoặc OPENAI_API_KEY)
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language vi
+
+# Xuất bản tóm tắt ra PDF — tiếng Việt cần một file font Unicode (.ttf / .otf);
+# trên giao diện web dùng nút "In / Lưu PDF" thì không cần font
+pnpm fhirbridge summarize --input bundle.json --language vi --format pdf --output tom-tat.pdf --pdf-font /duong-dan/font.ttf
 ```
 
 ## Tóm tắt AI và quy định bảo vệ dữ liệu tại Việt Nam

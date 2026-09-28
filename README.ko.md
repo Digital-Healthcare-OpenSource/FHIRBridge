@@ -107,6 +107,10 @@ pnpm fhirbridge validate --input bundle.json
 # 한국어 AI 요약(전송 전 비식별화, ANTHROPIC_API_KEY 또는 OPENAI_API_KEY 필요)
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language ko
+
+# PDF로 저장 — 한국어는 유니코드 글꼴 파일이 필요합니다 (.ttc는 --pdf-font-family도 지정).
+# 웹 UI의 "인쇄 / PDF로 저장" 버튼은 글꼴 지정이 필요 없습니다
+pnpm fhirbridge summarize --input bundle.json --language ko --format pdf --output summary.pdf --pdf-font /path/to/font.otf
 ```
 
 ## 한국 개인정보보호법(PIPA) 관련 기능
