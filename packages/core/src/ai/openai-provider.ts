@@ -48,6 +48,9 @@ export class OpenAiProvider implements AiProvider {
     this.client = new OpenAI({
       apiKey: config.apiKey,
       timeout: config.timeoutMs ?? 60_000,
+      // Unset → the SDK default (OPENAI_BASE_URL env, else api.openai.com). Any
+      // OpenAI-compatible server works here (self-hosted / in-country models).
+      ...(config.baseUrl ? { baseURL: config.baseUrl } : {}),
     });
   }
 

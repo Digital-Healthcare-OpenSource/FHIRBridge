@@ -120,6 +120,19 @@ APPI では、仮名化したデータ(HMAC でハッシュ化した ID、シフ
 詳細は英語 README の [Data residency — Japan (APPI)](README.md#data-residency--japan-appi) を
 ご覧ください。本書は技術的なガイダンスであり、**法的助言ではありません**。
 
+**国内・院内で AI モデルを運用する場合:** `openai` プロバイダーは OpenAI Chat Completions API
+互換のサーバーであれば接続できます。`.env` に次のように設定してください。
+
+```bash
+AI_PROVIDER=openai
+OPENAI_BASE_URL=http://10.20.0.5:8000/v1   # 自組織のモデルサーバーの URL
+OPENAI_MODEL=<サーバーが提供するモデル名>
+OPENAI_API_KEY=<サーバーが要求するキー。キーを検証しない場合は任意の値>
+```
+
+送信前の匿名化はそのまま適用されます
+([詳細](README.md#ai-summaries-without-leaving-your-network))。
+
 ## コントリビュート
 
 日本語訳のレビュー、日本の HIS 向けカラムマッピング、不具合の報告を

@@ -200,4 +200,22 @@ describe('OpenAiProvider', () => {
       expect(await provider.isAvailable()).toBe(false);
     });
   });
+
+  describe('endpoint (baseUrl)', () => {
+    async function lastCtorOptions(): Promise<Record<string, unknown>> {
+      const mod = await import('openai');
+      const ctor = mod.default as unknown as ReturnType<typeof vi.fn>;
+      return ctor.mock.calls.at(-1)![0] as Record<string, unknown>;
+    }
+
+    it('passes baseUrl to the SDK client as baseURL', async () => {
+      new OpenAiProvider({ ...BASE_CONFIG, baseUrl: 'http://10.20.0.5:8000/v1' });
+      expect(await lastCtorOptions()).toMatchObject({ baseURL: 'http://10.20.0.5:8000/v1' });
+    });
+
+    it('leaves baseURL unset without baseUrl (SDK default / env applies)', async () => {
+      new OpenAiProvider(BASE_CONFIG);
+      expect(await lastCtorOptions()).not.toHaveProperty('baseURL');
+    });
+  });
 });

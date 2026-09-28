@@ -32,6 +32,12 @@ export interface AiProviderConfig {
   temperature: number;
   /** Request timeout in milliseconds (default: 60000) */
   timeoutMs?: number;
+  /**
+   * Endpoint override — a gateway, a regional endpoint or (for `openai`) any
+   * server implementing the OpenAI Chat Completions API, e.g. a model hosted
+   * inside the hospital. Unset: the provider's public API.
+   */
+  baseUrl?: string;
 }
 
 /**

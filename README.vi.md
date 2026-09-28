@@ -122,6 +122,19 @@ viện tại Việt Nam: để tắt tóm tắt AI, hoặc dùng nhà cung cấp
 chi tiết tại mục [Data residency — Vietnam (PDPD)](README.md#data-residency--vietnam-pdpd) của
 README tiếng Anh. Đây là hướng dẫn kỹ thuật, **không phải tư vấn pháp lý**.
 
+**Chạy mô hình AI trong nước / trong mạng bệnh viện:** nhà cung cấp `openai` làm việc được với
+bất kỳ máy chủ nào hỗ trợ chuẩn OpenAI Chat Completions. Khai báo trong `.env`:
+
+```bash
+AI_PROVIDER=openai
+OPENAI_BASE_URL=http://10.20.0.5:8000/v1   # địa chỉ máy chủ mô hình của bạn
+OPENAI_MODEL=<tên-mô-hình-máy-chủ-đang-chạy>
+OPENAI_API_KEY=<key máy chủ yêu cầu; nếu máy chủ không kiểm tra key thì điền giá trị bất kỳ>
+```
+
+Dữ liệu vẫn được ẩn danh trước khi gửi. Xem thêm mục
+[AI summaries without leaving your network](README.md#ai-summaries-without-leaving-your-network).
+
 ## Góp ý và đóng góp
 
 Rất hoan nghênh góp ý về bản dịch tiếng Việt, mẫu column mapping cho HIS tại Việt Nam, và báo

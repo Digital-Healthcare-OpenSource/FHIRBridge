@@ -131,6 +131,19 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
       ? (envValue('OPENAI_MODEL') ?? OPENAI_DEFAULT_MODEL)
       : (envValue('ANTHROPIC_MODEL') ?? CLAUDE_DEFAULT_MODEL));
 
+  // Optional endpoint override (gateway, regional endpoint, or an OpenAI-compatible
+  // server run in-country / inside the hospital).
+  const baseUrlEnv = providerOpts.provider === 'openai' ? 'OPENAI_BASE_URL' : 'ANTHROPIC_BASE_URL';
+  const baseUrl = envValue(baseUrlEnv);
+  let destination = providerOpts.provider === 'openai' ? 'OpenAI' : 'Anthropic';
+  if (baseUrl) {
+    try {
+      destination = new URL(baseUrl).host;
+    } catch {
+      throw new Error(`${baseUrlEnv} is not a valid URL: ${baseUrl}`);
+    }
+  }
+
   // Pseudonyms only need to be stable within one run: without a configured
   // HMAC_SECRET a fresh random key keeps them unlinkable across runs.
   const configuredSecret = envValue('HMAC_SECRET');
@@ -151,11 +164,12 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
       maxTokens: 16000,
       temperature: 0,
       timeoutMs: 120_000,
+      ...(baseUrl ? { baseUrl } : {}),
     },
   };
 
   warn(
-    `De-identified data will be sent to ${providerOpts.provider === 'openai' ? 'OpenAI' : 'Anthropic'} ` +
+    `De-identified data will be sent to ${destination} ` +
       '(identifiers hashed, names redacted, dates shifted).',
   );
   info(

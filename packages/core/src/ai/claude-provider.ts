@@ -53,6 +53,8 @@ export class ClaudeProvider implements AiProvider {
     this.client = new Anthropic({
       apiKey: config.apiKey,
       timeout: config.timeoutMs ?? 60_000,
+      // Unset → the SDK default (ANTHROPIC_BASE_URL env, else api.anthropic.com).
+      ...(config.baseUrl ? { baseURL: config.baseUrl } : {}),
     });
   }
 

@@ -24,7 +24,13 @@ vi.mock('@fhirbridge/core', async (importOriginal) => {
 const { SummaryService, summaryAiSettings } = await import('../summary-service.js');
 
 const BUNDLE: Bundle = { resourceType: 'Bundle', type: 'collection', entry: [] };
-const ENV_KEYS = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_MODEL', 'OPENAI_MODEL'];
+const ENV_KEYS = [
+  'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'ANTHROPIC_MODEL',
+  'OPENAI_MODEL',
+  'OPENAI_BASE_URL',
+];
 let saved: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -67,6 +73,27 @@ describe('SummaryService AI settings source of truth', () => {
     expect(config.providerConfig.model).toBe('config-claude-model');
   });
 
+  it('passes the configured endpoint of the chosen provider only', async () => {
+    process.env['OPENAI_BASE_URL'] = 'http://env-endpoint-should-be-ignored/v1';
+    const settings = {
+      openaiApiKey: 'k',
+      anthropicApiKey: 'k',
+      openaiBaseUrl: 'http://10.20.0.5:8000/v1',
+    };
+    const openai = await generate(
+      new SummaryService(undefined, undefined, undefined, settings),
+      'openai',
+    );
+    expect(openai.providerConfig.baseUrl).toBe('http://10.20.0.5:8000/v1');
+
+    captured.length = 0;
+    const claude = await generate(
+      new SummaryService(undefined, undefined, undefined, settings),
+      'claude',
+    );
+    expect(claude.providerConfig).not.toHaveProperty('baseUrl');
+  });
+
   it('falls back to the core default model and uses the OpenAI key for openai', async () => {
     const svc = new SummaryService(undefined, undefined, undefined, {
       openaiApiKey: 'config-openai-key',
@@ -85,8 +112,17 @@ describe('SummaryService AI settings source of truth', () => {
         openaiApiKey: 'o',
         anthropicModel: 'm1',
         openaiModel: 'm2',
+        anthropicBaseUrl: 'https://a.example',
+        openaiBaseUrl: 'https://o.example/v1',
         ...({ jwtSecret: 'not-copied' } as object),
       }),
-    ).toEqual({ anthropicApiKey: 'a', openaiApiKey: 'o', anthropicModel: 'm1', openaiModel: 'm2' });
+    ).toStrictEqual({
+      anthropicApiKey: 'a',
+      openaiApiKey: 'o',
+      anthropicModel: 'm1',
+      openaiModel: 'm2',
+      anthropicBaseUrl: 'https://a.example',
+      openaiBaseUrl: 'https://o.example/v1',
+    });
   });
 });

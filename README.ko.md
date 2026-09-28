@@ -122,6 +122,11 @@ pnpm fhirbridge summarize --input bundle.json --provider claude --language ko
   그대로 동작합니다. 국외 AI 제공자 사용 전 영문 README의
   [Data residency — Korea (PIPA)](README.md#data-residency--korea-pipa)를 확인하십시오.
   본 문서는 기술 안내이며 **법률 자문이 아닙니다**.
+- **국내/병원 내부에서 AI 모델 운영**: `openai` 제공자는 OpenAI Chat Completions API와 호환되는
+  모든 서버와 통신합니다. `.env`에 `AI_PROVIDER=openai`, `OPENAI_BASE_URL=http://10.20.0.5:8000/v1`
+  (자체 서버 주소), `OPENAI_MODEL=<서버가 제공하는 모델 이름>`, `OPENAI_API_KEY=<서버가 요구하는 키,
+키를 검사하지 않으면 임의의 값>`을 설정하십시오. 전송 전 비식별화는 그대로 적용됩니다
+  ([자세히](README.md#ai-summaries-without-leaving-your-network)).
 
 ## 참여하기
 

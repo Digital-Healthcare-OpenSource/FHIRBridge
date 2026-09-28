@@ -33,6 +33,12 @@ All notable changes to FHIRBridge are documented here. The format follows
   uses the GHCR names (`FHIRBRIDGE_VERSION`, `FHIRBRIDGE_REGISTRY` to pin or mirror), so
   `docker compose pull && docker compose up` runs without building; `--build` still builds
   from source.
+- **AI summaries on your own endpoint.** `OPENAI_BASE_URL` points the `openai` provider at any
+  server implementing the OpenAI Chat Completions API (e.g. a model run in-country or inside the
+  hospital), `ANTHROPIC_BASE_URL` at a gateway for Claude — in the API (validated config) and the
+  CLI. `fhirbridge summarize` names the configured host in its data-transfer warning. Verified
+  against a local OpenAI-compatible server: the requests it received contained no patient name,
+  birth date or patient id.
 - CI runs the Playwright web end-to-end and axe accessibility suites (Chromium, desktop and
   tablet viewport) against a real API with PostgreSQL and Redis; the HTML report is uploaded when
   a test fails.

@@ -8,7 +8,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { buildProgram } from '../../index.js';
 import { writeOutput } from '../../utils/file-writer.js';
-import { error as logError } from '../../utils/logger.js';
+import { error as logError, warn as logWarn } from '../../utils/logger.js';
 
 // Real core pipeline, fake provider: ProviderGateway.summarize returns a canned summary.
 const mockSummarize = vi.fn();
@@ -180,6 +180,39 @@ describe('summarize-command parseAsync', () => {
     const written = vi.mocked(writeOutput).mock.calls[0][0];
     expect(written).toContain('Stable patient.');
     expect(written).not.toMatch(/placeholder/i);
+  });
+
+  it('uses ANTHROPIC_BASE_URL and names that host in the data-transfer warning', async () => {
+    process.env['ANTHROPIC_BASE_URL'] = 'https://llm-gateway.hospital.example/anthropic';
+    try {
+      const program = buildProgram();
+      program.exitOverride();
+      await program.parseAsync(['node', 'fhirbridge', 'summarize', '--input', tmpFile]);
+      const [, configArg] = mockSummarize.mock.calls[0];
+      expect(configArg.providerConfig.baseUrl).toBe(
+        'https://llm-gateway.hospital.example/anthropic',
+      );
+      const warnings = vi
+        .mocked(logWarn)
+        .mock.calls.map((c) => String(c[0]))
+        .join('\n');
+      expect(warnings).toContain('llm-gateway.hospital.example');
+      expect(warnings).not.toContain('Anthropic');
+    } finally {
+      delete process.env['ANTHROPIC_BASE_URL'];
+    }
+  });
+
+  it('fails clearly on a malformed base URL', async () => {
+    process.env['ANTHROPIC_BASE_URL'] = 'not a url';
+    try {
+      expect(await expectExit1(['summarize', '--input', tmpFile])).toMatch(
+        /ANTHROPIC_BASE_URL is not a valid URL/,
+      );
+      expect(mockSummarize).not.toHaveBeenCalled();
+    } finally {
+      delete process.env['ANTHROPIC_BASE_URL'];
+    }
   });
 
   it('emits a FHIR Composition for --format composition', async () => {
