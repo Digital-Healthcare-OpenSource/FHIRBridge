@@ -4,25 +4,27 @@
  * form POST for the OAuth2 token endpoint).
  *
  * Why not fetch() or a FHIR SDK: SSRF protection has to hold at CONNECT time.
- * Every socket opened here resolves DNS through `ssrfSafeLookup`, which applies
- * the SSRF policy to the very addresses the TCP connection uses, so a DNS answer
- * that changes after the pre-flight check (DNS rebinding) is refused. Keep-alive
+ * Each request resolves the host once (`resolveSafeAddresses`), applies the SSRF
+ * policy to the answers and connects to those exact IPs, so a DNS answer that
+ * changes after the pre-flight check (DNS rebinding) is never used. Keep-alive
  * sockets are pooled per client instance only (never shared with other code or
- * other connections), so a reused socket is always one this guard opened. Redirects are followed by hand
+ * other connections), so a reused socket is always one opened this way. Redirects are followed by hand
  * (GET only, max 5 hops, each hop re-validated), the bearer token is only sent to
  * the original origin, and response bodies are size-capped after decompression.
  */
 
+import type { LookupAddress } from 'node:dns';
 import { Agent as HttpAgent, request as httpRequest } from 'node:http';
 import type { IncomingMessage, OutgoingHttpHeaders } from 'node:http';
 import { Agent as HttpsAgent, request as httpsRequest } from 'node:https';
+import { isIP } from 'node:net';
 import type { Readable } from 'node:stream';
 import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 
 import { ConnectorError } from './his-connector-interface.js';
 import {
   SSRF_BLOCKED_CODE,
-  ssrfSafeLookup,
+  resolveSafeAddresses,
   validateBaseUrl,
   type AddressResolver,
 } from '../security/ssrf-validator.js';
@@ -93,26 +95,78 @@ export async function ssrfSafeRequest(
   }
 }
 
-function sendOnce(
+/** Connection failures after which the next validated address is tried. */
+const CONNECT_ERRORS = new Set(['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EADDRNOTAVAIL']);
+
+type SentRequest = { status: number; message: IncomingMessage };
+
+/**
+ * Resolve the host ONCE, keep only addresses the SSRF policy allows (any blocked
+ * answer rejects the request), then connect to those exact IPs — the socket never
+ * does a DNS lookup of its own, so a rebinding answer cannot be used. The original
+ * host name is kept for TLS (SNI + certificate check) and the Host header.
+ */
+async function sendOnce(
   target: URL,
   method: string,
   headers: OutgoingHttpHeaders,
   options: SafeRequestOptions,
-): Promise<{ status: number; message: IncomingMessage }> {
+): Promise<SentRequest> {
   const isHttps = target.protocol === 'https:';
   const port = target.port || (isHttps ? '443' : '80');
+  // WHATWG URL keeps brackets around IPv6 literals ("[::1]").
+  const hostname = target.hostname.startsWith('[') ? target.hostname.slice(1, -1) : target.hostname;
+
+  let addresses: LookupAddress[];
+  try {
+    addresses = await resolveSafeAddresses(hostname, port, options.resolver);
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === SSRF_BLOCKED_CODE) {
+      throw new ConnectorError(`Blocked connection: ${e.message}`, 'SSRF_BLOCKED');
+    }
+    throw e;
+  }
+
+  let lastError: unknown = new Error(`No address to connect to for ${hostname}`);
+  for (const address of addresses) {
+    try {
+      return await sendTo(address, target, hostname, port, method, headers, options);
+    } catch (err) {
+      lastError = err;
+      if (!CONNECT_ERRORS.has((err as NodeJS.ErrnoException).code ?? '')) throw err;
+    }
+  }
+  throw lastError;
+}
+
+function sendTo(
+  address: LookupAddress,
+  target: URL,
+  hostname: string,
+  port: string,
+  method: string,
+  headers: OutgoingHttpHeaders,
+  options: SafeRequestOptions,
+): Promise<SentRequest> {
+  const isHttps = target.protocol === 'https:';
   const send = isHttps ? httpsRequest : httpRequest;
 
   return new Promise((resolve, reject) => {
     const req = send(
-      target,
       {
+        host: address.address, // the validated IP — not the user-supplied name
+        family: address.family,
+        port: Number(port),
+        path: `${target.pathname}${target.search}`,
         method,
-        // Pools are per-client; without one, a fresh socket (and DNS check) per request.
+        // TLS: SNI + certificate check against the configured name (not for IP literals)
+        ...(isHttps && isIP(hostname) === 0 ? { servername: hostname } : {}),
+        // Pools are per-client; without one, a fresh socket per request.
         agent: options.agents ? options.agents[isHttps ? 'https' : 'http'] : false,
-        lookup: ssrfSafeLookup(port, options.resolver),
         signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         headers: {
+          Host: target.host,
           'Accept-Encoding': 'gzip, deflate, br',
           ...headers,
           ...(options.body !== undefined
@@ -123,9 +177,7 @@ function sendOnce(
       (message) => resolve({ status: message.statusCode ?? 0, message }),
     );
     req.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === SSRF_BLOCKED_CODE) {
-        reject(new ConnectorError(`Blocked connection: ${err.message}`, 'SSRF_BLOCKED'));
-      } else if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+      if (err.name === 'AbortError' || err.name === 'TimeoutError') {
         reject(new Error(`Request timed out after ${options.timeoutMs ?? DEFAULT_TIMEOUT_MS} ms`));
       } else {
         reject(err);
@@ -187,8 +239,11 @@ export class FhirHttpClient {
   };
 
   constructor(private readonly options: FhirHttpClientOptions) {
-    // Trailing slash so relative paths resolve *under* the base (…/baseR4/Patient/…).
-    this.baseUrl = new URL(options.baseUrl.replace(/\/*$/, '/'));
+    // Exactly one trailing slash so relative paths resolve *under* the base
+    // (…/baseR4/Patient/…). A loop, not /\/*$/: that regex is quadratic on many '/'.
+    let end = options.baseUrl.length;
+    while (end > 0 && options.baseUrl[end - 1] === '/') end--;
+    this.baseUrl = new URL(`${options.baseUrl.slice(0, end)}/`);
   }
 
   /** Close pooled sockets. */

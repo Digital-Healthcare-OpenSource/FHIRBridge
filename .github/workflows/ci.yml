@@ -149,6 +149,13 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Same schema as production (the e2e API writes audit rows; without the
+      # tables the health check reports "degraded").
+      - name: Apply database migrations
+        run: pnpm --filter @fhirbridge/api migrate
+        env:
+          DATABASE_URL: postgresql://fhirbridge_test:testpass@localhost:5433/fhirbridge_test
+
       - name: Install Chromium for Playwright
         run: pnpm exec playwright install --with-deps chromium
 

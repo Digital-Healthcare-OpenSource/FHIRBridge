@@ -18,14 +18,17 @@
  *
  * DNS rebinding: `validateBaseUrlWithDns` checks the addresses a hostname resolves
  * to *before* a request, but a hostile DNS server can answer differently a moment
- * later when the socket connects. `ssrfSafeLookup` closes that gap — it is passed as
- * the `lookup` of every outbound connection (see connectors/fhir-http-client.ts), so
- * the SAME answer that is validated is the one the TCP connection uses.
+ * later when the socket connects. `resolveSafeAddresses` closes that gap: it resolves
+ * once, applies the policy to the answers, and the caller connects to those exact
+ * IPs (see connectors/fhir-http-client.ts), so the SAME answer that is validated is
+ * the one the TCP connection uses. `ssrfSafeLookup` is the same check shaped as a
+ * socket `lookup` option.
  */
 
 import { lookup as dnsLookupCallback } from 'node:dns';
 import type { LookupAddress, LookupOptions } from 'node:dns';
 import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 
 /** Kết quả validate — discriminated union để caller không thể bỏ qua lỗi */
 export type ValidateBaseUrlResult = { ok: true } | { ok: false; reason: string };
@@ -432,6 +435,27 @@ export function ssrfSafeLookup(
       }
     });
   };
+}
+
+/**
+ * Resolve `hostname` once and return the answers the SSRF policy allows for `port`
+ * (rejects — error code SSRF_BLOCKED_CODE — if ANY answer is blocked). Connect to
+ * these exact addresses: no second DNS query, so no rebinding window. IP literals
+ * are returned as-is; `validateBaseUrl` applies the policy to them.
+ */
+export function resolveSafeAddresses(
+  hostname: string,
+  port: string,
+  resolver?: AddressResolver,
+): Promise<LookupAddress[]> {
+  const family = isIP(hostname);
+  if (family !== 0) return Promise.resolve([{ address: hostname, family }]);
+  return new Promise((resolve, reject) => {
+    ssrfSafeLookup(port, resolver)(hostname, { all: true }, (err, addresses) => {
+      if (err) reject(err);
+      else resolve(addresses as LookupAddress[]);
+    });
+  });
 }
 
 /**

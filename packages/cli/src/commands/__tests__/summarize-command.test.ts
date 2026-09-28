@@ -2,8 +2,8 @@
  * Tests for summarize-command — generates AI clinical summaries from FHIR bundles.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
+import { writeFileSync, unlinkSync, existsSync, mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { buildProgram } from '../../index.js';
@@ -216,7 +216,9 @@ describe('summarize-command parseAsync', () => {
   });
 
   describe('--format pdf', () => {
-    const pdfOut = join(tmpdir(), 'summary-test.pdf');
+    const pdfDir = mkdtempSync(join(tmpdir(), 'fhirbridge-summary-pdf-'));
+    const pdfOut = join(pdfDir, 'summary.pdf');
+    afterAll(() => rmSync(pdfDir, { recursive: true, force: true }));
     const DEJAVU = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
 
     it('requires --output before spending anything on the AI call', async () => {
