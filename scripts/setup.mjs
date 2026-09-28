@@ -7,7 +7,7 @@
  *   node scripts/setup.mjs --env-only   # only create/repair .env (e.g. for Docker)
  *
  * What it does:
- *   1. Checks Node >= 20.
+ *   1. Checks Node >= 22.
  *   2. Creates `.env` from `.env.example` — or repairs an existing one — filling
  *      in random JWT_SECRET / HMAC_SECRET, an API key for the web UI and random
  *      Postgres / Redis passwords. Values you already set are never touched.
@@ -81,7 +81,7 @@ function readVar(text, key) {
 
 function checkNode() {
   const major = Number(process.versions.node.split('.')[0]);
-  if (major < 20) fail(`Node.js >= 20 is required (found ${process.version}).`);
+  if (major < 22) fail(`Node.js >= 22 is required (found ${process.version}).`);
 }
 
 /** Read a file, or undefined when it does not exist (no check-then-use race). */

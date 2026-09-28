@@ -26,10 +26,10 @@ check_command node
 check_command pnpm
 check_command docker
 
-# Verify Node.js version >= 20
+# Verify Node.js version >= 22
 NODE_VERSION=$(node --version | sed 's/v//' | cut -d. -f1)
-if [[ "${NODE_VERSION}" -lt 20 ]]; then
-  log_error "Node.js >= 20 required. Found: $(node --version)"
+if [[ "${NODE_VERSION}" -lt 22 ]]; then
+  log_error "Node.js >= 22 required. Found: $(node --version)"
   exit 1
 fi
 

@@ -35,7 +35,7 @@ liệu ngay mà không cần HIS thật hay kết nối Internet.
 
 ### Cách A — Dùng Node.js (Windows / macOS / Linux)
 
-Cần Node.js ≥ 20 và pnpm ≥ 9 (chạy `corepack enable` để có pnpm).
+Cần Node.js ≥ 22 (khuyên dùng bản LTS 24) và pnpm ≥ 9 (chạy `corepack enable` để có pnpm).
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -53,7 +53,7 @@ pnpm demo          # chạy API + giao diện web + HIS demo → http://localhos
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # Tạo file .env (khoá bí mật + API key) bằng một container Node dùng một lần
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 

@@ -37,7 +37,7 @@ real hospital system or internet access.
 
 ### Option A — Node.js (Linux / macOS / Windows)
 
-Requires Node.js ≥ 20 and pnpm ≥ 9 (`corepack enable` installs pnpm).
+Requires Node.js ≥ 22 (24 LTS recommended) and pnpm ≥ 9 (`corepack enable` installs pnpm).
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -55,7 +55,7 @@ pnpm demo          # API + web UI + Demo HIS → http://localhost:8080
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # Create .env with random secrets + an API key (uses a throwaway Node container)
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 

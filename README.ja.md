@@ -34,7 +34,7 @@ FHIR API または CSV/Excel で HIS に接続し、データを標準の **FHIR
 
 ### 方法 A — Node.js(Windows / macOS / Linux)
 
-Node.js 20 以上と pnpm 9 以上が必要です(`corepack enable` で pnpm を導入できます)。
+Node.js 22 以上(24 LTS を推奨)と pnpm 9 以上が必要です(`corepack enable` で pnpm を導入できます)。
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -52,7 +52,7 @@ pnpm demo          # API + Web UI + デモ HIS → http://localhost:8080
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # 使い捨ての Node コンテナで .env(ランダムなシークレット + API キー)を作成
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 

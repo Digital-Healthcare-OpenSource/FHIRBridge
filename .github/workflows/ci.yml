@@ -49,7 +49,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -96,6 +96,38 @@ jobs:
           API_KEYS: test-key-free,test-key-paid
           LOG_LEVEL: silent
 
+  # Oldest supported Node.js line (package.json "engines": ">=22"). Node 20 reached
+  # end-of-life on 2026-04-30 (https://github.com/nodejs/release#release-schedule).
+  node-22-compat:
+    name: Node 22 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit Tests
+        run: pnpm test
+
+      - name: CLI E2E Tests
+        run: pnpm test:e2e:cli
+        env:
+          NO_COLOR: '1'
+
   compose-smoke:
     name: Docker Compose smoke test
     runs-on: ubuntu-latest
@@ -106,7 +138,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       # Same path a new user takes: generated .env → compose (API + web + Demo HIS).
       - name: Create .env

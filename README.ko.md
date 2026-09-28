@@ -34,7 +34,7 @@
 
 ### 방법 A — Node.js (Windows / macOS / Linux)
 
-Node.js 20 이상, pnpm 9 이상이 필요합니다(`corepack enable`로 pnpm 설치).
+Node.js 22 이상(24 LTS 권장), pnpm 9 이상이 필요합니다(`corepack enable`로 pnpm 설치).
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -52,7 +52,7 @@ pnpm demo          # API + 웹 UI + 데모 HIS → http://localhost:8080
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # 일회용 Node 컨테이너로 .env(무작위 시크릿 + API 키) 생성
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 

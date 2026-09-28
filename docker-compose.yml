@@ -4,7 +4,7 @@
 #   docker compose up --build              # → http://localhost:8080
 #
 # No Node.js on the host? Create .env with a throwaway container instead:
-#   docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+#   docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 #
 # Try it without a hospital system (synthetic Demo HIS at http://demo-his:8090/fhir):
 #   docker compose --profile demo up --build
@@ -57,7 +57,7 @@ services:
 
   demo-his:
     profiles: ['demo']
-    image: node:20-alpine
+    image: node:24-alpine
     command: ['node', '/demo/server.mjs']
     environment:
       DEMO_HIS_HOST: 0.0.0.0
