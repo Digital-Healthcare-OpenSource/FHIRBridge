@@ -28,6 +28,11 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ### Added
 
+- **Web UI image on GHCR.** CI now publishes `fhirbridge-web` next to `fhirbridge-api` (same
+  Trivy gate, multi-arch, cosign signature, SBOM + provenance). The root `docker-compose.yml`
+  uses the GHCR names (`FHIRBRIDGE_VERSION`, `FHIRBRIDGE_REGISTRY` to pin or mirror), so
+  `docker compose pull && docker compose up` runs without building; `--build` still builds
+  from source.
 - **One-command setup and run.** `pnpm run setup` creates `.env` with random secrets, an API key
   and database / cache passwords (idempotent, cross-platform, `--env-only` for Docker), then
   builds everything. `pnpm start` serves the web UI and API together on

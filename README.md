@@ -259,10 +259,18 @@ Behavior under degraded infra:
 - No `REDIS_URL` set → rate limit + caches stay in-memory per process. Single-replica only.
 - No `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` → summary generation answers `503` with the variable to set; export + connector endpoints unaffected.
 
-A pre-built API image is published by CI for each release
-(`ghcr.io/digital-healthcare-opensource/fhirbridge-api:<version>`, cosign-signed with SBOM +
-provenance — see the [release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases)).
-The web UI image is built locally by `docker compose`.
+CI publishes both images to GHCR on every push to `main` (`latest`) and for each release tag
+(`<version>`), multi-arch (amd64 + arm64), Trivy-scanned, cosign-signed with SBOM + provenance:
+`ghcr.io/digital-healthcare-opensource/fhirbridge-api` and `…/fhirbridge-web`. The root
+`docker-compose.yml` already uses these names, so you can skip the build:
+
+```bash
+docker compose pull && docker compose up -d            # latest main
+FHIRBRIDGE_VERSION=<version> docker compose pull       # or pin a release ≥ 0.3.0 (then `up -d` with the same variable)
+```
+
+If `pull` answers `unauthorized`, the packages are not public for your account — build from
+source with `docker compose up -d --build` instead.
 
 ### Production hardening
 

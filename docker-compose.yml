@@ -1,7 +1,10 @@
 # FHIRBridge — run the whole thing with one command:
 #
 #   node scripts/setup.mjs --env-only      # or: pnpm run setup  (creates .env with secrets)
-#   docker compose up --build              # → http://localhost:8080
+#   docker compose up --build              # build from source → http://localhost:8080
+#
+# Or use the images CI publishes to GHCR (no build; pin a release with FHIRBRIDGE_VERSION):
+#   docker compose pull && docker compose up        # pin a release: FHIRBRIDGE_VERSION=<version>
 #
 # No Node.js on the host? Create .env with a throwaway container instead:
 #   docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
@@ -21,7 +24,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: fhirbridge-api:local
+    image: ${FHIRBRIDGE_REGISTRY:-ghcr.io/digital-healthcare-opensource}/fhirbridge-api:${FHIRBRIDGE_VERSION:-latest}
     restart: unless-stopped
     env_file: .env
     environment:
@@ -45,7 +48,7 @@ services:
     build:
       context: .
       dockerfile: docker/web/Dockerfile
-    image: fhirbridge-web:local
+    image: ${FHIRBRIDGE_REGISTRY:-ghcr.io/digital-healthcare-opensource}/fhirbridge-web:${FHIRBRIDGE_VERSION:-latest}
     restart: unless-stopped
     depends_on:
       api:
