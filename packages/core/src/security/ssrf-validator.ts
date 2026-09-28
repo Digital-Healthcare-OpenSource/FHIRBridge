@@ -16,13 +16,19 @@
  * block; listed entries are the explicit, opt-in way to reach it. Cloud-metadata
  * hosts and link-local 169.254.0.0/16 stay blocked even when listed.
  *
- * TODO(DNS rebinding mitigation): DNS resolution xảy ra tại connect-time, không tại
- * validate-time. Để chống DNS rebinding (resolve về IP hợp lệ sau đó đổi về nội bộ),
- * cần implement connect-then-validate: sau khi TCP connect, lấy actual IP từ socket
- * và re-validate. Hiện tại chỉ resolve DNS và check IP trước khi connect.
+ * DNS rebinding: `validateBaseUrlWithDns` checks the addresses a hostname resolves
+ * to *before* a request, but a hostile DNS server can answer differently a moment
+ * later when the socket connects. `resolveSafeAddresses` closes that gap: it resolves
+ * once, applies the policy to the answers, and the caller connects to those exact
+ * IPs (see connectors/fhir-http-client.ts), so the SAME answer that is validated is
+ * the one the TCP connection uses. `ssrfSafeLookup` is the same check shaped as a
+ * socket `lookup` option.
  */
 
+import { lookup as dnsLookupCallback } from 'node:dns';
+import type { LookupAddress, LookupOptions } from 'node:dns';
 import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 
 /** Kết quả validate — discriminated union để caller không thể bỏ qua lỗi */
 export type ValidateBaseUrlResult = { ok: true } | { ok: false; reason: string };
@@ -337,12 +343,124 @@ export function validateBaseUrl(url: string): ValidateBaseUrlResult {
 }
 
 /**
- * Validate URL + resolve DNS rồi validate IP đã resolve.
- * Async — thực hiện DNS lookup trước khi cho phép connect.
- *
- * TODO(DNS rebinding): Hiện tại chỉ validate tại lookup-time.
- * Để phòng DNS rebinding hoàn toàn, cần pin resolved IP vào connection
- * và verify lại sau khi TCP handshake. Xem comment ở đầu file.
+ * Why `address` (a DNS answer for `hostname`, connecting on `port`) must not be
+ * used, or null when it may. Shared by the pre-flight check and the connect-time
+ * lookup so both apply exactly the same policy.
+ */
+function blockedAddressReason(
+  hostname: string,
+  port: string,
+  address: string,
+  family: number,
+  allowList: AllowList,
+): string | null {
+  const host = hostname.toLowerCase();
+  if (
+    (family === 4 && isAlwaysBlockedIpv4(address)) ||
+    (family === 6 && isAlwaysBlockedIpv6(address))
+  ) {
+    return `DNS resolved '${hostname}' to blocked link-local/metadata IP '${address}'`;
+  }
+  // Operator vouched for this host (by name, or name:port).
+  if (allowList.hostnames.has(host) || allowList.hostPorts.has(`${host}:${port}`)) return null;
+  if (family === 4 && isPrivateIpv4(address) && !isAllowlistedIpv4(address, allowList)) {
+    return `DNS resolved '${hostname}' to blocked IP '${address}'${ALLOWLIST_HINT}`;
+  }
+  if (family === 6 && isBlockedIpv6(address)) {
+    return `DNS resolved '${hostname}' to blocked IPv6 '${address}'${ALLOWLIST_HINT}`;
+  }
+  return null;
+}
+
+/** Error code set on errors raised by `ssrfSafeLookup` when an answer is refused. */
+export const SSRF_BLOCKED_CODE = 'ESSRFBLOCKED';
+
+/** Resolver signature (node:dns `lookup` with `all: true`) — injectable for tests. */
+export type AddressResolver = (
+  hostname: string,
+  options: LookupOptions & { all: true },
+  callback: (err: NodeJS.ErrnoException | null, addresses: LookupAddress[]) => void,
+) => void;
+
+/** `lookup` option accepted by node:net / node:http / node:https. */
+export type SafeLookup = (
+  hostname: string,
+  options: LookupOptions,
+  callback: (
+    err: NodeJS.ErrnoException | null,
+    address: string | LookupAddress[],
+    family?: number,
+  ) => void,
+) => void;
+
+const defaultResolver: AddressResolver = (hostname, options, callback) =>
+  dnsLookupCallback(hostname, options, callback);
+
+/**
+ * Connect-time SSRF guard (DNS-rebinding safe): a drop-in `lookup` for outbound
+ * sockets to `port`. It resolves the hostname, rejects the connection if ANY
+ * returned address is blocked by policy, and otherwise hands those exact
+ * addresses to the socket — there is no second, unvalidated DNS query.
+ */
+export function ssrfSafeLookup(
+  port: string,
+  resolver: AddressResolver = defaultResolver,
+): SafeLookup {
+  return (hostname, options, callback) => {
+    resolver(hostname, { ...options, all: true }, (err, addresses) => {
+      if (err) {
+        callback(err, '', 0);
+        return;
+      }
+      const allowList = currentAllowList();
+      for (const addr of addresses) {
+        const reason = blockedAddressReason(hostname, port, addr.address, addr.family, allowList);
+        if (reason) {
+          callback(Object.assign(new Error(reason), { code: SSRF_BLOCKED_CODE }), '', 0);
+          return;
+        }
+      }
+      if (options.all) {
+        callback(null, addresses);
+      } else if (addresses[0]) {
+        callback(null, addresses[0].address, addresses[0].family);
+      } else {
+        callback(
+          Object.assign(new Error(`DNS lookup returned no address for '${hostname}'`), {
+            code: 'ENOTFOUND',
+          }),
+          '',
+          0,
+        );
+      }
+    });
+  };
+}
+
+/**
+ * Resolve `hostname` once and return the answers the SSRF policy allows for `port`
+ * (rejects — error code SSRF_BLOCKED_CODE — if ANY answer is blocked). Connect to
+ * these exact addresses: no second DNS query, so no rebinding window. IP literals
+ * are returned as-is; `validateBaseUrl` applies the policy to them.
+ */
+export function resolveSafeAddresses(
+  hostname: string,
+  port: string,
+  resolver?: AddressResolver,
+): Promise<LookupAddress[]> {
+  const family = isIP(hostname);
+  if (family !== 0) return Promise.resolve([{ address: hostname, family }]);
+  return new Promise((resolve, reject) => {
+    ssrfSafeLookup(port, resolver)(hostname, { all: true }, (err, addresses) => {
+      if (err) reject(err);
+      else resolve(addresses as LookupAddress[]);
+    });
+  });
+}
+
+/**
+ * Validate URL + resolve DNS rồi validate IP đã resolve (pre-flight, gives an early
+ * and clear error). Connections themselves are re-checked by `ssrfSafeLookup`.
  */
 export async function validateBaseUrlWithDns(url: string): Promise<ValidateBaseUrlResult> {
   // Validate structural trước
@@ -358,40 +476,14 @@ export async function validateBaseUrlWithDns(url: string): Promise<ValidateBaseU
   }
 
   const allowList = currentAllowList();
-  const hostnameAllowlisted =
-    allowList.hostnames.has(hostname.toLowerCase()) ||
-    allowList.hostPorts.has(`${hostname.toLowerCase()}:${effectivePort(parsed)}`);
+  const port = effectivePort(parsed);
 
   // DNS resolution — kiểm tra resolved IP
   try {
     const addresses = await lookup(hostname, { all: true });
     for (const addr of addresses) {
-      if (
-        (addr.family === 4 && isAlwaysBlockedIpv4(addr.address)) ||
-        (addr.family === 6 && isAlwaysBlockedIpv6(addr.address))
-      ) {
-        return {
-          ok: false,
-          reason: `DNS resolved '${hostname}' to blocked link-local/metadata IP '${addr.address}'`,
-        };
-      }
-      if (hostnameAllowlisted) continue; // operator vouched for this host
-      if (
-        addr.family === 4 &&
-        isPrivateIpv4(addr.address) &&
-        !isAllowlistedIpv4(addr.address, allowList)
-      ) {
-        return {
-          ok: false,
-          reason: `DNS resolved '${hostname}' to blocked IP '${addr.address}'${ALLOWLIST_HINT}`,
-        };
-      }
-      if (addr.family === 6 && isBlockedIpv6(addr.address)) {
-        return {
-          ok: false,
-          reason: `DNS resolved '${hostname}' to blocked IPv6 '${addr.address}'${ALLOWLIST_HINT}`,
-        };
-      }
+      const reason = blockedAddressReason(hostname, port, addr.address, addr.family, allowList);
+      if (reason) return { ok: false, reason };
     }
   } catch (err) {
     // DNS lookup failure — fail-safe: block nếu không resolve được

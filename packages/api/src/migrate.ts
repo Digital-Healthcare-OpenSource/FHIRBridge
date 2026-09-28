@@ -8,6 +8,8 @@
  * Exit 0 khi mọi migration applied/skipped; exit 1 khi fail (fail-fast).
  */
 
+/* eslint-disable no-console -- command-line entry point: progress is reported on stdout */
+
 import './load-env.js';
 import { fileURLToPath } from 'node:url';
 import { Pool } from 'pg';

@@ -114,3 +114,25 @@
     animation-delay: 500ms;
   }
 }
+
+/*
+ * Printing / "Save as PDF" from the Summary page: keep only the summary
+ * ([data-print-area]) and print it dark-on-white, also when dark mode is on.
+ */
+@media print {
+  body:has([data-print-area]) * {
+    visibility: hidden;
+  }
+  /* Same :has() prefix so these win over the rule above (higher specificity). */
+  body:has([data-print-area]) [data-print-area],
+  body:has([data-print-area]) [data-print-area] * {
+    visibility: visible;
+    color: #111827 !important;
+    background: transparent !important;
+  }
+  body:has([data-print-area]) [data-print-area] {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+}

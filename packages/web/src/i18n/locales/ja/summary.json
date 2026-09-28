@@ -36,6 +36,8 @@
     "body": "— この内容は AI モデルによって生成されたものであり、誤りが含まれる可能性があります。臨床情報は必ず有資格の医療従事者にご確認ください。"
   },
   "actions": {
-    "download_markdown": "Markdown をダウンロード"
+    "download_markdown": "Markdown をダウンロード",
+    "print_pdf": "印刷 / PDF として保存",
+    "print_pdf_hint": "印刷ダイアログが開きます — 送信先で「PDF に保存」を選択してください"
   }
 }

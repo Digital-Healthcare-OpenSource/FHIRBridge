@@ -77,6 +77,10 @@ const ApiConfigSchema = z
     // Optional model pins (defaults live in @fhirbridge/core).
     anthropicModel: z.string().optional(),
     openaiModel: z.string().optional(),
+    // Optional endpoint overrides: an API gateway / regional endpoint, or an
+    // OpenAI-compatible server run in-country or inside the hospital.
+    anthropicBaseUrl: z.string().url('ANTHROPIC_BASE_URL must be a valid URL').optional(),
+    openaiBaseUrl: z.string().url('OPENAI_BASE_URL must be a valid URL').optional(),
     aiProvider: z.enum(['anthropic', 'openai']).optional(),
 
     // Optional override for structured-error docs deep links.
@@ -178,6 +182,8 @@ const ENV_VARS = {
   openaiApiKey: 'OPENAI_API_KEY',
   anthropicModel: 'ANTHROPIC_MODEL',
   openaiModel: 'OPENAI_MODEL',
+  anthropicBaseUrl: 'ANTHROPIC_BASE_URL',
+  openaiBaseUrl: 'OPENAI_BASE_URL',
   aiProvider: 'AI_PROVIDER',
   errorDocsBaseUrl: 'ERROR_DOCS_BASE_URL',
   auditRetentionDays: 'AUDIT_RETENTION_DAYS',

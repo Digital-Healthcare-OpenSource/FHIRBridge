@@ -108,14 +108,12 @@ export function shiftDate(dateStr: string, offsetDays: number): string {
  * @param secret - HMAC secret
  * @param offsetDays - Số ngày shift date
  * @param resourceType - resourceType của top-level resource (để xử lý Organization/Location)
- * @param patientBirthDate - birthDate gốc của Patient (để check age ≥ 89)
  */
 function deidentifyResource(
   resource: Record<string, unknown>,
   secret: string,
   offsetDays: number,
   resourceType?: string,
-  patientBirthDate?: string,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 

@@ -1,6 +1,7 @@
 /**
  * Tests for FhirEndpointConnector.
- * Does NOT test actual HTTP calls — only interface compliance and structural behavior.
+ * Does NOT test actual HTTP calls (see fhir-http-client.test.ts) — only interface
+ * compliance and structural behavior.
  * The SSRF validator is mocked so tests are hermetic (no real DNS).
  */
 
@@ -8,18 +9,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FhirEndpointConnector } from '../fhir-endpoint-connector.js';
 import type { FhirEndpointConfig } from '@fhirbridge/types';
 
-// Shared mocks for the fhir-kit-client instance methods.
-const { requestMock, capabilityMock } = vi.hoisted(() => ({
+// Shared mocks for the FhirHttpClient instance methods.
+const { requestMock, capabilityMock, postFormMock } = vi.hoisted(() => ({
   requestMock: vi.fn(),
   capabilityMock: vi.fn(),
+  postFormMock: vi.fn(),
 }));
 
-// Stub fhir-kit-client to avoid real HTTP
-vi.mock('fhir-kit-client', () => ({
-  default: vi.fn().mockImplementation(() => ({
+// Stub the HTTP client to avoid real HTTP (it is tested on its own in fhir-http-client.test.ts)
+vi.mock('../fhir-http-client.js', () => ({
+  FhirHttpClient: vi.fn().mockImplementation(() => ({
     capabilityStatement: capabilityMock,
     request: requestMock,
+    close: vi.fn(),
+    bearerToken: undefined,
   })),
+  postFormForJson: postFormMock,
 }));
 
 // Stub the DNS-aware SSRF validator — block private/metadata targets deterministically.
@@ -117,6 +122,37 @@ describe('FhirEndpointConnector', () => {
 
       const gen = connector.fetchPatientData('patient-123');
       await expect(gen[Symbol.asyncIterator]().next()).rejects.toThrow('connect()');
+    });
+  });
+
+  describe('OAuth2 client credentials', () => {
+    const OAUTH_CONFIG: FhirEndpointConfig = {
+      ...BASE_CONFIG,
+      clientId: 'client-a',
+      clientSecret: 'secret-a',
+      tokenEndpoint: 'https://auth.example.org/token',
+    };
+
+    it('posts the client credentials and sets the bearer token on the client', async () => {
+      postFormMock.mockReset();
+      postFormMock.mockResolvedValueOnce({ access_token: 'tok-123' });
+      await connector.connect(OAUTH_CONFIG);
+
+      const [url, form] = postFormMock.mock.calls[0]!;
+      expect(url).toBe('https://auth.example.org/token');
+      expect(Object.fromEntries(form as URLSearchParams)).toMatchObject({
+        grant_type: 'client_credentials',
+        client_id: 'client-a',
+        client_secret: 'secret-a',
+      });
+      const client = (connector as unknown as { client: { bearerToken?: string } }).client;
+      expect(client.bearerToken).toBe('tok-123');
+    });
+
+    it('fails clearly when the token endpoint returns no access_token', async () => {
+      postFormMock.mockReset();
+      postFormMock.mockResolvedValueOnce({ error: 'invalid_client' });
+      await expect(connector.connect(OAUTH_CONFIG)).rejects.toThrow(/no access_token/);
     });
   });
 

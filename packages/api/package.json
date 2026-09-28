@@ -1,6 +1,6 @@
 {
   "name": "@fhirbridge/api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fastify REST API server for FHIRBridge",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -32,7 +32,7 @@
     "@fhirbridge/core": "workspace:*",
     "@fhirbridge/types": "workspace:*",
     "dotenv": "^17.4.2",
-    "fastify": "^5.9.0",
+    "fastify": "^5.12.5",
     "fastify-raw-body": "^5.0.0",
     "ioredis": "^5.11.1",
     "pg": "^8.22.0",

@@ -14,8 +14,10 @@ import {
   ProviderGateway,
   formatComposition,
   formatMarkdown,
+  formatPdf,
+  PdfFontRequiredError,
 } from '@fhirbridge/core';
-import type { Bundle, SummaryConfig } from '@fhirbridge/types';
+import type { Bundle, PatientSummary, SummaryConfig } from '@fhirbridge/types';
 import { promptProviderOptions, type ProviderPromptResult } from '../prompts/provider-prompts.js';
 import { writeOutput } from '../utils/file-writer.js';
 import { info, success, error, warn, useStderrForStatus } from '../utils/logger.js';
@@ -24,7 +26,7 @@ import { loadConfig } from '../config/config-manager.js';
 const PROVIDERS = ['claude', 'openai'] as const;
 const LANGUAGES = ['en', 'vi', 'ja', 'ko'] as const;
 const DETAILS = ['brief', 'standard', 'detailed'] as const;
-const FORMATS = ['markdown', 'composition'] as const;
+const FORMATS = ['markdown', 'composition', 'pdf'] as const;
 
 /** Env var holding the key for each provider. */
 const KEY_ENV: Record<ProviderPromptResult['provider'], string> = {
@@ -42,7 +44,12 @@ export function registerSummarizeCommand(program: Command): void {
     .option('--detail <brief|standard|detailed>', 'Detail level', 'standard')
     .option('--model <id>', 'Override the provider model (default: ANTHROPIC_MODEL / OPENAI_MODEL)')
     .option('--output <path>', 'Output file path (default: stdout)')
-    .option('--format <markdown|composition>', 'Output format', 'markdown')
+    .option('--format <markdown|composition|pdf>', 'Output format', 'markdown')
+    .option(
+      '--pdf-font <file>',
+      'TTF / OTF / TTC font for --format pdf — needed for Vietnamese, Korean and Japanese text',
+    )
+    .option('--pdf-font-family <name>', 'Face inside a .ttc font collection (PostScript name)')
     .action(async (opts: SummarizeOptions) => {
       try {
         await runSummarize(opts);
@@ -61,6 +68,8 @@ interface SummarizeOptions {
   model?: string;
   output?: string;
   format?: string;
+  pdfFont?: string;
+  pdfFontFamily?: string;
 }
 
 /** Validate an enum-like CLI option, naming the allowed values on error. */
@@ -94,6 +103,13 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
     throw new Error(`File not found: ${inputPath}`);
   }
   const format = oneOf('--format', opts.format ?? 'markdown', FORMATS) ?? 'markdown';
+  // Checked before any AI call, so a bad invocation costs nothing.
+  if (format === 'pdf') {
+    if (!opts.output) throw new Error('--format pdf needs --output <file.pdf>');
+    if (opts.pdfFont && !existsSync(opts.pdfFont)) {
+      throw new Error(`Font file not found: ${opts.pdfFont}`);
+    }
+  }
 
   const config = loadConfig();
 
@@ -131,6 +147,19 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
       ? (envValue('OPENAI_MODEL') ?? OPENAI_DEFAULT_MODEL)
       : (envValue('ANTHROPIC_MODEL') ?? CLAUDE_DEFAULT_MODEL));
 
+  // Optional endpoint override (gateway, regional endpoint, or an OpenAI-compatible
+  // server run in-country / inside the hospital).
+  const baseUrlEnv = providerOpts.provider === 'openai' ? 'OPENAI_BASE_URL' : 'ANTHROPIC_BASE_URL';
+  const baseUrl = envValue(baseUrlEnv);
+  let destination = providerOpts.provider === 'openai' ? 'OpenAI' : 'Anthropic';
+  if (baseUrl) {
+    try {
+      destination = new URL(baseUrl).host;
+    } catch {
+      throw new Error(`${baseUrlEnv} is not a valid URL: ${baseUrl}`);
+    }
+  }
+
   // Pseudonyms only need to be stable within one run: without a configured
   // HMAC_SECRET a fresh random key keeps them unlinkable across runs.
   const configuredSecret = envValue('HMAC_SECRET');
@@ -151,11 +180,12 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
       maxTokens: 16000,
       temperature: 0,
       timeoutMs: 120_000,
+      ...(baseUrl ? { baseUrl } : {}),
     },
   };
 
   warn(
-    `De-identified data will be sent to ${providerOpts.provider === 'openai' ? 'OpenAI' : 'Anthropic'} ` +
+    `De-identified data will be sent to ${destination} ` +
       '(identifiers hashed, names redacted, dates shifted).',
   );
   info(
@@ -163,15 +193,33 @@ async function runSummarize(opts: SummarizeOptions): Promise<void> {
   );
 
   const gateway = new ProviderGateway(summaryConfig);
-  let output: string;
+  let summary: PatientSummary;
   try {
-    const summary = await gateway.summarize(bundle, summaryConfig);
+    summary = await gateway.summarize(bundle, summaryConfig);
+  } catch (aiErr) {
+    throw new Error(`AI summarization failed: ${(aiErr as Error).message}`);
+  }
+
+  let output: string | Buffer;
+  if (format === 'pdf') {
+    try {
+      output = await formatPdf(summary, {
+        ...(opts.pdfFont ? { fontPath: opts.pdfFont } : {}),
+        ...(opts.pdfFontFamily ? { fontFamily: opts.pdfFontFamily } : {}),
+      });
+    } catch (pdfErr) {
+      if (pdfErr instanceof PdfFontRequiredError) {
+        throw new Error(
+          `${pdfErr.message} Use a .ttf / .otf, or a .ttc together with --pdf-font-family.`,
+        );
+      }
+      throw pdfErr;
+    }
+  } else {
     output =
       format === 'composition'
         ? JSON.stringify(formatComposition(summary, findPatientRef(bundle)), null, 2)
         : formatMarkdown(summary);
-  } catch (aiErr) {
-    throw new Error(`AI summarization failed: ${(aiErr as Error).message}`);
   }
 
   writeOutput(output, opts.output);

@@ -52,10 +52,7 @@ export function isRetryable(error: unknown): boolean {
  * @returns Result of fn on success
  * @throws Last error after all retries exhausted
  */
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {},
-): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const { maxRetries = 3, baseDelay = 100, maxDelay = 5000 } = options;
 
   let lastError: unknown;

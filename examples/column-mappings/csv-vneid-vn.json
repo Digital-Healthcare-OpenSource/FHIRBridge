@@ -1,9 +1,9 @@
 {
   "$schema": "./mapping.schema.json",
-  "description": "Vietnamese hospital CSV, one row per encounter, keyed by the 12-digit citizen ID (CCCD / VNeID number) with WHO ICD-10 diagnosis codes and LOINC lab results. The citizen ID is written as-is to Patient.identifier (it is not hashed at import — FHIRBridge only hashes/masks Korean RRNs there; the optional AI-summary path HMAC-hashes all identifiers). patientId.system is a placeholder namespace: replace it with your organisation's identifier system URI. Times are ICT (+07:00). Sample data: examples/data/vn-hospital.csv.",
+  "description": "Vietnamese hospital CSV, one row per encounter, keyed by the 12-digit citizen ID (CCCD / VNeID number) with WHO ICD-10 diagnosis codes and LOINC lab results. The citizen ID is written as-is to Patient.identifier (it is not hashed at import — FHIRBridge only hashes/masks Korean RRNs there; the optional AI-summary path HMAC-hashes all identifiers). patientId.system is the CCCD identifier system of the HL7 Vietnam VN Core IG (draft, published by Cục Công nghệ thông tin – Bộ Y tế: NamingSystem SID-National-Id); the same IG defines .../sid/insurance_number (BHYT) and .../sid/patient-internal-id (hospital patient number) if your key column is one of those. Times are ICT (+07:00). Sample data: examples/data/vn-hospital.csv.",
   "patientId": {
     "column": "VNEID",
-    "system": "https://fhirbridge.example/identifiers/vn-citizen-id"
+    "system": "http://fhir.ehealth.gov.vn/core/sid/national_id"
   },
   "timezone": "+07:00",
   "fields": {

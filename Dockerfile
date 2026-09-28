@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.7
 # Multi-stage build for FHIRBridge API server.
-# Final image is a slim Node 20-alpine that runs `node dist/index.js` from a pnpm-deploy prod bundle.
+# Final image is a slim Node 24-alpine that runs `node dist/index.js` from a pnpm-deploy prod bundle.
 
 # ── Stage 1: build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.11.0 --activate
@@ -35,7 +35,7 @@ RUN pnpm --filter @fhirbridge/types build \
 RUN pnpm --filter @fhirbridge/api --prod deploy /deploy
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 WORKDIR /app
 
 # Vá CVE mức OS của base image (Trivy gate chặn publish khi còn HIGH+, vd

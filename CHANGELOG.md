@@ -6,8 +6,57 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-28
+
+"Runs out of the box" release: one-command setup and Docker run with a synthetic Demo HIS, a
+working CSV/Excel import with Vietnam / Korea / Japan / international mappings, a fully localized
+web UI (Tiếng Việt / English / 日本語 / 한국어), AI summaries that work end to end (also on a
+self-hosted or in-country model) and as PDF, connect-time SSRF protection, Node 24 and a
+dependency tree with no known vulnerabilities.
+
+### Security
+
+- **SSRF protection now also holds at connect time (DNS rebinding).** FHIR endpoint and OAuth2
+  token requests go through a small built-in HTTP client whose DNS lookup re-applies the SSRF
+  policy to the exact addresses the socket connects to, so a DNS answer that changes after the
+  pre-flight check can no longer reach private, loopback or cloud-metadata addresses. Redirects
+  are followed only for GET (max 5, each re-validated) and never forward the bearer token to
+  another origin; the token endpoint is never redirected; responses are capped at 64 MiB after
+  decompression. This replaces `fhir-kit-client`.
+- Dependency advisories: `fastify` 5.12.5
+  ([GHSA-w2qp-rph6-63g4](https://github.com/advisories/GHSA-w2qp-rph6-63g4),
+  [GHSA-3m5p-2c4r-xxw2](https://github.com/advisories/GHSA-3m5p-2c4r-xxw2)), `csv-parse` 7.0.3
+  ([GHSA-8cw4-87c7-c6xx](https://github.com/advisories/GHSA-8cw4-87c7-c6xx)); dropping
+  `fhir-kit-client` also removes `decode-uri-component` 0.2.2
+  ([GHSA-vcc3-ghjq-m6fr](https://github.com/advisories/GHSA-vcc3-ghjq-m6fr)).
+  `pnpm audit --prod` reports no known vulnerabilities.
+- **Node.js 24 LTS.** Node 20 reached end-of-life on 2026-04-30
+  ([schedule](https://github.com/nodejs/release#release-schedule)). Docker images and CI use
+  Node 24; the minimum supported version is Node 22 (checked by a CI job).
+
 ### Added
 
+- **Web UI image on GHCR.** CI now publishes `fhirbridge-web` next to `fhirbridge-api` (same
+  Trivy gate, multi-arch, cosign signature, SBOM + provenance). The root `docker-compose.yml`
+  uses the GHCR names (`FHIRBRIDGE_VERSION`, `FHIRBRIDGE_REGISTRY` to pin or mirror), so
+  `docker compose pull && docker compose up` runs without building; `--build` still builds
+  from source.
+- **Summary as PDF in all four languages.** The web Summary page has **Print / Save as PDF**: the
+  browser's print dialog prints only the summary (dark on white, also in dark mode) with the
+  browser's own fonts, so Vietnamese, Korean and Japanese render correctly.
+  `fhirbridge summarize --format pdf --output file.pdf` writes a PDF too; for Vietnamese, Korean
+  or Japanese text pass a Unicode font with `--pdf-font <file>` (plus `--pdf-font-family` for a
+  `.ttc` collection). `formatPdf()` in `@fhirbridge/core` takes the same options and is now
+  exported from the package root.
+- **AI summaries on your own endpoint.** `OPENAI_BASE_URL` points the `openai` provider at any
+  server implementing the OpenAI Chat Completions API (e.g. a model run in-country or inside the
+  hospital), `ANTHROPIC_BASE_URL` at a gateway for Claude — in the API (validated config) and the
+  CLI. `fhirbridge summarize` names the configured host in its data-transfer warning. Verified
+  against a local OpenAI-compatible server: the requests it received contained no patient name,
+  birth date or patient id.
+- CI runs the Playwright web end-to-end and axe accessibility suites (Chromium, desktop and
+  tablet viewport) against a real API with PostgreSQL and Redis; the HTML report is uploaded when
+  a test fails.
 - **One-command setup and run.** `pnpm run setup` creates `.env` with random secrets, an API key
   and database / cache passwords (idempotent, cross-platform, `--env-only` for Docker), then
   builds everything. `pnpm start` serves the web UI and API together on
@@ -43,6 +92,10 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ### Changed
 
+- Code hygiene: ESLint is warning-free (42 → 0: unused imports and variables removed, one
+  misleading test fixed to test what its name says, an unused de-identifier parameter dropped),
+  the whole repo is Prettier-formatted and CI now runs `pnpm format:check`; the husky pre-commit
+  hook drops the lines husky 10 will reject.
 - Default Claude model is now `claude-opus-5` (the previous default,
   `claude-sonnet-4-20250514`, is deprecated by Anthropic). `temperature` is no longer sent to
   Claude (current models reject sampling parameters). Summary calls allow 16k output tokens and
@@ -54,9 +107,14 @@ All notable changes to FHIRBridge are documented here. The format follows
   missing instead of silently falling back to `JWT_SECRET`.
 - Repository links point to `Digital-Healthcare-OpenSource/FHIRBridge`.
 - The import API requires a column mapping (part `mapping`, text or file) and returns
-  `resourcesByType`, `rowsRead` and `warnings` alongside the bundle. Example identifier systems
-  that could not be verified (a `vneid.gov.vn` URL, a Japanese OID) were replaced by clearly
-  marked placeholders; WHO ICD-10 (`http://hl7.org/fhir/sid/icd-10`) is now a known code system.
+  `resourcesByType`, `rowsRead` and `warnings` alongside the bundle. WHO ICD-10
+  (`http://hl7.org/fhir/sid/icd-10`) is now a known code system.
+- Example patient identifier systems follow the published national conventions: Vietnam uses
+  the CCCD system of the HL7 Vietnam VN Core IG (draft), Japan the JP Core per-institution OID
+  (`urn:oid:1.2.392.100495.20.3.51.1<医療機関コード>`); Korea keeps a marked placeholder because
+  KR Core defines no URI for a hospital patient number. Sources are linked in
+  `examples/README.md`. (Unverifiable values used earlier — a `vneid.gov.vn` URL and a Japanese
+  OID — are gone.)
 - Web UI no longer loads Google Fonts (privacy, offline hospital networks, no CJK glyphs); it
   uses a system font stack covering Latin, Vietnamese, Korean and Japanese.
 - Settings page: the credential field is clearly the FHIRBridge API key / token; the unused
@@ -73,6 +131,13 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ### Fixed
 
+- The PDF formatter printed Vietnamese letters such as ă / ơ / ế and all Korean and Japanese
+  text as wrong glyphs (its built-in Helvetica font is WinAnsi-only, one byte per character). It
+  now refuses such text unless a Unicode font is given, instead of producing a garbled PDF.
+- Legacy `.xls` stays unsupported by design; `examples/README.md` explains why (no maintained,
+  advisory-free reader on npm) and how to convert.
+- Playwright "tablet" projects ran with the desktop viewport (the device preset overrode the
+  768×1024 viewport); three web e2e tests still described the pre-0.3 UI or raced the page load.
 - **CSV / Excel import produced empty bundles on every path** (CLI, API, web): mappings were
   never applied, the documented example format was not understood, and the API added raw rows
   as invalid resources. Import now uses one canonical mapping format (the documented `fields`
@@ -119,5 +184,6 @@ documentation, schema-migration runner, revived security and Playwright suites, 
 and dependency hardening. See the
 [release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0).
 
-[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0

@@ -49,7 +49,11 @@ describe('validate-command', () => {
   });
 
   afterEach(() => {
-    try { unlinkSync(tmpFile); } catch { /* ignore */ }
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      /* ignore */
+    }
   });
 
   it('exits 0 for a valid bundle', async () => {
@@ -94,7 +98,15 @@ describe('validate-command', () => {
     program.exitOverride();
 
     await expect(
-      program.parseAsync(['node', 'fhirbridge', 'validate', '--input', tmpFile, '--format', 'json']),
+      program.parseAsync([
+        'node',
+        'fhirbridge',
+        'validate',
+        '--input',
+        tmpFile,
+        '--format',
+        'json',
+      ]),
     ).resolves.toBeDefined();
   });
 

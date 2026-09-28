@@ -49,7 +49,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -63,6 +63,9 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
 
       - name: Dependency audit (prod, high+)
         run: pnpm audit --prod --audit-level=high
@@ -96,6 +99,111 @@ jobs:
           API_KEYS: test-key-free,test-key-paid
           LOG_LEVEL: silent
 
+  # Browser tests for the web UI + accessibility (axe) scans against a real API.
+  # Chromium only in CI; `pnpm test:e2e` locally also runs Firefox and WebKit.
+  web-e2e:
+    name: Web E2E (Playwright, Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fhirbridge_test
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: fhirbridge_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U fhirbridge_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # Same schema as production (the e2e API writes audit rows; without the
+      # tables the health check reports "degraded").
+      - name: Apply database migrations
+        run: pnpm --filter @fhirbridge/api migrate
+        env:
+          DATABASE_URL: postgresql://fhirbridge_test:testpass@localhost:5433/fhirbridge_test
+
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Web E2E tests (desktop + tablet viewport)
+        run: pnpm exec playwright test --project=chromium-desktop --project=chromium-tablet
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            tests/e2e/test-results/
+          retention-days: 7
+
+  # Oldest supported Node.js line (package.json "engines": ">=22"). Node 20 reached
+  # end-of-life on 2026-04-30 (https://github.com/nodejs/release#release-schedule).
+  node-22-compat:
+    name: Node 22 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit Tests
+        run: pnpm test
+
+      - name: CLI E2E Tests
+        run: pnpm test:e2e:cli
+        env:
+          NO_COLOR: '1'
+
   compose-smoke:
     name: Docker Compose smoke test
     runs-on: ubuntu-latest
@@ -106,7 +214,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
 
       # Same path a new user takes: generated .env → compose (API + web + Demo HIS).
       - name: Create .env

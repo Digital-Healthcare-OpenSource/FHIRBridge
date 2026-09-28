@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { readFileSync, unlinkSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { writeOutput, serialize } from '../file-writer.js';
@@ -20,24 +20,20 @@ vi.mock('../logger.js', () => ({
 }));
 
 describe('writeOutput', () => {
+  // Private temp dir per test (mkdtemp): no predictable names in the shared /tmp.
+  let dir: string;
   let tmpFile: string;
   let stdoutSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    tmpFile = join(
-      tmpdir(),
-      `file-writer-test-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
-    );
+    dir = mkdtempSync(join(tmpdir(), 'fhirbridge-file-writer-'));
+    tmpFile = join(dir, 'out.json');
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
     stdoutSpy.mockRestore();
-    try {
-      unlinkSync(tmpFile);
-    } catch {
-      /* ignore */
-    }
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('writes data to a temp file', () => {
@@ -74,21 +70,23 @@ describe('writeOutput', () => {
     expect(written).toBe('second content');
   });
 
+  it('writes binary data (e.g. a PDF) byte for byte', () => {
+    const bytes = Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0xff, 0x0a]);
+    writeOutput(bytes, tmpFile);
+    expect(readFileSync(tmpFile).equals(bytes)).toBe(true);
+  });
+
   it('rejects path with null byte', () => {
-    const badPath = '/tmp/test\0evil.json';
+    const badPath = join(dir, 'test\0evil.json');
     expect(() => writeOutput('data', badPath)).toThrow(/null byte/);
   });
 
   it('path traversal "../" is normalized but does not throw for valid resolved path', () => {
     // The safePath function normalizes "../" — it should not throw for paths that resolve
     // to valid locations. The key security check is null bytes.
-    const normalizedPath = join(tmpdir(), 'subdir', '..', `safe-file-${Date.now()}.json`);
+    const normalizedPath = join(dir, 'subdir', '..', 'safe-file.json');
     expect(() => writeOutput('data', normalizedPath)).not.toThrow();
-    try {
-      unlinkSync(join(tmpdir(), `safe-file-${Date.now()}.json`));
-    } catch {
-      /* ignore */
-    }
+    expect(existsSync(join(dir, 'safe-file.json'))).toBe(true);
   });
 });
 

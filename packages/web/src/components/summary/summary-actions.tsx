@@ -1,11 +1,12 @@
 /**
- * SummaryActions — download button for a completed summary.
+ * SummaryActions — download / print buttons for a completed summary.
  * Uses Toast instead of native alert() for error feedback (H-13 fix).
- * Server chỉ hỗ trợ Markdown (không có PDF) — nên chỉ có MỘT nút, nhãn trung thực.
+ * PDF comes from the browser's print dialog ("Save as PDF"): the browser's own
+ * fonts render Vietnamese, Korean and Japanese correctly (see globals.css @media print).
  */
 
 import { useState, useCallback } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
 import { summaryApi } from '../../api/summary-api';
 import { Toast, type ToastState } from '../ui/toast';
 import { useTranslation } from '../../i18n/use-translation';
@@ -48,6 +49,15 @@ export function SummaryActions({ summaryId }: Props) {
         >
           <Download className="h-4 w-4" aria-hidden />
           {t('actions.download_markdown')}
+        </button>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          title={t('actions.print_pdf_hint')}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+        >
+          <Printer className="h-4 w-4" aria-hidden />
+          {t('actions.print_pdf')}
         </button>
       </div>
     </>

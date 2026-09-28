@@ -25,6 +25,8 @@ const ENV_KEYS = [
   'DATABASE_URL',
   'AUDIT_PROFILE',
   'ANTHROPIC_MODEL',
+  'ANTHROPIC_BASE_URL',
+  'OPENAI_BASE_URL',
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -164,5 +166,17 @@ describe('loadConfig — copy-pasted .env.example ergonomics', () => {
     expect(loadConfig().anthropicModel).toBeUndefined();
     process.env['ANTHROPIC_MODEL'] = 'claude-opus-5';
     expect(loadConfig().anthropicModel).toBe('claude-opus-5');
+  });
+
+  it('reads optional provider endpoints and rejects malformed ones by name', () => {
+    expect(loadConfig().openaiBaseUrl).toBeUndefined();
+    process.env['OPENAI_BASE_URL'] = 'http://10.20.0.5:8000/v1';
+    process.env['ANTHROPIC_BASE_URL'] = 'https://llm-gateway.hospital.example';
+    expect(loadConfig()).toMatchObject({
+      openaiBaseUrl: 'http://10.20.0.5:8000/v1',
+      anthropicBaseUrl: 'https://llm-gateway.hospital.example',
+    });
+    process.env['OPENAI_BASE_URL'] = 'not a url';
+    expect(() => loadConfig()).toThrow(/OPENAI_BASE_URL/);
   });
 });

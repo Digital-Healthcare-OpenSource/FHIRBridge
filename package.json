@@ -1,6 +1,6 @@
 {
   "name": "fhirbridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Open-source, self-hosted FHIR R4 patient data portability tool with optional AI summaries. Hospitals and clinics pull and run it on their own infrastructure.",
   "license": "MIT",
@@ -26,7 +26,7 @@
     "ai-summary"
   ],
   "engines": {
-    "node": ">=20",
+    "node": ">=22",
     "pnpm": ">=9"
   },
   "scripts": {

@@ -34,18 +34,18 @@ export default defineConfig({
     { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox-desktop', use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit-desktop', use: { ...devices['Desktop Safari'] } },
-    // Tablet
+    // Tablet (viewport after the device spread, otherwise the desktop viewport wins)
     {
       name: 'chromium-tablet',
-      use: { viewport: { width: 768, height: 1024 }, ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
     },
     {
       name: 'firefox-tablet',
-      use: { viewport: { width: 768, height: 1024 }, ...devices['Desktop Firefox'] },
+      use: { ...devices['Desktop Firefox'], viewport: { width: 768, height: 1024 } },
     },
     {
       name: 'webkit-tablet',
-      use: { viewport: { width: 768, height: 1024 }, ...devices['Desktop Safari'] },
+      use: { ...devices['Desktop Safari'], viewport: { width: 768, height: 1024 } },
     },
   ],
 

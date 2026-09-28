@@ -61,6 +61,8 @@ export interface SummaryAiSettings {
   openaiApiKey?: string;
   anthropicModel?: string;
   openaiModel?: string;
+  anthropicBaseUrl?: string;
+  openaiBaseUrl?: string;
 }
 
 /** Pick the AI settings out of an ApiConfig-shaped object. */
@@ -70,6 +72,8 @@ export function summaryAiSettings(config: SummaryAiSettings): SummaryAiSettings 
     openaiApiKey: config.openaiApiKey,
     anthropicModel: config.anthropicModel,
     openaiModel: config.openaiModel,
+    anthropicBaseUrl: config.anthropicBaseUrl,
+    openaiBaseUrl: config.openaiBaseUrl,
   };
 }
 
@@ -86,6 +90,7 @@ function buildSummaryConfig(
     providerName === 'openai'
       ? (ai.openaiModel ?? OPENAI_DEFAULT_MODEL)
       : (ai.anthropicModel ?? CLAUDE_DEFAULT_MODEL);
+  const baseUrl = providerName === 'openai' ? ai.openaiBaseUrl : ai.anthropicBaseUrl;
 
   return {
     language: options.language ?? 'en',
@@ -104,6 +109,7 @@ function buildSummaryConfig(
       temperature: 0,
       // Background job — allow for reasoning time instead of failing at 30s.
       timeoutMs: 120_000,
+      ...(baseUrl ? { baseUrl } : {}),
     },
   };
 }

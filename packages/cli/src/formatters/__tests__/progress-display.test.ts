@@ -2,7 +2,7 @@
  * Tests for progress-display — wraps cli-progress for long-running operations.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { createProgress, createProgressBar, createNoopProgressBar } from '../progress-display.js';
 
 describe('createNoopProgressBar', () => {

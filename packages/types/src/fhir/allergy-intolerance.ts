@@ -16,11 +16,7 @@ export type AllergyIntoleranceClinicalStatus = 'active' | 'inactive' | 'resolved
 
 /** AllergyIntolerance verification status codes */
 export type AllergyIntoleranceVerificationStatus =
-  | 'unconfirmed'
-  | 'presumed'
-  | 'confirmed'
-  | 'refuted'
-  | 'entered-in-error';
+  'unconfirmed' | 'presumed' | 'confirmed' | 'refuted' | 'entered-in-error';
 
 /** Type of the allergy/intolerance */
 export type AllergyIntoleranceType = 'allergy' | 'intolerance';

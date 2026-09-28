@@ -110,7 +110,7 @@ describe('importTabularFile — example mappings with their sample data', () => 
     expect(patient['birthDate']).toBe('1985-03-15');
     expect(patient['name']).toEqual([{ family: 'Nguyễn', given: ['Văn A'] }]);
     expect(patient['identifier']).toEqual([
-      { system: 'https://fhirbridge.example/identifiers/vn-citizen-id', value: '000000000101' },
+      { system: 'http://fhir.ehealth.gov.vn/core/sid/national_id', value: '000000000101' },
     ]);
     const enc = resources.find((r) => r['resourceType'] === 'Encounter')!;
     expect(enc['period'].start).toBe('2024-03-04T08:30:00+07:00');

@@ -37,7 +37,7 @@ real hospital system or internet access.
 
 ### Option A — Node.js (Linux / macOS / Windows)
 
-Requires Node.js ≥ 20 and pnpm ≥ 9 (`corepack enable` installs pnpm).
+Requires Node.js ≥ 22 (24 LTS recommended) and pnpm ≥ 9 (`corepack enable` installs pnpm).
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -55,7 +55,7 @@ pnpm demo          # API + web UI + Demo HIS → http://localhost:8080
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # Create .env with random secrets + an API key (uses a throwaway Node container)
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 
@@ -226,6 +226,10 @@ pnpm fhirbridge validate --input bundle.json
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language vi
 
+# Same summary as a PDF (Vietnamese / Korean / Japanese text needs a Unicode font file;
+# the web UI's "Print / Save as PDF" needs none)
+pnpm fhirbridge summarize --input bundle.json --language vi --format pdf --output summary.pdf --pdf-font /path/to/font.ttf
+
 # Saved connection profiles
 pnpm fhirbridge config add-profile my-hospital
 pnpm fhirbridge config list
@@ -259,10 +263,18 @@ Behavior under degraded infra:
 - No `REDIS_URL` set → rate limit + caches stay in-memory per process. Single-replica only.
 - No `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` → summary generation answers `503` with the variable to set; export + connector endpoints unaffected.
 
-A pre-built API image is published by CI for each release
-(`ghcr.io/digital-healthcare-opensource/fhirbridge-api:<version>`, cosign-signed with SBOM +
-provenance — see the [release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases)).
-The web UI image is built locally by `docker compose`.
+CI publishes both images to GHCR on every push to `main` (`latest`) and for each release tag
+(`<version>`), multi-arch (amd64 + arm64), Trivy-scanned, cosign-signed with SBOM + provenance:
+`ghcr.io/digital-healthcare-opensource/fhirbridge-api` and `…/fhirbridge-web`. The root
+`docker-compose.yml` already uses these names, so you can skip the build:
+
+```bash
+docker compose pull && docker compose up -d            # latest main
+FHIRBRIDGE_VERSION=<version> docker compose pull       # or pin a release ≥ 0.3.0 (then `up -d` with the same variable)
+```
+
+If `pull` answers `unauthorized`, the packages are not public for your account — build from
+source with `docker compose up -d --build` instead.
 
 ### Production hardening
 
@@ -304,6 +316,25 @@ cosign signature / SBOM / provenance attestations published with each release.
 | BAA disclaimer       | Hospital operator owns the BAA decision; UI surfaces the disclaimer for end users                                                       |
 | HMAC secret reuse    | Boot fails if `HMAC_SECRET == JWT_SECRET` (Zod-enforced)                                                                                |
 
+### AI summaries without leaving your network
+
+The `openai` provider talks to any server that implements the OpenAI Chat Completions API
+(`POST <base>/chat/completions`), so the summary model can run in-country or inside the
+hospital network instead of at a foreign provider:
+
+```bash
+AI_PROVIDER=openai
+OPENAI_BASE_URL=http://10.20.0.5:8000/v1   # your server's OpenAI-compatible base URL
+OPENAI_MODEL=<model-name-your-server-serves>
+OPENAI_API_KEY=<the key your server expects; any non-empty value if it checks none>
+```
+
+`ANTHROPIC_BASE_URL` does the same for Claude requests (for example an API gateway that
+speaks the Anthropic Messages API). The data is still de-identified before it is sent, and
+`fhirbridge summarize` names the configured host in its data-transfer warning. FHIRBridge
+cannot tell where a server physically runs — whether a setup counts as a cross-border
+transfer is for your DPO to decide (see the country notes below).
+
 ### Data residency — Japan (APPI)
 
 Under Japan's APPI, pseudonymized patient data (HMAC-hashed IDs, shifted dates) is
@@ -313,7 +344,8 @@ explicit per-patient consent naming the destination country (Art. 28).
 
 **Recommendation for Japanese deployments:** run with AI summaries disabled (simply
 omit `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — export and connectors are unaffected),
-or ensure your provider contract keeps inference in-country before enabling them.
+or keep inference in-country — through your provider contract or a model you host yourself
+([AI summaries without leaving your network](#ai-summaries-without-leaving-your-network)).
 The built-in consent recording captures operator consent, not patient consent — the
 operator remains the data controller. This is engineering guidance, not legal advice.
 
@@ -341,7 +373,8 @@ periodically. Note: `sourceIp` is personal data under GDPR —
 the field only exists under the KR profile; leave `AUDIT_PROFILE` unset elsewhere.
 
 **Recommendation for Korean deployments:** as with Japan, prefer running with AI
-summaries disabled or with an in-country/self-hosted provider. The built-in consent
+summaries disabled or with an in-country/self-hosted provider
+([how](#ai-summaries-without-leaving-your-network)). The built-in consent
 recording captures operator consent, not patient consent — your DPO decides the
 patient-consent process. This is engineering guidance, not legal advice.
 
@@ -421,6 +454,8 @@ gitleaks secret scan, on every push and pull request to `main`. The Playwright s
 | `ANTHROPIC_MODEL`         | No       | Claude model (default `claude-opus-5`)                                                    |
 | `OPENAI_API_KEY`          | For AI   | OpenAI API key                                                                            |
 | `OPENAI_MODEL`            | No       | OpenAI model (default `gpt-4o`)                                                           |
+| `ANTHROPIC_BASE_URL`      | No       | Endpoint for Claude requests, e.g. an API gateway (default `https://api.anthropic.com`)   |
+| `OPENAI_BASE_URL`         | No       | Endpoint for `openai` requests — any OpenAI Chat Completions–compatible server            |
 | `RATE_LIMIT_PER_MINUTE`   | No       | Override the default 100 req/min budget                                                   |
 | `METRICS_BEARER_TOKEN`    | No       | Bearer token (>= 16 chars) for `/metrics`; off when unset                                 |
 | `TRUST_PROXY`             | No       | `true`, a CIDR or `loopback` when running behind a reverse proxy                          |

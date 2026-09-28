@@ -16,7 +16,8 @@ interface Props {
 export function SummaryDisplay({ content, className }: Props) {
   const { t } = useTranslation('summary');
   return (
-    <div className={cn('space-y-4', className)}>
+    // data-print-area: the only part of the page kept when printing / saving as PDF
+    <div data-print-area className={cn('space-y-4', className)}>
       {/* AI Disclaimer — always visible */}
       <div
         role="alert"

@@ -69,25 +69,19 @@ describe('withRetry', () => {
 
   it('throws after exhausting all retries', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('ECONNRESET'));
-    await expect(
-      withRetry(fn, { maxRetries: 2, baseDelay: 1 }),
-    ).rejects.toThrow('ECONNRESET');
+    await expect(withRetry(fn, { maxRetries: 2, baseDelay: 1 })).rejects.toThrow('ECONNRESET');
     expect(fn).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
   });
 
   it('does not retry 401 errors', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('HTTP 401 Unauthorized'));
-    await expect(
-      withRetry(fn, { maxRetries: 3, baseDelay: 1 }),
-    ).rejects.toThrow('HTTP 401');
+    await expect(withRetry(fn, { maxRetries: 3, baseDelay: 1 })).rejects.toThrow('HTTP 401');
     expect(fn).toHaveBeenCalledTimes(1); // No retries
   });
 
   it('does not retry 404 errors', async () => {
     const fn = vi.fn().mockRejectedValue(new Error('HTTP 404 Not Found'));
-    await expect(
-      withRetry(fn, { maxRetries: 3, baseDelay: 1 }),
-    ).rejects.toThrow('HTTP 404');
+    await expect(withRetry(fn, { maxRetries: 3, baseDelay: 1 })).rejects.toThrow('HTTP 404');
     expect(fn).toHaveBeenCalledTimes(1);
   });
 

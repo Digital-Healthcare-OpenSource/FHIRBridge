@@ -34,7 +34,7 @@ FHIR API または CSV/Excel で HIS に接続し、データを標準の **FHIR
 
 ### 方法 A — Node.js(Windows / macOS / Linux)
 
-Node.js 20 以上と pnpm 9 以上が必要です(`corepack enable` で pnpm を導入できます)。
+Node.js 22 以上(24 LTS を推奨)と pnpm 9 以上が必要です(`corepack enable` で pnpm を導入できます)。
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -52,7 +52,7 @@ pnpm demo          # API + Web UI + デモ HIS → http://localhost:8080
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # 使い捨ての Node コンテナで .env(ランダムなシークレット + API キー)を作成
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 
@@ -107,6 +107,10 @@ pnpm fhirbridge validate --input bundle.json
 # 日本語の AI 要約(送信前に匿名化。ANTHROPIC_API_KEY または OPENAI_API_KEY が必要)
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language ja
+
+# PDF で保存 — 日本語には Unicode フォントファイルが必要です(.ttc の場合は --pdf-font-family も指定)。
+# Web UI の「印刷 / PDF として保存」ボタンではフォント指定は不要です
+pnpm fhirbridge summarize --input bundle.json --language ja --format pdf --output summary.pdf --pdf-font /path/to/font.otf
 ```
 
 ## 個人情報保護法(APPI)について
@@ -119,6 +123,19 @@ APPI では、仮名化したデータ(HMAC でハッシュ化した ID、シフ
 (第 28 条)。日本での運用では、AI 要約を無効にするか、国内で推論が完結する提供者をご利用ください。
 詳細は英語 README の [Data residency — Japan (APPI)](README.md#data-residency--japan-appi) を
 ご覧ください。本書は技術的なガイダンスであり、**法的助言ではありません**。
+
+**国内・院内で AI モデルを運用する場合:** `openai` プロバイダーは OpenAI Chat Completions API
+互換のサーバーであれば接続できます。`.env` に次のように設定してください。
+
+```bash
+AI_PROVIDER=openai
+OPENAI_BASE_URL=http://10.20.0.5:8000/v1   # 自組織のモデルサーバーの URL
+OPENAI_MODEL=<サーバーが提供するモデル名>
+OPENAI_API_KEY=<サーバーが要求するキー。キーを検証しない場合は任意の値>
+```
+
+送信前の匿名化はそのまま適用されます
+([詳細](README.md#ai-summaries-without-leaving-your-network))。
 
 ## コントリビュート
 

@@ -14,7 +14,9 @@ const validPatient = {
   name: [{ use: 'official', family: 'Doe', given: ['Jane'] }],
   gender: 'female',
   birthDate: '1985-07-22',
-  address: [{ use: 'home', line: ['123 Main St'], city: 'Boston', state: 'MA', postalCode: '02101' }],
+  address: [
+    { use: 'home', line: ['123 Main St'], city: 'Boston', state: 'MA', postalCode: '02101' },
+  ],
   telecom: [{ system: 'phone', value: '555-000-0000', use: 'home' }],
   identifier: [{ system: 'http://example.hospital.org/patients', value: 'P001' }],
 };
@@ -44,7 +46,9 @@ describe('validatePatient', () => {
   it('returns error if resourceType is not "Patient"', () => {
     const result = validatePatient({ ...validPatient, resourceType: 'Encounter' });
     expect(result.valid).toBe(false);
-    expect(result.errors.some((e) => e.path === 'resourceType' && e.severity === 'error')).toBe(true);
+    expect(result.errors.some((e) => e.path === 'resourceType' && e.severity === 'error')).toBe(
+      true,
+    );
   });
 
   // ── Name validation ───────────────────────────────────────────────────────
@@ -69,7 +73,9 @@ describe('validatePatient', () => {
 
   it('accepts name with only family (no given)', () => {
     const result = validatePatient({ ...validPatient, name: [{ family: 'Solo' }] });
-    expect(result.errors.filter((e) => e.path.startsWith('name') && e.severity === 'error')).toHaveLength(0);
+    expect(
+      result.errors.filter((e) => e.path.startsWith('name') && e.severity === 'error'),
+    ).toHaveLength(0);
   });
 
   // ── Gender validation ─────────────────────────────────────────────────────
@@ -90,7 +96,9 @@ describe('validatePatient', () => {
   it('accepts all valid gender values', () => {
     for (const gender of ['male', 'female', 'other', 'unknown']) {
       const result = validatePatient({ ...validPatient, gender });
-      expect(result.errors.filter((e) => e.path === 'gender' && e.severity === 'error')).toHaveLength(0);
+      expect(
+        result.errors.filter((e) => e.path === 'gender' && e.severity === 'error'),
+      ).toHaveLength(0);
     }
   });
 
@@ -99,7 +107,9 @@ describe('validatePatient', () => {
   it('returns warning when birthDate is missing', () => {
     const { birthDate, ...rest } = validPatient;
     const result = validatePatient(rest);
-    const warnings = result.errors.filter((e) => e.path === 'birthDate' && e.severity === 'warning');
+    const warnings = result.errors.filter(
+      (e) => e.path === 'birthDate' && e.severity === 'warning',
+    );
     expect(warnings.length).toBeGreaterThan(0);
   });
 
@@ -111,7 +121,9 @@ describe('validatePatient', () => {
 
   it('accepts YYYY-MM-DD birthDate', () => {
     const result = validatePatient({ ...validPatient, birthDate: '2000-12-31' });
-    expect(result.errors.filter((e) => e.path === 'birthDate' && e.severity === 'error')).toHaveLength(0);
+    expect(
+      result.errors.filter((e) => e.path === 'birthDate' && e.severity === 'error'),
+    ).toHaveLength(0);
   });
 
   // ── Identifier validation ─────────────────────────────────────────────────
@@ -124,6 +136,8 @@ describe('validatePatient', () => {
   it('accepts patient without identifier (optional)', () => {
     const { identifier, ...rest } = validPatient;
     const result = validatePatient(rest);
-    expect(result.errors.filter((e) => e.path.startsWith('identifier') && e.severity === 'error')).toHaveLength(0);
+    expect(
+      result.errors.filter((e) => e.path.startsWith('identifier') && e.severity === 'error'),
+    ).toHaveLength(0);
   });
 });

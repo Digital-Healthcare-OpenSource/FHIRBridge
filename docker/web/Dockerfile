@@ -4,7 +4,7 @@
 # Built from the repo root:  docker build -f docker/web/Dockerfile .
 
 # ── Stage 1: build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.11.0 --activate

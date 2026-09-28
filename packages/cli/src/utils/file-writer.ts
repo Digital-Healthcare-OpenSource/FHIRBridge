@@ -18,20 +18,21 @@ function safePath(filePath: string): string {
 }
 
 /**
- * Write string data to a file or stdout.
+ * Write text (UTF-8) or binary data (e.g. a PDF) to a file or stdout.
  * @param data - serialized content to write
  * @param outputPath - file path; if undefined, writes to stdout
  */
-export function writeOutput(data: string, outputPath?: string): void {
+export function writeOutput(data: string | Buffer, outputPath?: string): void {
   if (!outputPath) {
     process.stdout.write(data);
-    if (!data.endsWith('\n')) process.stdout.write('\n');
+    if (typeof data === 'string' && !data.endsWith('\n')) process.stdout.write('\n');
     return;
   }
 
   try {
     const safe = safePath(outputPath);
-    writeFileSync(safe, data, { encoding: 'utf8' });
+    if (typeof data === 'string') writeFileSync(safe, data, { encoding: 'utf8' });
+    else writeFileSync(safe, data);
   } catch (err) {
     error(`Failed to write output to "${outputPath}": ${(err as Error).message}`);
     throw err;

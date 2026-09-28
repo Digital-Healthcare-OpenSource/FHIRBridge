@@ -71,7 +71,7 @@ describe('parseMappingConfig — canonical examples', () => {
     expect(jp.sheet).toEqual({ Patient: '患者', Encounter: '受診', Condition: '受診' });
     expect(jp.patientId).toEqual({
       column: '患者番号',
-      system: 'https://fhirbridge.example/identifiers/jp-clinic-patient-id',
+      system: 'urn:oid:1.2.392.100495.20.3.51.11312345670',
     });
   });
 

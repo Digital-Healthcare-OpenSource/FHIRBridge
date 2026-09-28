@@ -4,7 +4,7 @@
  * that language/detail level settings affect the prompt.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type { AiProvider } from '../ai-provider-interface.js';
 import type { AiResponse, GenerateOptions, SectionSummary, SummaryConfig } from '@fhirbridge/types';
 import { TokenTracker } from '../token-tracker.js';

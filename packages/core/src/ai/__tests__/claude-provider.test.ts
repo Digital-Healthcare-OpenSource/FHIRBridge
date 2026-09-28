@@ -205,4 +205,27 @@ describe('ClaudeProvider', () => {
       expect(await provider.isAvailable()).toBe(false);
     });
   });
+
+  describe('endpoint (baseUrl)', () => {
+    async function lastCtorOptions(): Promise<Record<string, unknown>> {
+      const mod = await import('@anthropic-ai/sdk');
+      const ctor = mod.default as unknown as ReturnType<typeof vi.fn>;
+      return ctor.mock.calls.at(-1)![0] as Record<string, unknown>;
+    }
+
+    it('passes baseUrl to the SDK client as baseURL', async () => {
+      new ClaudeProvider({
+        ...BASE_CONFIG,
+        baseUrl: 'https://llm-gateway.hospital.example/anthropic',
+      });
+      expect(await lastCtorOptions()).toMatchObject({
+        baseURL: 'https://llm-gateway.hospital.example/anthropic',
+      });
+    });
+
+    it('leaves baseURL unset without baseUrl (SDK default / env applies)', async () => {
+      new ClaudeProvider(BASE_CONFIG);
+      expect(await lastCtorOptions()).not.toHaveProperty('baseURL');
+    });
+  });
 });

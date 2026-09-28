@@ -5,7 +5,8 @@
  */
 
 import type { PatientSummary, SectionSummary, SummaryLanguage } from '@fhirbridge/types';
-export { formatPdf } from './pdf-formatter.js';
+export { formatPdf, fitsBuiltInPdfFont, PdfFontRequiredError } from './pdf-formatter.js';
+export type { PdfFormatOptions } from './pdf-formatter.js';
 
 /** FHIR R4 Composition resource (minimal shape for type safety) */
 export interface FhirComposition {

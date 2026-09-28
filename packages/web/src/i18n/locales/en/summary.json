@@ -36,6 +36,8 @@
     "body": "— This content is produced by an AI model and may contain errors. Always verify clinical information with a qualified healthcare provider."
   },
   "actions": {
-    "download_markdown": "Download Markdown"
+    "download_markdown": "Download Markdown",
+    "print_pdf": "Print / Save as PDF",
+    "print_pdf_hint": "Opens the print dialog — choose \"Save as PDF\" as the destination"
   }
 }

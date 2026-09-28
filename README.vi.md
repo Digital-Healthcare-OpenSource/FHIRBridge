@@ -35,7 +35,7 @@ liệu ngay mà không cần HIS thật hay kết nối Internet.
 
 ### Cách A — Dùng Node.js (Windows / macOS / Linux)
 
-Cần Node.js ≥ 20 và pnpm ≥ 9 (chạy `corepack enable` để có pnpm).
+Cần Node.js ≥ 22 (khuyên dùng bản LTS 24) và pnpm ≥ 9 (chạy `corepack enable` để có pnpm).
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -53,7 +53,7 @@ pnpm demo          # chạy API + giao diện web + HIS demo → http://localhos
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # Tạo file .env (khoá bí mật + API key) bằng một container Node dùng một lần
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 
@@ -108,6 +108,10 @@ pnpm fhirbridge validate --input bundle.json
 # Tóm tắt bằng AI tiếng Việt (dữ liệu được ẩn danh trước khi gửi; cần ANTHROPIC_API_KEY hoặc OPENAI_API_KEY)
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language vi
+
+# Xuất bản tóm tắt ra PDF — tiếng Việt cần một file font Unicode (.ttf / .otf);
+# trên giao diện web dùng nút "In / Lưu PDF" thì không cần font
+pnpm fhirbridge summarize --input bundle.json --language vi --format pdf --output tom-tat.pdf --pdf-font /duong-dan/font.ttf
 ```
 
 ## Tóm tắt AI và quy định bảo vệ dữ liệu tại Việt Nam
@@ -121,6 +125,19 @@ dữ liệu ra nước ngoài** và cần hồ sơ đánh giá tác động theo
 viện tại Việt Nam: để tắt tóm tắt AI, hoặc dùng nhà cung cấp đặt trong nước / tự vận hành. Xem
 chi tiết tại mục [Data residency — Vietnam (PDPD)](README.md#data-residency--vietnam-pdpd) của
 README tiếng Anh. Đây là hướng dẫn kỹ thuật, **không phải tư vấn pháp lý**.
+
+**Chạy mô hình AI trong nước / trong mạng bệnh viện:** nhà cung cấp `openai` làm việc được với
+bất kỳ máy chủ nào hỗ trợ chuẩn OpenAI Chat Completions. Khai báo trong `.env`:
+
+```bash
+AI_PROVIDER=openai
+OPENAI_BASE_URL=http://10.20.0.5:8000/v1   # địa chỉ máy chủ mô hình của bạn
+OPENAI_MODEL=<tên-mô-hình-máy-chủ-đang-chạy>
+OPENAI_API_KEY=<key máy chủ yêu cầu; nếu máy chủ không kiểm tra key thì điền giá trị bất kỳ>
+```
+
+Dữ liệu vẫn được ẩn danh trước khi gửi. Xem thêm mục
+[AI summaries without leaving your network](README.md#ai-summaries-without-leaving-your-network).
 
 ## Góp ý và đóng góp
 

@@ -1,4 +1,4 @@
-name: Publish Docker image to GHCR
+name: Publish Docker images to GHCR
 
 on:
   push:
@@ -8,8 +8,18 @@ on:
 
 jobs:
   build-and-push:
+    name: build-and-push (${{ matrix.component }})
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      # One image failing its scan must not stop the other from shipping.
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            dockerfile: ./Dockerfile
+          - component: web
+            dockerfile: ./docker/web/Dockerfile
     permissions:
       contents: read
       packages: write
@@ -23,7 +33,7 @@ jobs:
       # raw. metadata-action lowercases internally — cosign does not.
       - name: Compute lowercase image name
         id: image
-        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fhirbridge-api" >> "$GITHUB_OUTPUT"
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fhirbridge-${{ matrix.component }}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -58,18 +68,18 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./Dockerfile
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: false
           load: true
-          tags: fhirbridge-api:scan
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: fhirbridge-${{ matrix.component }}:scan
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
 
       - name: Trivy image scan (gate)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: fhirbridge-api:scan
+          image-ref: fhirbridge-${{ matrix.component }}:scan
           format: table
           exit-code: '1' # fail the job on findings
           ignore-unfixed: true
@@ -81,13 +91,13 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./Dockerfile
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
           provenance: mode=max # SLSA build provenance attestation
           sbom: true # attach an SPDX SBOM attestation
 

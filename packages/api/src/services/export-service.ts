@@ -309,7 +309,10 @@ export class ExportService {
     } catch (err) {
       if (!signal.aborted) {
         const errorMessage = err instanceof Error ? err.message : 'Export failed';
-        this.logger.error(`[ExportService] streamExport error (no PHI): ${errorMessage}`);
+        // Strip line breaks: messages can carry server/host text, which must not be
+        // able to forge extra log lines.
+        const logSafeMessage = errorMessage.replace(/\r/g, '').replace(/\n/g, '');
+        this.logger.error(`[ExportService] streamExport error (no PHI): ${logSafeMessage}`);
 
         const outcome =
           JSON.stringify({

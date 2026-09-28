@@ -17,13 +17,7 @@ import type {
 
 /** Trạng thái kế hoạch chăm sóc (FHIR R4 §11.4.1.2) */
 export type CarePlanStatus =
-  | 'draft'
-  | 'active'
-  | 'on-hold'
-  | 'revoked'
-  | 'completed'
-  | 'entered-in-error'
-  | 'unknown';
+  'draft' | 'active' | 'on-hold' | 'revoked' | 'completed' | 'entered-in-error' | 'unknown';
 
 /** Mục đích/ý định của kế hoạch (FHIR R4 §11.4.1.3) */
 export type CarePlanIntent = 'proposal' | 'plan' | 'order' | 'option' | 'directive';

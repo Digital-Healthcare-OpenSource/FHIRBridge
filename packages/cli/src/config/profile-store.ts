@@ -44,9 +44,7 @@ export function removeProfile(name: string): void {
 export function requireProfile(name: string): ConnectorProfile {
   const profile = getProfile(name);
   if (!profile) {
-    throw new Error(
-      `Profile "${name}" not found. Run: fhirbridge config add-profile ${name}`,
-    );
+    throw new Error(`Profile "${name}" not found. Run: fhirbridge config add-profile ${name}`);
   }
   return profile;
 }

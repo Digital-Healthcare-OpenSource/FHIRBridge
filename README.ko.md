@@ -34,7 +34,7 @@
 
 ### 방법 A — Node.js (Windows / macOS / Linux)
 
-Node.js 20 이상, pnpm 9 이상이 필요합니다(`corepack enable`로 pnpm 설치).
+Node.js 22 이상(24 LTS 권장), pnpm 9 이상이 필요합니다(`corepack enable`로 pnpm 설치).
 
 ```bash
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
@@ -52,7 +52,7 @@ pnpm demo          # API + 웹 UI + 데모 HIS → http://localhost:8080
 git clone https://github.com/Digital-Healthcare-OpenSource/FHIRBridge.git
 cd FHIRBridge
 # 일회용 Node 컨테이너로 .env(무작위 시크릿 + API 키) 생성
-docker run --rm -v "$PWD":/app -w /app node:20-alpine node scripts/setup.mjs --env-only
+docker run --rm -v "$PWD":/app -w /app node:24-alpine node scripts/setup.mjs --env-only
 docker compose --profile demo up --build     # → http://localhost:8080
 ```
 
@@ -107,6 +107,10 @@ pnpm fhirbridge validate --input bundle.json
 # 한국어 AI 요약(전송 전 비식별화, ANTHROPIC_API_KEY 또는 OPENAI_API_KEY 필요)
 export ANTHROPIC_API_KEY=...
 pnpm fhirbridge summarize --input bundle.json --provider claude --language ko
+
+# PDF로 저장 — 한국어는 유니코드 글꼴 파일이 필요합니다 (.ttc는 --pdf-font-family도 지정).
+# 웹 UI의 "인쇄 / PDF로 저장" 버튼은 글꼴 지정이 필요 없습니다
+pnpm fhirbridge summarize --input bundle.json --language ko --format pdf --output summary.pdf --pdf-font /path/to/font.otf
 ```
 
 ## 한국 개인정보보호법(PIPA) 관련 기능
@@ -122,6 +126,11 @@ pnpm fhirbridge summarize --input bundle.json --provider claude --language ko
   그대로 동작합니다. 국외 AI 제공자 사용 전 영문 README의
   [Data residency — Korea (PIPA)](README.md#data-residency--korea-pipa)를 확인하십시오.
   본 문서는 기술 안내이며 **법률 자문이 아닙니다**.
+- **국내/병원 내부에서 AI 모델 운영**: `openai` 제공자는 OpenAI Chat Completions API와 호환되는
+  모든 서버와 통신합니다. `.env`에 `AI_PROVIDER=openai`, `OPENAI_BASE_URL=http://10.20.0.5:8000/v1`
+  (자체 서버 주소), `OPENAI_MODEL=<서버가 제공하는 모델 이름>`, `OPENAI_API_KEY=<서버가 요구하는 키,
+키를 검사하지 않으면 임의의 값>`을 설정하십시오. 전송 전 비식별화는 그대로 적용됩니다
+  ([자세히](README.md#ai-summaries-without-leaving-your-network)).
 
 ## 참여하기
 

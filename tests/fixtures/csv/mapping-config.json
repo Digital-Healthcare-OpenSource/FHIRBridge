@@ -31,10 +31,30 @@
       "resourceType": "Patient",
       "transform": "code",
       "valueMappings": [
-        { "sourceValue": "male", "system": "http://hl7.org/fhir/administrative-gender", "code": "male", "display": "Male" },
-        { "sourceValue": "female", "system": "http://hl7.org/fhir/administrative-gender", "code": "female", "display": "Female" },
-        { "sourceValue": "other", "system": "http://hl7.org/fhir/administrative-gender", "code": "other", "display": "Other" },
-        { "sourceValue": "unknown", "system": "http://hl7.org/fhir/administrative-gender", "code": "unknown", "display": "Unknown" }
+        {
+          "sourceValue": "male",
+          "system": "http://hl7.org/fhir/administrative-gender",
+          "code": "male",
+          "display": "Male"
+        },
+        {
+          "sourceValue": "female",
+          "system": "http://hl7.org/fhir/administrative-gender",
+          "code": "female",
+          "display": "Female"
+        },
+        {
+          "sourceValue": "other",
+          "system": "http://hl7.org/fhir/administrative-gender",
+          "code": "other",
+          "display": "Other"
+        },
+        {
+          "sourceValue": "unknown",
+          "system": "http://hl7.org/fhir/administrative-gender",
+          "code": "unknown",
+          "display": "Unknown"
+        }
       ]
     },
     {

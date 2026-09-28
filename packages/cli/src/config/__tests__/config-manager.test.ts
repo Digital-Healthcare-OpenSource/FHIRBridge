@@ -26,11 +26,19 @@ function readTestConfig(): Record<string, unknown> {
 
 describe('config file persistence', () => {
   beforeEach(() => {
-    try { unlinkSync(TEST_CONFIG); } catch { /* ignore */ }
+    try {
+      unlinkSync(TEST_CONFIG);
+    } catch {
+      /* ignore */
+    }
   });
 
   afterEach(() => {
-    try { unlinkSync(TEST_CONFIG); } catch { /* ignore */ }
+    try {
+      unlinkSync(TEST_CONFIG);
+    } catch {
+      /* ignore */
+    }
   });
 
   it('writes valid JSON to config path', () => {
@@ -133,7 +141,9 @@ describe('profile-store logic', () => {
   });
 
   it('overwrites existing profile', () => {
-    const store = buildProfileStore({ myprofile: { type: 'fhir-endpoint', baseUrl: 'http://old.org' } });
+    const store = buildProfileStore({
+      myprofile: { type: 'fhir-endpoint', baseUrl: 'http://old.org' },
+    });
     store.set('myprofile', { type: 'fhir-endpoint', baseUrl: 'http://new.org' });
     expect(store.get('myprofile')?.baseUrl).toBe('http://new.org');
   });
