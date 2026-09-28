@@ -12,7 +12,7 @@ import { registerValidateCommand } from './commands/validate-command.js';
 import { registerConfigCommand } from './commands/config-command.js';
 
 // Package version — matches package.json
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 export const CLI_VERSION = VERSION;
 export const CLI_NAME = 'fhirbridge';

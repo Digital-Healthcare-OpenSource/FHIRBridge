@@ -6,6 +6,14 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-28
+
+"Runs out of the box" release: one-command setup and Docker run with a synthetic Demo HIS, a
+working CSV/Excel import with Vietnam / Korea / Japan / international mappings, a fully localized
+web UI (Tiếng Việt / English / 日本語 / 한국어), AI summaries that work end to end (also on a
+self-hosted or in-country model) and as PDF, connect-time SSRF protection, Node 24 and a
+dependency tree with no known vulnerabilities.
+
 ### Security
 
 - **SSRF protection now also holds at connect time (DNS rebinding).** FHIR endpoint and OAuth2
@@ -176,5 +184,6 @@ documentation, schema-migration runner, revived security and Playwright suites, 
 and dependency hardening. See the
 [release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0).
 
-[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0
