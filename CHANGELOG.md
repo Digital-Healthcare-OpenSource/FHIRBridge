@@ -33,6 +33,9 @@ All notable changes to FHIRBridge are documented here. The format follows
   uses the GHCR names (`FHIRBRIDGE_VERSION`, `FHIRBRIDGE_REGISTRY` to pin or mirror), so
   `docker compose pull && docker compose up` runs without building; `--build` still builds
   from source.
+- CI runs the Playwright web end-to-end and axe accessibility suites (Chromium, desktop and
+  tablet viewport) against a real API with PostgreSQL and Redis; the HTML report is uploaded when
+  a test fails.
 - **One-command setup and run.** `pnpm run setup` creates `.env` with random secrets, an API key
   and database / cache passwords (idempotent, cross-platform, `--env-only` for Docker), then
   builds everything. `pnpm start` serves the web UI and API together on
@@ -98,6 +101,8 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ### Fixed
 
+- Playwright "tablet" projects ran with the desktop viewport (the device preset overrode the
+  768×1024 viewport); three web e2e tests still described the pre-0.3 UI or raced the page load.
 - **CSV / Excel import produced empty bundles on every path** (CLI, API, web): mappings were
   never applied, the documented example format was not understood, and the API added raw rows
   as invalid resources. Import now uses one canonical mapping format (the documented `fields`

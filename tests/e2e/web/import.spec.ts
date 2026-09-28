@@ -41,6 +41,8 @@ test.describe('Import Page', () => {
   test('offers VN / KR / JP / international example mappings', async ({ page }) => {
     const importPage = new ImportPage(page);
     await importPage.goto();
+    // evaluateAll does not auto-wait — wait until the select is rendered
+    await expect(importPage.mappingSelect.locator('option')).toHaveCount(5);
     const values = await importPage.mappingSelect
       .locator('option')
       .evaluateAll((options) => options.map((o) => (o as HTMLOptionElement).value));

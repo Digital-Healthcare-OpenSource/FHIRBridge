@@ -42,11 +42,14 @@ test.describe('Export Wizard', () => {
     await expect(wizard.fhirEndpointCard).toBeVisible();
   });
 
-  test('selecting File Upload advances to step 2 with upload UI', async ({ page }) => {
+  test('selecting File Upload opens the Import page (CSV / Excel are converted there)', async ({
+    page,
+  }) => {
     const wizard = new ExportWizardPage(page);
     await wizard.goto();
     await wizard.selectFileUpload();
-    await expect(page.getByText(/upload file/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/import$/);
+    await expect(page.locator('select#mapping-preset')).toBeVisible();
   });
 
   test('Next button on step 2 (FHIR) advances to patient ID step', async ({ page }) => {

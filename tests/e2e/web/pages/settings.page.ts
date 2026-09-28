@@ -17,11 +17,8 @@ export class SettingsPage {
 
   constructor(page: Page) {
     this.page = page;
-    // API key input — type="password" by default
-    this.apiKeyInput = page
-      .locator('input[type="password"]')
-      .or(page.locator('input[placeholder*="sk"]'))
-      .first();
+    // API key input (id stays the same when show/hide flips type="password" ↔ "text")
+    this.apiKeyInput = page.locator('input#api-credential');
     // Eye / EyeOff toggle button
     this.showHideKeyButton = page
       .getByRole('button', { name: /show api key|hide api key/i })
