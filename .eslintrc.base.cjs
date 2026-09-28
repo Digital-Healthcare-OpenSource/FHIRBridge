@@ -14,7 +14,11 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/explicit-function-return-type': 'off',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': [
+      'warn',
+      // `const { omitted, ...rest } = x` and `_`-prefixed names are intentional.
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
+    ],
     '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
     'no-console': ['warn', { allow: ['warn', 'error'] }],
     'prefer-const': 'error',

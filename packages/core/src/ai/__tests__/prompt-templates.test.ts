@@ -4,14 +4,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  getSectionPrompt,
-  getSynthesisPrompt,
-  isSupportedSection,
-} from '../prompt-templates.js';
+import { getSectionPrompt, getSynthesisPrompt, isSupportedSection } from '../prompt-templates.js';
 import type { SummaryLanguage, SummaryDetailLevel } from '@fhirbridge/types';
 
-const SAMPLE_DATA = JSON.stringify([{ resourceType: 'Condition', id: 'abc', code: { text: 'Diabetes' } }]);
+const SAMPLE_DATA = JSON.stringify([
+  { resourceType: 'Condition', id: 'abc', code: { text: 'Diabetes' } },
+]);
 
 describe('getSectionPrompt', () => {
   it('returns system and user prompts', () => {
@@ -74,8 +72,15 @@ describe('getSectionPrompt', () => {
   });
 
   const sections = [
-    'Conditions', 'Medications', 'Allergies', 'Vitals',
-    'Observations', 'Procedures', 'Encounters', 'DiagnosticReports', 'Demographics',
+    'Conditions',
+    'Medications',
+    'Allergies',
+    'Vitals',
+    'Observations',
+    'Procedures',
+    'Encounters',
+    'DiagnosticReports',
+    'Demographics',
   ] as const;
 
   for (const section of sections) {

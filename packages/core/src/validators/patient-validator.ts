@@ -4,7 +4,7 @@
  * Does NOT log PHI — only field paths are included in error messages.
  */
 
-import type { Patient, ValidationResult, ValidationError } from '@fhirbridge/types';
+import type { ValidationResult, ValidationError } from '@fhirbridge/types';
 import { validateResource, patterns } from './resource-validator.js';
 
 const VALID_GENDERS = new Set(['male', 'female', 'other', 'unknown']);
@@ -49,7 +49,8 @@ export function validatePatient(patient: unknown): ValidationResult {
   } else {
     const names = p['name'] as Record<string, unknown>[];
     const hasFamily = names.some(
-      (n) => n && typeof n === 'object' && typeof n['family'] === 'string' && n['family'].trim() !== '',
+      (n) =>
+        n && typeof n === 'object' && typeof n['family'] === 'string' && n['family'].trim() !== '',
     );
     if (!hasFamily) {
       errors.push({
@@ -83,7 +84,11 @@ export function validatePatient(patient: unknown): ValidationResult {
       severity: 'warning',
     });
   } else if (typeof p['birthDate'] !== 'string') {
-    errors.push({ path: 'birthDate', message: 'Patient.birthDate must be a string', severity: 'error' });
+    errors.push({
+      path: 'birthDate',
+      message: 'Patient.birthDate must be a string',
+      severity: 'error',
+    });
   } else if (!patterns.DATE.test(p['birthDate'])) {
     errors.push({
       path: 'birthDate',
@@ -95,11 +100,19 @@ export function validatePatient(patient: unknown): ValidationResult {
   // Validate identifier if present
   if (p['identifier'] !== undefined) {
     if (!Array.isArray(p['identifier'])) {
-      errors.push({ path: 'identifier', message: 'Patient.identifier must be an array', severity: 'error' });
+      errors.push({
+        path: 'identifier',
+        message: 'Patient.identifier must be an array',
+        severity: 'error',
+      });
     } else {
       (p['identifier'] as unknown[]).forEach((id, i) => {
         if (!id || typeof id !== 'object') {
-          errors.push({ path: `identifier[${i}]`, message: 'Identifier must be an object', severity: 'error' });
+          errors.push({
+            path: `identifier[${i}]`,
+            message: 'Identifier must be an object',
+            severity: 'error',
+          });
         }
       });
     }

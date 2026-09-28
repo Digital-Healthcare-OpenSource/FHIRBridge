@@ -3,17 +3,14 @@
  * Validates reference format and optionally resolves references within a Bundle.
  */
 
-import type { Reference, Bundle, ValidationResult, ValidationError } from '@fhirbridge/types';
+import type { Bundle, ValidationResult, ValidationError } from '@fhirbridge/types';
 import { patterns } from './resource-validator.js';
 
 /**
  * Validate a single FHIR Reference.
  * Accepts: urn:uuid:{uuid}, relative (ResourceType/id), or absolute URL.
  */
-export function validateReference(
-  ref: unknown,
-  path = 'reference',
-): ValidationResult {
+export function validateReference(ref: unknown, path = 'reference'): ValidationResult {
   const errors: ValidationError[] = [];
 
   if (!ref || typeof ref !== 'object') {
@@ -35,7 +32,11 @@ export function validateReference(
 
   if (r['reference'] !== undefined) {
     if (typeof r['reference'] !== 'string') {
-      errors.push({ path: `${path}.reference`, message: 'Reference.reference must be a string', severity: 'error' });
+      errors.push({
+        path: `${path}.reference`,
+        message: 'Reference.reference must be a string',
+        severity: 'error',
+      });
     } else {
       const refStr = r['reference'] as string;
       const isUrnUuid = patterns.URN_UUID.test(refStr);
@@ -45,7 +46,8 @@ export function validateReference(
       if (!isUrnUuid && !isRelative && !isAbsolute) {
         errors.push({
           path: `${path}.reference`,
-          message: 'Reference.reference must be a urn:uuid, relative (ResourceType/id), or absolute URL',
+          message:
+            'Reference.reference must be a urn:uuid, relative (ResourceType/id), or absolute URL',
           severity: 'error',
         });
       }

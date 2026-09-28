@@ -9,10 +9,7 @@
       "@fhirbridge/core": ["../core/src/index.ts"]
     }
   },
-  "references": [
-    { "path": "../types" },
-    { "path": "../core" }
-  ],
+  "references": [{ "path": "../types" }, { "path": "../core" }],
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }

@@ -10,11 +10,7 @@ import chalk from 'chalk';
  * @param pretty - whether to indent (default true)
  * @param colorize - add chalk syntax colors (default true when TTY)
  */
-export function formatJson(
-  data: unknown,
-  pretty = true,
-  colorize = process.stdout.isTTY,
-): string {
+export function formatJson(data: unknown, pretty = true, colorize = process.stdout.isTTY): string {
   const raw = pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data);
   if (!colorize) return raw;
   return colorizeJson(raw);

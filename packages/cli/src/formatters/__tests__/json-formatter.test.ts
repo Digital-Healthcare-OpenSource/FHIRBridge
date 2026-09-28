@@ -2,7 +2,7 @@
  * Tests for json-formatter — pretty-print JSON with optional chalk syntax highlighting.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { formatJson } from '../json-formatter.js';
 
 describe('formatJson', () => {

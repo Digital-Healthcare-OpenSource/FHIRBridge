@@ -80,9 +80,15 @@ describe('transformToFhir', () => {
   it('skips fields not in mappingConfig when config is provided', () => {
     const raw = { pt_family: 'Doe', unused_field: 'ignored' };
     const mapping = { pt_family: 'name[0].family' };
+    const resource = transformToFhir(raw, 'Patient', mapping) as Record<string, unknown>;
+    expect(resource['unused_field']).toBeUndefined();
+    expect((resource['name'] as Array<{ family?: string }>)[0]?.family).toBe('Doe');
+  });
+
+  it('copies every field as-is when no mappingConfig is given', () => {
+    const raw = { pt_family: 'Doe', unused_field: 'kept' };
     const resource = transformToFhir(raw, 'Patient') as Record<string, unknown>;
-    // Direct copy mode — unused_field should be present
-    expect(resource['unused_field']).toBe('ignored');
+    expect(resource['unused_field']).toBe('kept');
   });
 });
 
@@ -185,24 +191,6 @@ describe('TransformPipeline', () => {
 // ── C-6: AbortSignal tests cho pipe() ────────────────────────────────────────
 
 describe('TransformPipeline.pipe() AbortSignal (C-6)', () => {
-  /**
-   * Tạo async generator chậm với delay giữa các items.
-   * Dùng để test abort trong khi đang iterate.
-   */
-  async function* slowGenerator(count: number, delayMs = 0) {
-    for (let i = 0; i < count; i++) {
-      if (delayMs > 0) {
-        await new Promise<void>((r) => setTimeout(r, delayMs));
-      }
-      yield {
-        resourceType: 'Patient',
-        id: `patient-${i}`,
-        gender: 'male',
-        birthDate: '1990-01-01',
-      };
-    }
-  }
-
   it('pre-aborted signal → yields nothing', async () => {
     const pipeline = new TransformPipeline({ resourceType: 'Patient' });
 
@@ -241,7 +229,7 @@ describe('TransformPipeline.pipe() AbortSignal (C-6)', () => {
       }
     }
 
-    for await (const bundle of pipeline.pipe(abortingSource(), controller.signal)) {
+    for await (const _bundle of pipeline.pipe(abortingSource(), controller.signal)) {
       bundleCount++;
     }
 

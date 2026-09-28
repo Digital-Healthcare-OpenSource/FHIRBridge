@@ -77,6 +77,10 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ### Changed
 
+- Code hygiene: ESLint is warning-free (42 → 0: unused imports and variables removed, one
+  misleading test fixed to test what its name says, an unused de-identifier parameter dropped),
+  the whole repo is Prettier-formatted and CI now runs `pnpm format:check`; the husky pre-commit
+  hook drops the lines husky 10 will reject.
 - Default Claude model is now `claude-opus-5` (the previous default,
   `claude-sonnet-4-20250514`, is deprecated by Anthropic). `temperature` is no longer sent to
   Claude (current models reject sampling parameters). Summary calls allow 16k output tokens and

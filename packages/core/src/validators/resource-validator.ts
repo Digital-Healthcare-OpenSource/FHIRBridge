@@ -7,7 +7,7 @@
  * exactly one of medicationCodeableConcept | medicationReference must be present.
  */
 
-import type { Resource, ValidationResult, ValidationError } from '@fhirbridge/types';
+import type { ValidationResult, ValidationError } from '@fhirbridge/types';
 
 /** UUID v4 pattern (with or without urn:uuid: prefix) */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, unlinkSync, existsSync, readFileSync, chmodSync } from 'fs';
+import { unlinkSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -64,7 +64,7 @@ vi.mock('../../config/config-manager.js', () => {
     }
   }
 
-  function warnIfApiKeyInConfig(profile: Profile): void {
+  function warnIfApiKeyInConfig(_profile: Profile): void {
     // no-op in tests
   }
 

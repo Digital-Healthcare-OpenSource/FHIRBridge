@@ -60,7 +60,10 @@ export interface Procedure extends DomainResource {
   performedPeriod?: Period;
   performedString?: string;
   performedAge?: { value: number; unit: string };
-  performedRange?: { low?: { value: number; unit: string }; high?: { value: number; unit: string } };
+  performedRange?: {
+    low?: { value: number; unit: string };
+    high?: { value: number; unit: string };
+  };
   recorder?: Reference;
   asserter?: Reference;
   performer?: ProcedurePerformer[];
