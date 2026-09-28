@@ -63,8 +63,9 @@ Drop `--profile demo` to run without the Demo HIS.
 
 ### First export (both options)
 
-1. Open **http://localhost:8080** → **Settings**, paste the API key printed by the setup step
-   (also in `.env` → `API_KEYS`), click **Save Settings**. The key stays in browser memory only.
+1. Open **http://localhost:8080** → **Settings**, paste your API key — the value of the `API_KEYS=`
+   line in `.env` (the setup step never prints it) — and click **Save Settings**. The key stays in
+   browser memory only.
 2. Pick your language (Tiếng Việt / English / 日本語 / 한국어) from the language switcher.
 3. **Export** → **FHIR Endpoint** → server URL
    - `pnpm demo`: `http://localhost:8090/fhir`
@@ -75,7 +76,7 @@ Drop `--profile demo` to run without the Demo HIS.
    → download the FHIR Bundle built from a CSV / Excel export.
 
 Check an installation from the command line at any time with `pnpm smoke` (health → HIS
-connection → export → download; Docker demo: `node scripts/smoke-test.mjs --his http://demo-his:8090/fhir`).
+connection → export → download; Docker demo: `pnpm smoke --his http://demo-his:8090/fhir`).
 
 ### Connect your real HIS
 

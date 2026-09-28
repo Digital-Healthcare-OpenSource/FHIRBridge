@@ -25,7 +25,7 @@ All notable changes to FHIRBridge are documented here. The format follows
 - Summaries from an export id: `POST /api/v1/summary/generate` accepts `exportId` (ownership
   checked) so the web UI no longer needs the bundle.
 - `ANTHROPIC_MODEL` / `OPENAI_MODEL` to pin provider models; `AI_PROVIDER` now selects the
-  default provider.
+  default provider. Provider keys and models are read once through the validated API config.
 - **Web UI fully localized in Tiếng Việt / English / 日本語 / 한국어** — every page, the landing
   page (new `landing` namespace), status labels, dates and numbers follow the selected language;
   a language switcher in the header and landing navbar; `<html lang>` follows the language;
@@ -82,6 +82,12 @@ All notable changes to FHIRBridge are documented here. The format follows
   The API reports mapping errors (`400`), content that yields nothing (`422`) and oversize
   input (`413`) clearly; the CLI exits non-zero instead of writing an empty bundle.
 - Excel date cells were read as serial numbers.
+- CSV imports now stop at a 1,000,000-row ceiling (`413`), like Excel imports, instead of
+  transforming arbitrarily many rows.
+- Import uploads are written to a private `mkdtemp` directory (0700) with an exclusively
+  created 0600 file, and the directory is deleted before the response is sent (previously the
+  temp file was removed only after the client already had its answer).
+- `fast-uri` raised to 3.1.6 / 4.1.3 (pnpm overrides) for new high-severity advisories.
 - `fhirbridge export` / `summarize` without `--output` mixed status lines into the data on
   stdout; status now goes to stderr so the output can be redirected to a file.
 

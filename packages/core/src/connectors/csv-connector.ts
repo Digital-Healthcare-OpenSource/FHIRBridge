@@ -22,6 +22,9 @@ import type {
 import { ConnectorError } from './his-connector-interface.js';
 import { mapRow } from './column-mapper.js';
 
+/** Data-row ceiling for streamRows() — mirrors ExcelConnector's workbook row ceiling. */
+const MAX_CSV_ROWS = 1_000_000;
+
 export class CsvConnector implements HisConnector {
   readonly type = 'csv' as const;
 
@@ -146,7 +149,15 @@ export class CsvConnector implements HisConnector {
       },
     );
 
+    // Row ceiling (like ExcelConnector): a huge file of unmapped rows must fail fast
+    // instead of being transformed row by row until the import finally reports nothing.
+    const maxRows = options.maxRows ?? MAX_CSV_ROWS;
+    let rowCount = 0;
     for await (const item of parser) {
+      if (++rowCount > maxRows) {
+        parser.destroy();
+        throw new ConnectorError('Row count ceiling exceeded', 'ROW_LIMIT');
+      }
       const { record, info } = item as {
         record: Record<string, unknown>;
         info: { lines: number };

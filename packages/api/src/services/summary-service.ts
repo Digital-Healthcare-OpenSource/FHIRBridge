@@ -51,27 +51,41 @@ function resolveProvider(provider?: string): 'claude' | 'openai' {
   return 'claude';
 }
 
-/** Read an optional env var, treating empty / whitespace-only values as unset. */
-function envValue(name: string): string | undefined {
-  const value = process.env[name]?.trim();
-  return value ? value : undefined;
+/**
+ * Provider credentials + model pins. Comes from the validated ApiConfig (the same
+ * source the summary route checks before accepting a job) — never read ad hoc from
+ * process.env here, so a 202 can't turn into a job that has no key.
+ */
+export interface SummaryAiSettings {
+  anthropicApiKey?: string;
+  openaiApiKey?: string;
+  anthropicModel?: string;
+  openaiModel?: string;
+}
+
+/** Pick the AI settings out of an ApiConfig-shaped object. */
+export function summaryAiSettings(config: SummaryAiSettings): SummaryAiSettings {
+  return {
+    anthropicApiKey: config.anthropicApiKey,
+    openaiApiKey: config.openaiApiKey,
+    anthropicModel: config.anthropicModel,
+    openaiModel: config.openaiModel,
+  };
 }
 
 function buildSummaryConfig(
   options: SummaryRequestOptions = {},
   hmacSecret: string,
+  ai: SummaryAiSettings,
 ): SummaryConfig {
   const providerName = resolveProvider(options.provider);
-  const apiKey =
-    providerName === 'openai'
-      ? (envValue('OPENAI_API_KEY') ?? '')
-      : (envValue('ANTHROPIC_API_KEY') ?? '');
+  const apiKey = (providerName === 'openai' ? ai.openaiApiKey : ai.anthropicApiKey) ?? '';
   // Operators pin a model per provider (ANTHROPIC_MODEL / OPENAI_MODEL); the
   // defaults live in core so API and CLI never drift apart.
   const model =
     providerName === 'openai'
-      ? (envValue('OPENAI_MODEL') ?? OPENAI_DEFAULT_MODEL)
-      : (envValue('ANTHROPIC_MODEL') ?? CLAUDE_DEFAULT_MODEL);
+      ? (ai.openaiModel ?? OPENAI_DEFAULT_MODEL)
+      : (ai.anthropicModel ?? CLAUDE_DEFAULT_MODEL);
 
   return {
     language: options.language ?? 'en',
@@ -96,8 +110,15 @@ function buildSummaryConfig(
 
 export class SummaryService {
   private readonly store: JobRecordStore<SummaryRecord>;
+  private readonly ai: SummaryAiSettings;
 
-  constructor(redisStore?: IRedisStore, auditService?: AuditService, auditHashSalt?: string) {
+  constructor(
+    redisStore?: IRedisStore,
+    auditService?: AuditService,
+    auditHashSalt?: string,
+    ai: SummaryAiSettings = {},
+  ) {
+    this.ai = ai;
     const hashKey =
       auditHashSalt ?? process.env['HMAC_SECRET'] ?? 'dev-only-fallback-salt-32-chars-min';
 
@@ -155,7 +176,7 @@ export class SummaryService {
     }
 
     try {
-      const config = buildSummaryConfig(request.summaryConfig, request.hmacSecret);
+      const config = buildSummaryConfig(request.summaryConfig, request.hmacSecret, this.ai);
       const gateway = new ProviderGateway(config);
       const summary = await gateway.summarize(request.bundle, config);
 

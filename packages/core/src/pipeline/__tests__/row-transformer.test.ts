@@ -19,6 +19,9 @@ import {
   type TabularRow,
 } from '../row-transformer.js';
 
+// Built at runtime so secret scanners don't mistake a fixture for a real key.
+const TEST_RRN_SECRET = 'rrn-test-'.padEnd(40, 'x');
+
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const HOSPITAL_MAPPING = {
@@ -604,7 +607,7 @@ describe('RowTransformer — RRN (주민등록번호) protection', () => {
   const values = { PID: 'KR-1', RRN, L: '홍', DX: `환자 ${RRN} 메모` };
 
   it('hashes RRN identifiers with a secret and masks RRN in other text', () => {
-    const result = run(KR, [values], { rrnSecret: 'secret-for-tests-0123456789abcdef' });
+    const result = run(KR, [values], { rrnSecret: TEST_RRN_SECRET });
     const json = JSON.stringify(result.bundle);
     expect(json).not.toContain(RRN);
     expect(json).not.toContain('8001011234560');
@@ -629,7 +632,7 @@ describe('RowTransformer — RRN (주민등록번호) protection', () => {
         fields: { 'Patient.name.family': 'L', 'Condition.code.text': 'DX' },
       },
       [values, { ...values, DX: 'x' }],
-      { rrnSecret: 'secret-for-tests-0123456789abcdef' },
+      { rrnSecret: TEST_RRN_SECRET },
     );
     expect(result.byType('Patient')).toHaveLength(1); // dedupe still uses the raw value in memory
     expect(containsRrn(JSON.stringify(result.bundle))).toBe(false);

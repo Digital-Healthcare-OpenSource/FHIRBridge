@@ -74,6 +74,9 @@ const ApiConfigSchema = z
     // Optional AI provider credentials + selection (summary endpoints).
     anthropicApiKey: z.string().optional(),
     openaiApiKey: z.string().optional(),
+    // Optional model pins (defaults live in @fhirbridge/core).
+    anthropicModel: z.string().optional(),
+    openaiModel: z.string().optional(),
     aiProvider: z.enum(['anthropic', 'openai']).optional(),
 
     // Optional override for structured-error docs deep links.
@@ -173,6 +176,8 @@ const ENV_VARS = {
   enableDocs: 'ENABLE_DOCS',
   anthropicApiKey: 'ANTHROPIC_API_KEY',
   openaiApiKey: 'OPENAI_API_KEY',
+  anthropicModel: 'ANTHROPIC_MODEL',
+  openaiModel: 'OPENAI_MODEL',
   aiProvider: 'AI_PROVIDER',
   errorDocsBaseUrl: 'ERROR_DOCS_BASE_URL',
   auditRetentionDays: 'AUDIT_RETENTION_DAYS',

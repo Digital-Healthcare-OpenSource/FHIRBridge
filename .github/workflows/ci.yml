@@ -116,7 +116,7 @@ jobs:
         run: docker compose --profile demo up -d --build --wait --wait-timeout 180
 
       - name: Export a demo patient through the web front end
-        run: node scripts/smoke-test.mjs --his http://demo-his:8090/fhir --patient demo-kr-001
+        run: node --env-file=.env scripts/smoke-test.mjs --his http://demo-his:8090/fhir --patient demo-kr-001
 
       - name: Container logs
         if: failure()

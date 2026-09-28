@@ -61,9 +61,9 @@ Bỏ `--profile demo` nếu không cần HIS demo.
 
 ### Xuất dữ liệu lần đầu (cả hai cách)
 
-1. Mở **http://localhost:8080** → vào **Cài đặt (Settings)**, dán API key mà bước cài đặt in ra
-   (cũng nằm trong file `.env`, dòng `API_KEYS`), bấm **Lưu cài đặt**. Key chỉ nằm trong bộ nhớ trình
-   duyệt, đóng tab là mất.
+1. Mở **http://localhost:8080** → vào **Cài đặt (Settings)**, dán API key — là giá trị ở dòng
+   `API_KEYS=` trong file `.env` (bước cài đặt không in key ra màn hình để tránh lộ) — rồi bấm
+   **Lưu cài đặt**. Key chỉ nằm trong bộ nhớ trình duyệt, đóng tab là mất.
 2. Chọn ngôn ngữ giao diện (Tiếng Việt / English / 日本語 / 한국어) ở nút chuyển ngôn ngữ.
 3. Vào **Xuất dữ liệu** → chọn **FHIR Endpoint** → nhập địa chỉ máy chủ:
    - Nếu chạy `pnpm demo`: `http://localhost:8090/fhir`
@@ -74,7 +74,7 @@ Bỏ `--profile demo` nếu không cần HIS demo.
    → tải về gói FHIR được tạo từ file CSV / Excel.
 
 Muốn kiểm tra nhanh bản cài đặt bằng dòng lệnh: chạy `pnpm smoke` (kiểm tra sức khoẻ → kết nối HIS →
-xuất → tải về; nếu dùng Docker demo: `node scripts/smoke-test.mjs --his http://demo-his:8090/fhir`).
+xuất → tải về; nếu dùng Docker demo: `pnpm smoke --his http://demo-his:8090/fhir`).
 
 ### Kết nối HIS thật của bệnh viện
 

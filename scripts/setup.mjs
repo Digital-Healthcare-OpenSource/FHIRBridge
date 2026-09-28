@@ -18,7 +18,15 @@
 
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fchmodSync,
+  ftruncateSync,
+  openSync,
+  readFileSync,
+  writeSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -76,11 +84,40 @@ function checkNode() {
   if (major < 20) fail(`Node.js >= 20 is required (found ${process.version}).`);
 }
 
+/** Read a file, or undefined when it does not exist (no check-then-use race). */
+function readIfExists(file) {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch (err) {
+    if (err.code === 'ENOENT') return undefined;
+    throw err;
+  }
+}
+
+/**
+ * Write .env through one file descriptor: created exclusively ('wx') when new,
+ * and owner-only (0600) in both cases — it holds the installation's secrets.
+ */
+function writeEnvFile(text, create) {
+  const fd = openSync(ENV_FILE, create ? 'wx' : 'r+', 0o600);
+  try {
+    try {
+      fchmodSync(fd, 0o600); // no-op on Windows
+    } catch {
+      /* ignore */
+    }
+    ftruncateSync(fd, 0);
+    writeSync(fd, text, 0);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function prepareEnv() {
-  const created = !existsSync(ENV_FILE);
-  if (created && !existsSync(ENV_EXAMPLE))
-    fail('.env.example not found — run from a full checkout.');
-  let text = readFileSync(created ? ENV_EXAMPLE : ENV_FILE, 'utf8');
+  const existing = readIfExists(ENV_FILE);
+  const created = existing === undefined;
+  let text = existing ?? readIfExists(ENV_EXAMPLE);
+  if (text === undefined) fail('.env.example not found — run from a full checkout.');
 
   const changed = [];
   for (const [key, generate] of Object.entries(GENERATED)) {
@@ -101,18 +138,11 @@ function prepareEnv() {
     )
     .replace(/^# REDIS_URL=redis:\/\/:[^@]*@/m, `# REDIS_URL=redis://:${redisPassword}@`);
 
-  writeFileSync(ENV_FILE, text, { mode: 0o600 });
-  try {
-    chmodSync(ENV_FILE, 0o600); // secrets: owner read/write only (no-op on Windows)
-  } catch {
-    /* ignore */
-  }
+  writeEnvFile(text, created);
 
   if (created) log(`Created .env with fresh secrets (${changed.join(', ')}).`);
   else if (changed.length > 0) log(`Filled in missing values in .env: ${changed.join(', ')}.`);
   else log('.env already configured — kept your existing values.');
-
-  return (readVar(text, 'API_KEYS') ?? '').split(',')[0].trim();
 }
 
 function run(command, commandArgs) {
@@ -128,7 +158,7 @@ function run(command, commandArgs) {
 }
 
 checkNode();
-const apiKey = prepareEnv();
+prepareEnv();
 
 if (!SKIP_BUILD) {
   if (!existsSync(join(ROOT, 'node_modules', '.modules.yaml'))) {
@@ -140,14 +170,15 @@ if (!SKIP_BUILD) {
 console.log('');
 log(paint('1', 'Setup complete.'));
 console.log('');
-console.log(`  Your API key (also in .env → API_KEYS):  ${paint('36', apiKey)}`);
+// The key itself is never printed (terminal scrollback / CI logs): point at it.
+console.log(`  Your API key: the ${paint('36', 'API_KEYS=')} line in ${ENV_FILE}`);
 console.log('');
 if (ENV_ONLY) {
   console.log('  Next:  docker compose up --build   → http://localhost:8080');
 } else {
   console.log('  Next:  pnpm start                  → http://localhost:8080');
 }
-console.log('         Open Settings in the web UI and paste the API key above.');
+console.log('         Open Settings in the web UI and paste that API key.');
 console.log('');
 console.log('  Optional: AI summaries need ANTHROPIC_API_KEY or OPENAI_API_KEY in .env —');
 console.log('  read the data-residency notes in README (VN / KR / JP) before enabling them.');

@@ -60,9 +60,9 @@ docker compose --profile demo up --build     # → http://localhost:8080
 
 ### 初めてのエクスポート(共通)
 
-1. **http://localhost:8080** → **設定(Settings)** で、セットアップ時に表示された API キー
-   (`.env` の `API_KEYS` にも記載)を貼り付けて **設定を保存** を押します。キーはブラウザのメモリ内にのみ
-   保持されます。
+1. **http://localhost:8080** → **設定(Settings)** で API キー(`.env` の `API_KEYS=` 行の値。
+   漏えい防止のためセットアップはキーを画面に表示しません)を貼り付けて **設定を保存** を押します。
+   キーはブラウザのメモリ内にのみ保持されます。
 2. 言語切り替えメニューで表示言語(日本語 / English / 한국어 / Tiếng Việt)を選びます。
 3. **データエクスポート** → **FHIR エンドポイント** → サーバー URL を入力
    - `pnpm demo` の場合: `http://localhost:8090/fhir`
@@ -73,7 +73,7 @@ docker compose --profile demo up --build     # → http://localhost:8080
    CSV / Excel から作成された FHIR バンドルをダウンロード。
 
 インストールの動作確認はいつでも `pnpm smoke` で行えます(ヘルスチェック → HIS 接続 → エクスポート →
-ダウンロード。Docker デモの場合: `node scripts/smoke-test.mjs --his http://demo-his:8090/fhir`)。
+ダウンロード。Docker デモの場合: `pnpm smoke --his http://demo-his:8090/fhir`)。
 
 ### 実際の HIS への接続
 

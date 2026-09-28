@@ -18,7 +18,7 @@ describe('FileDropzone', () => {
 
   it('renders accepted file types hint', () => {
     render(<FileDropzone onFilesAccepted={vi.fn()} />);
-    expect(screen.getByText(/csv, xlsx or xls/i)).toBeInTheDocument();
+    expect(screen.getByText(/csv or xlsx/i)).toBeInTheDocument();
   });
 
   it('renders file upload input', () => {

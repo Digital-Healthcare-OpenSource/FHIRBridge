@@ -24,6 +24,7 @@ const ENV_KEYS = [
   'OPENAI_API_KEY',
   'DATABASE_URL',
   'AUDIT_PROFILE',
+  'ANTHROPIC_MODEL',
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -157,5 +158,11 @@ describe('loadConfig — copy-pasted .env.example ergonomics', () => {
   it('points the operator at the setup script', () => {
     delete process.env['JWT_SECRET'];
     expect(() => loadConfig()).toThrow(/pnpm run setup/);
+  });
+
+  it('reads ANTHROPIC_MODEL as an optional model pin', () => {
+    expect(loadConfig().anthropicModel).toBeUndefined();
+    process.env['ANTHROPIC_MODEL'] = 'claude-opus-5';
+    expect(loadConfig().anthropicModel).toBe('claude-opus-5');
   });
 });

@@ -21,6 +21,7 @@ vi.mock('../../services/summary-service.js', () => ({
     startGeneration: mockStartGeneration,
     getStatus: mockGetSummaryStatus,
   })),
+  summaryAiSettings: vi.fn(() => ({})),
 }));
 
 const { summaryRoutes } = await import('../summary-routes.js');

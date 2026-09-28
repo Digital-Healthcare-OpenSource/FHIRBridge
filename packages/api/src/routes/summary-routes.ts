@@ -18,7 +18,11 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import type { Bundle } from '@fhirbridge/types';
 import type { ApiConfig } from '../config.js';
-import { SummaryService, type SummaryRequestOptions } from '../services/summary-service.js';
+import {
+  SummaryService,
+  summaryAiSettings,
+  type SummaryRequestOptions,
+} from '../services/summary-service.js';
 import type { ExportService } from '../services/export-service.js';
 import { requireScope } from '../plugins/auth-plugin.js';
 import { postSummaryGenerateSchema, getSummaryDownloadSchema } from '../schemas/summary-schemas.js';
@@ -52,7 +56,14 @@ export async function summaryRoutes(
   fastify: FastifyInstance,
   opts: SummaryRoutesOpts,
 ): Promise<void> {
-  const summaryService = opts.summaryService ?? new SummaryService();
+  const summaryService =
+    opts.summaryService ??
+    new SummaryService(
+      undefined,
+      undefined,
+      opts.config.hmacSecret,
+      summaryAiSettings(opts.config),
+    );
   // AI_PROVIDER (anthropic|openai) chọn provider mặc định khi request không chỉ định.
   const defaultProvider: 'claude' | 'openai' =
     opts.config.aiProvider === 'openai' ? 'openai' : 'claude';

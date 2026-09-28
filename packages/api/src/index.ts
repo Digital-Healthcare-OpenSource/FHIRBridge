@@ -22,7 +22,7 @@ import { RedisStore } from './services/redis-store.js';
 import { PostgresAuditSink } from './services/postgres-audit-sink.js';
 import { AuditService, ConsoleAuditSink } from './services/audit-service.js';
 import { ExportService } from './services/export-service.js';
-import { SummaryService } from './services/summary-service.js';
+import { SummaryService, summaryAiSettings } from './services/summary-service.js';
 
 export { createServer } from './server.js';
 export { loadConfig } from './config.js';
@@ -57,6 +57,7 @@ export async function startServer(): Promise<void> {
     redisStore ?? undefined,
     auditService,
     config.hmacSecret,
+    summaryAiSettings(config),
   );
 
   // ── 5. Server ─────────────────────────────────────────────────────────────────

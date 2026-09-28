@@ -37,6 +37,8 @@ export interface StreamRowsOptions {
   sheet?: string;
   /** Called once with the header row's column names */
   onHeaders?: (headers: string[]) => void;
+  /** CSV only: data-row ceiling (default 1,000,000, same as the Excel workbook ceiling) */
+  maxRows?: number;
 }
 
 /**

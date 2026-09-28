@@ -60,8 +60,9 @@ docker compose --profile demo up --build     # → http://localhost:8080
 
 ### 첫 내보내기 (두 방법 공통)
 
-1. **http://localhost:8080** → **설정(Settings)** 에서 설정 단계가 출력한 API 키(`.env`의
-   `API_KEYS`에도 있음)를 붙여 넣고 **설정 저장**을 누릅니다. 키는 브라우저 메모리에만 보관됩니다.
+1. **http://localhost:8080** → **설정(Settings)** 에서 API 키(`.env` 파일의 `API_KEYS=` 줄의 값 —
+   보안을 위해 설정 단계는 키를 화면에 출력하지 않습니다)를 붙여 넣고 **설정 저장**을 누릅니다.
+   키는 브라우저 메모리에만 보관됩니다.
 2. 언어 전환 메뉴에서 표시 언어(한국어 / English / 日本語 / Tiếng Việt)를 선택합니다.
 3. **데이터 내보내기** → **FHIR Endpoint** → 서버 URL 입력
    - `pnpm demo`: `http://localhost:8090/fhir`
@@ -72,7 +73,7 @@ docker compose --profile demo up --build     # → http://localhost:8080
    만든 FHIR 번들 다운로드.
 
 설치 상태는 언제든 `pnpm smoke`로 확인할 수 있습니다(상태 확인 → HIS 연결 → 내보내기 → 다운로드,
-Docker 데모: `node scripts/smoke-test.mjs --his http://demo-his:8090/fhir`).
+Docker 데모: `pnpm smoke --his http://demo-his:8090/fhir`).
 
 ### 실제 병원 HIS 연결
 

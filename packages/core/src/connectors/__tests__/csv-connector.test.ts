@@ -319,4 +319,15 @@ describe('CsvConnector.streamRows (raw rows for the canonical importer)', () => 
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('stops at the row ceiling with ROW_LIMIT instead of transforming every row', async () => {
+    const connector = new CsvConnector();
+    await connector.connect({ type: 'csv', filePath: PATIENTS_CSV });
+    const seen: number[] = [];
+    await expect(async () => {
+      for await (const row of connector.streamRows({ maxRows: 3 })) seen.push(row.rowNumber);
+    }).rejects.toMatchObject({ code: 'ROW_LIMIT' });
+    expect(seen).toHaveLength(3);
+    await connector.disconnect();
+  });
 });

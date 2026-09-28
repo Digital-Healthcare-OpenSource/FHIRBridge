@@ -4,8 +4,9 @@
  * mapping part handling, content sniffing, no cell contents in errors, temp cleanup.
  */
 
-import { readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -216,9 +217,6 @@ async function upload(parts: Part[]) {
   });
 }
 
-const tempImports = () =>
-  readdirSync(tmpdir()).filter((f) => f.startsWith('fhirbridge-import-')).length;
-
 describe('File upload — mapping part and content sniffing', () => {
   it('a traversal filename on the mapping part is never used as a path', async () => {
     const res = await upload([
@@ -276,16 +274,26 @@ describe('File upload — mapping part and content sniffing', () => {
   });
 
   it('temp upload files are removed after success and failure (no PHI at rest)', async () => {
-    const before = tempImports();
-    await upload([
-      { name: 'file', filename: 'p.csv', value: VALID_CSV },
-      { name: 'mapping', value: MAPPING },
-    ]);
-    await upload([{ name: 'file', filename: 'p.csv', value: VALID_CSV }]);
-    await upload([
-      { name: 'file', filename: 'x.xlsx', value: VALID_CSV },
-      { name: 'mapping', value: MAPPING },
-    ]);
-    expect(tempImports()).toBe(before);
+    // Private temp root: the shared OS temp dir also sees uploads from test files
+    // running in parallel, which made a before/after count racy.
+    const privateTmp = mkdtempSync(join(tmpdir(), 'fhirbridge-upload-test-'));
+    const savedTmp = process.env['TMPDIR'];
+    process.env['TMPDIR'] = privateTmp;
+    try {
+      await upload([
+        { name: 'file', filename: 'p.csv', value: VALID_CSV },
+        { name: 'mapping', value: MAPPING },
+      ]);
+      await upload([{ name: 'file', filename: 'p.csv', value: VALID_CSV }]);
+      await upload([
+        { name: 'file', filename: 'x.xlsx', value: VALID_CSV },
+        { name: 'mapping', value: MAPPING },
+      ]);
+      expect(readdirSync(privateTmp)).toEqual([]);
+    } finally {
+      if (savedTmp === undefined) delete process.env['TMPDIR'];
+      else process.env['TMPDIR'] = savedTmp;
+      rmSync(privateTmp, { recursive: true, force: true });
+    }
   });
 });

@@ -4,9 +4,8 @@
  *   POST /api/v1/connectors/import  — upload CSV/Excel + column mapping (multipart) → FHIR Bundle
  */
 
-import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { unlink } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import type { Readable } from 'node:stream';
@@ -187,134 +186,144 @@ export async function connectorRoutes(
         });
       }
 
-      // Temp file tên ngẫu nhiên — không bao giờ dùng filename của client làm path
-      const tempFile = join(tmpdir(), `fhirbridge-import-${randomUUID()}.tmp`);
-      try {
-        let mappingText: string | undefined;
-        let sheet: string | undefined;
-        let uploadedFilename = '';
-        let uploadedMimetype = '';
-        let hasFile = false;
-        // Lỗi client ghi lại rồi tiếp tục drain các part còn lại — không bỏ dở stream multipart
-        let partError: ImportRequestError | undefined;
+      // Thư mục tạm riêng (mkdtemp → 0700, tên ngẫu nhiên) + file ghi độc quyền 0600 —
+      // không bao giờ dùng filename của client làm path, không đoán/chiếm được từ user khác.
+      const tempDir = await mkdtemp(join(tmpdir(), 'fhirbridge-import-'));
+      const tempFile = join(tempDir, 'upload.tmp');
+      const respond = (statusCode: number, body: unknown) => ({ statusCode, body });
+      const response = await (async () => {
+        try {
+          let mappingText: string | undefined;
+          let sheet: string | undefined;
+          let uploadedFilename = '';
+          let uploadedMimetype = '';
+          let hasFile = false;
+          // Lỗi client ghi lại rồi tiếp tục drain các part còn lại — không bỏ dở stream multipart
+          let partError: ImportRequestError | undefined;
 
-        for await (const part of request.parts()) {
-          if (part.type === 'file') {
-            if (partError) {
-              part.file.resume();
-            } else if (part.fieldname === IMPORT_FIELDS.mapping) {
-              try {
-                mappingText = await readLimited(part.file, MAX_MAPPING_BYTES);
-              } catch (err) {
-                if (!(err instanceof ImportRequestError)) throw err;
-                partError = err;
+          for await (const part of request.parts()) {
+            if (part.type === 'file') {
+              if (partError) {
+                part.file.resume();
+              } else if (part.fieldname === IMPORT_FIELDS.mapping) {
+                try {
+                  mappingText = await readLimited(part.file, MAX_MAPPING_BYTES);
+                } catch (err) {
+                  if (!(err instanceof ImportRequestError)) throw err;
+                  partError = err;
+                }
+              } else if (part.fieldname === IMPORT_FIELDS.file && !hasFile) {
+                hasFile = true;
+                uploadedFilename = part.filename ?? '';
+                uploadedMimetype = part.mimetype ?? '';
+                await streamPipeline(
+                  part.file,
+                  createWriteStream(tempFile, { flags: 'wx', mode: 0o600 }),
+                );
+              } else {
+                part.file.resume();
+                partError = new ImportRequestError(
+                  400,
+                  part.fieldname === IMPORT_FIELDS.file
+                    ? 'Only one "file" part is allowed per import'
+                    : `Unexpected file field "${part.fieldname}" — send the data file as "file" and the mapping as "mapping"`,
+                );
               }
-            } else if (part.fieldname === IMPORT_FIELDS.file && !hasFile) {
-              hasFile = true;
-              uploadedFilename = part.filename ?? '';
-              uploadedMimetype = part.mimetype ?? '';
-              await streamPipeline(part.file, createWriteStream(tempFile));
-            } else {
-              part.file.resume();
-              partError = new ImportRequestError(
-                400,
-                part.fieldname === IMPORT_FIELDS.file
-                  ? 'Only one "file" part is allowed per import'
-                  : `Unexpected file field "${part.fieldname}" — send the data file as "file" and the mapping as "mapping"`,
-              );
+            } else if (part.fieldname === IMPORT_FIELDS.mapping) {
+              if (part.valueTruncated) {
+                partError ??= new ImportRequestError(
+                  413,
+                  'Mapping field exceeds the server field-size limit',
+                );
+              } else {
+                mappingText = String(part.value);
+              }
+            } else if (part.fieldname === IMPORT_FIELDS.sheet && String(part.value).trim()) {
+              sheet = String(part.value).trim();
             }
-          } else if (part.fieldname === IMPORT_FIELDS.mapping) {
-            if (part.valueTruncated) {
-              partError ??= new ImportRequestError(
-                413,
-                'Mapping field exceeds the server field-size limit',
-              );
-            } else {
-              mappingText = String(part.value);
-            }
-          } else if (part.fieldname === IMPORT_FIELDS.sheet && String(part.value).trim()) {
-            sheet = String(part.value).trim();
           }
-        }
 
-        if (partError) throw partError;
-        if (!hasFile) {
-          throw new ImportRequestError(
-            400,
-            'No file uploaded — send the CSV/.xlsx as the multipart field "file"',
-          );
-        }
+          if (partError) throw partError;
+          if (!hasFile) {
+            throw new ImportRequestError(
+              400,
+              'No file uploaded — send the CSV/.xlsx as the multipart field "file"',
+            );
+          }
 
-        // Phát hiện loại file từ MIME + extension
-        const fileType = detectFileType(uploadedFilename, uploadedMimetype);
-        if (!fileType) {
-          return reply.status(400).send({
-            statusCode: 400,
-            error: 'Bad Request',
-            message: `Unsupported file type '${uploadedMimetype}' (filename: '${uploadedFilename}'). Use .csv, .xlsx, or .xls`,
+          // Phát hiện loại file từ MIME + extension
+          const fileType = detectFileType(uploadedFilename, uploadedMimetype);
+          if (!fileType) {
+            return respond(400, {
+              statusCode: 400,
+              error: 'Bad Request',
+              message: `Unsupported file type '${uploadedMimetype}' (filename: '${uploadedFilename}'). Use .csv or .xlsx (legacy .xls is not supported — save it as .xlsx)`,
+            });
+          }
+
+          if (mappingText === undefined || mappingText.trim() === '') {
+            throw new ImportRequestError(400, MAPPING_REQUIRED_MESSAGE);
+          }
+          const mapping: ImportMapping = parseMappingConfig(mappingText);
+
+          const hmacSecret = opts.hmacSecret ?? process.env['HMAC_SECRET'];
+          const result = await importTabularFile({
+            filePath: tempFile,
+            fileType,
+            mapping,
+            maxResources: MAX_IMPORT_RESOURCES,
+            ...(sheet ? { sheet } : {}),
+            ...(hmacSecret ? { rrnSecret: hmacSecret } : {}),
           });
-        }
 
-        if (mappingText === undefined || mappingText.trim() === '') {
-          throw new ImportRequestError(400, MAPPING_REQUIRED_MESSAGE);
-        }
-        const mapping: ImportMapping = parseMappingConfig(mappingText);
+          const warnings = result.issues.slice(0, MAX_IMPORT_WARNINGS).map(formatImportIssue);
+          const summary = {
+            resourcesByType: result.stats.resourcesByType,
+            rowsRead: result.stats.rowsRead,
+            warnings,
+            warningCount: result.issues.length,
+            ...(mapping.notices.length > 0 ? { mappingNotices: mapping.notices } : {}),
+          };
 
-        const hmacSecret = opts.hmacSecret ?? process.env['HMAC_SECRET'];
-        const result = await importTabularFile({
-          filePath: tempFile,
-          fileType,
-          mapping,
-          maxResources: MAX_IMPORT_RESOURCES,
-          ...(sheet ? { sheet } : {}),
-          ...(hmacSecret ? { rrnSecret: hmacSecret } : {}),
-        });
+          if (result.resourceCount === 0) {
+            throw new ImportRequestError(
+              422,
+              `No FHIR resources were produced from ${result.stats.rowsRead} row(s). ` +
+                'Check that the mapping columns match the file header (see "warnings").',
+              summary,
+            );
+          }
 
-        const warnings = result.issues.slice(0, MAX_IMPORT_WARNINGS).map(formatImportIssue);
-        const summary = {
-          resourcesByType: result.stats.resourcesByType,
-          rowsRead: result.stats.rowsRead,
-          warnings,
-          warningCount: result.issues.length,
-          ...(mapping.notices.length > 0 ? { mappingNotices: mapping.notices } : {}),
-        };
-
-        if (result.resourceCount === 0) {
-          throw new ImportRequestError(
-            422,
-            `No FHIR resources were produced from ${result.stats.rowsRead} row(s). ` +
-              'Check that the mapping columns match the file header (see "warnings").',
-            summary,
-          );
-        }
-
-        return reply.status(200).send({
-          message: 'Import complete',
-          resourceCount: result.resourceCount,
-          ...summary,
-          bundle: result.bundle,
-        });
-      } catch (err) {
-        const clientError = toRequestError(err);
-        if (clientError) {
-          return reply.status(clientError.statusCode).send({
-            statusCode: clientError.statusCode,
-            error: STATUS_TEXT[clientError.statusCode] ?? 'Bad Request',
-            message: clientError.message,
-            ...clientError.extra,
+          return respond(200, {
+            message: 'Import complete',
+            resourceCount: result.resourceCount,
+            ...summary,
+            bundle: result.bundle,
           });
+        } catch (err) {
+          const clientError = toRequestError(err);
+          if (clientError) {
+            return respond(clientError.statusCode, {
+              statusCode: clientError.statusCode,
+              error: STATUS_TEXT[clientError.statusCode] ?? 'Bad Request',
+              message: clientError.message,
+              ...clientError.extra,
+            });
+          }
+          // Log server-side để chẩn đoán — message trả client giữ generic (không leak chi tiết).
+          request.log.error({ err }, 'File import processing failed');
+          return respond(500, {
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'File import processing failed',
+          });
+        } finally {
+          // Cleanup temp dir + file BEFORE replying — privacy: once the client has its
+          // answer, no uploaded PHI is left on disk.
+          await rm(tempDir, { recursive: true, force: true }).catch(() => {});
         }
-        // Log server-side để chẩn đoán — message trả client giữ generic (không leak chi tiết).
-        request.log.error({ err }, 'File import processing failed');
-        return reply.status(500).send({
-          statusCode: 500,
-          error: 'Internal Server Error',
-          message: 'File import processing failed',
-        });
-      } finally {
-        // Cleanup temp file — privacy: no PHI persisted
-        await unlink(tempFile).catch(() => {});
-      }
+      })();
+      return reply.status(response.statusCode).send(response.body);
     },
   );
 }

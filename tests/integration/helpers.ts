@@ -9,6 +9,10 @@ import type { FastifyInstance } from 'fastify';
 import { createServer } from '../../packages/api/src/server.js';
 import type { ApiConfig } from '../../packages/api/src/config.js';
 
+// The summary route accepts jobs because TEST_CONFIG carries a (fake) provider key;
+// point the SDK at a closed local port so no test ever calls the real provider API.
+process.env['ANTHROPIC_BASE_URL'] ??= 'http://127.0.0.1:9';
+
 export const TEST_JWT_SECRET = 'test-jwt-secret-for-testing-only-min32chars';
 export const TEST_HMAC_SECRET = 'test-hmac-secret-for-testing-only-min32ch';
 

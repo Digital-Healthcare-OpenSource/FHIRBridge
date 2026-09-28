@@ -20,11 +20,11 @@ export const ROUTES = {
 
 export const POLLING_INTERVAL_MS = 2000;
 export const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
-// Data files the import API converts (it rejects anything else).
+// Data files the import API converts (it rejects anything else, incl. legacy .xls).
+// A .csv that Windows browsers label application/vnd.ms-excel still matches by extension.
 export const ACCEPTED_FILE_TYPES = {
   'text/csv': ['.csv'],
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'application/vnd.ms-excel': ['.xls'],
 };
 
 /** Mapping format guide (examples/README.md). */

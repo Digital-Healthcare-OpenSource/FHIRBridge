@@ -7,4 +7,8 @@ useDefault = true
 
 [allowlist]
 description = "Placeholder API keys used in unit-test fixtures (incl. deleted files still in git history)"
-regexes = ['''(valid-)?test-api-key-\d+''']
+regexes = [
+  '''(valid-)?test-api-key-\d+''',
+  # RRN-hashing fixture secret from row-transformer tests (still in PR #122 history).
+  '''secret-for-tests-0123456789abcdef''',
+]

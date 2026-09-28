@@ -49,7 +49,7 @@
   "dropzone": {
     "instruction": "Kéo thả hoặc nhấn để tải lên",
     "drop_here": "Thả tệp vào đây",
-    "hint": "CSV, XLSX hoặc XLS · tối đa {{size}}",
+    "hint": "CSV hoặc XLSX · tối đa {{size}}",
     "input_label": "Tải tệp lên",
     "remove_label": "Xóa tệp"
   },

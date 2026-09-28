@@ -49,7 +49,7 @@
   "dropzone": {
     "instruction": "ドラッグ＆ドロップ、またはクリックしてアップロード",
     "drop_here": "ここにファイルをドロップ",
-    "hint": "CSV、XLSX または XLS · 最大 {{size}}",
+    "hint": "CSV または XLSX · 最大 {{size}}",
     "input_label": "ファイルアップロード",
     "remove_label": "ファイルを削除"
   },

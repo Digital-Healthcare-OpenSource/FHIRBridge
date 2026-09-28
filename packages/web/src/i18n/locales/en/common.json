@@ -50,7 +50,7 @@
   "dropzone": {
     "instruction": "Drag & drop or click to upload",
     "drop_here": "Drop the file here",
-    "hint": "CSV, XLSX or XLS · max {{size}}",
+    "hint": "CSV or XLSX · max {{size}}",
     "input_label": "File upload",
     "remove_label": "Remove file"
   },

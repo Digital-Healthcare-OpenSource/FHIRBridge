@@ -49,7 +49,7 @@
   "dropzone": {
     "instruction": "드래그 앤 드롭하거나 클릭하여 업로드",
     "drop_here": "여기에 파일을 놓으세요",
-    "hint": "CSV, XLSX 또는 XLS · 최대 {{size}}",
+    "hint": "CSV 또는 XLSX · 최대 {{size}}",
     "input_label": "파일 업로드",
     "remove_label": "파일 제거"
   },

@@ -7,43 +7,29 @@
  *   pnpm smoke                   # in another (defaults match `pnpm demo`)
  *
  *   # Docker: docker compose --profile demo up -d --build
- *   node scripts/smoke-test.mjs --his http://demo-his:8090/fhir
+ *   pnpm smoke --his http://demo-his:8090/fhir
+ *
+ * `pnpm smoke` runs `node --env-file=.env …`, so the API key (API_KEYS) and
+ * WEB_PORT come from the environment — the script itself never reads .env.
  *
  * Options (all optional):
  *   --url <base>        web/API origin            (default http://127.0.0.1:${WEB_PORT:-8080})
  *   --his <fhir base>   FHIR server to export from (default http://localhost:8090/fhir)
  *   --patient <id>      patient to export          (default demo-vn-001)
- *   --key <api key>     API key                    (default: first entry of API_KEYS in .env)
+ *   --key <api key>     API key                    (default: first entry of API_KEYS)
  *
  * Exits non-zero with a readable message on the first failing step.
  */
-
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-function readDotenv(file) {
-  if (!existsSync(file)) return {};
-  const vars = {};
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-    if (match) vars[match[1]] = match[2];
-  }
-  return vars;
-}
 
 function arg(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
   return index > -1 && process.argv[index + 1] ? process.argv[index + 1] : fallback;
 }
 
-const dotenv = readDotenv(join(ROOT, '.env'));
-const BASE = arg('url', `http://127.0.0.1:${process.env.WEB_PORT || dotenv.WEB_PORT || 8080}`);
+const BASE = arg('url', `http://127.0.0.1:${process.env.WEB_PORT || 8080}`);
 const HIS = arg('his', 'http://localhost:8090/fhir');
 const PATIENT = arg('patient', 'demo-vn-001');
-const KEY = arg('key', (process.env.API_KEYS || dotenv.API_KEYS || '').split(',')[0].trim());
+const KEY = arg('key', (process.env.API_KEYS || '').split(',')[0].trim());
 
 const API = `${BASE.replace(/\/+$/, '')}/api/v1`;
 
@@ -71,7 +57,12 @@ async function call(step, path, init = {}) {
   }
 }
 
-if (!KEY) fail('setup', 'no API key — run `pnpm run setup` or pass --key');
+if (!KEY) {
+  fail(
+    'setup',
+    'no API key — run `pnpm smoke` (loads .env; create it with `pnpm run setup`) or pass --key',
+  );
+}
 
 const health = await call('health', '/health');
 console.log(`✔ health: ${health.status} (version ${health.version})`);
