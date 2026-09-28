@@ -1,6 +1,6 @@
 {
   "$schema": "./mapping.schema.json",
-  "description": "Korean hospital CSV, one row per encounter, keyed by the hospital patient number (환자ID) with the resident registration number (주민등록번호, RRN) as a second identifier. PIPA: the RRN is HMAC-hashed at import when HMAC_SECRET is set, otherwise masked as ######-******* — a raw RRN never reaches the output. Diagnosis codes are emitted under the WHO ICD-10 URI; KCD-specific extension codes have no registered FHIR URI in FHIRBridge, so review them before exchange. Times are KST (+09:00). Sample data: examples/data/kr-hospital.csv.",
+  "description": "Korean hospital CSV, one row per encounter, keyed by the hospital patient number (환자ID) with the resident registration number (주민등록번호, RRN) as a second identifier. PIPA: the RRN is HMAC-hashed at import when HMAC_SECRET is set, otherwise masked as ######-******* — a raw RRN never reaches the output. Diagnosis codes are emitted under the WHO ICD-10 URI; KCD-specific extension codes have no registered FHIR URI in FHIRBridge, so review them before exchange. Times are KST (+09:00). patientId.system is a placeholder: KR Core (HL7 Korea) requires Patient.identifier.system but defines no URI for a hospital patient number, so use your hospital's own identifier system URI. Sample data: examples/data/kr-hospital.csv.",
   "patientId": {
     "column": "환자ID",
     "system": "https://fhirbridge.example/identifiers/kr-hospital-mrn"

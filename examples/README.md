@@ -24,6 +24,17 @@ All names, IDs and RRNs in `data/` are fictitious placeholders (Nguyễn Văn A,
 protection is exercised — they belong to no one. `data/jp-clinic.xlsx` is generated
 by `node examples/data/generate-jp-clinic-xlsx.cjs`.
 
+### Identifier systems (`patientId.system`)
+
+`Patient.identifier.system` tells a receiving system _which_ numbering a patient ID belongs to.
+The examples use the published national conventions where one exists:
+
+| Country | `system` used in the example                                                   | Source                                                                                                                                                                                                                                                                                                                                  |
+| ------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vietnam | `http://fhir.ehealth.gov.vn/core/sid/national_id` (CCCD)                       | HL7 Vietnam VN Core IG — status **draft**, publisher Cục Công nghệ thông tin – Bộ Y tế ([NamingSystem SID-National-Id](https://github.com/hl7vn/vn-core-ig/blob/main/input/resources/NamingSystem.sid-national-id.xml)). The same IG defines `…/sid/insurance_number` (BHYT) and `…/sid/patient-internal-id` (hospital patient number). |
+| Japan   | `urn:oid:1.2.392.100495.20.3.51.` + `1` + the clinic's 10-digit 医療機関コード | JP Core [JP_Patient](https://github.com/jami-fhir-jp-wg/jp-core-v1x/blob/main/input/fsh/profiles/JP_Patient.fsh). The example uses JP Core's own example code `1312345670` → `urn:oid:1.2.392.100495.20.3.51.11312345670`; **replace it with your clinic's code**.                                                                      |
+| Korea   | placeholder `https://fhirbridge.example/identifiers/kr-hospital-mrn`           | KR Core [KRCore_Patient](https://github.com/hl7korea/krocre/blob/main/input/fsh/profiles/KRCore_Patient.fsh) requires `identifier.system` but defines no URI for a hospital patient number — use your hospital's own URI.                                                                                                               |
+
 ## Running the examples
 
 ### CLI

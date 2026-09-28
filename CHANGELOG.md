@@ -82,9 +82,14 @@ All notable changes to FHIRBridge are documented here. The format follows
   missing instead of silently falling back to `JWT_SECRET`.
 - Repository links point to `Digital-Healthcare-OpenSource/FHIRBridge`.
 - The import API requires a column mapping (part `mapping`, text or file) and returns
-  `resourcesByType`, `rowsRead` and `warnings` alongside the bundle. Example identifier systems
-  that could not be verified (a `vneid.gov.vn` URL, a Japanese OID) were replaced by clearly
-  marked placeholders; WHO ICD-10 (`http://hl7.org/fhir/sid/icd-10`) is now a known code system.
+  `resourcesByType`, `rowsRead` and `warnings` alongside the bundle. WHO ICD-10
+  (`http://hl7.org/fhir/sid/icd-10`) is now a known code system.
+- Example patient identifier systems follow the published national conventions: Vietnam uses
+  the CCCD system of the HL7 Vietnam VN Core IG (draft), Japan the JP Core per-institution OID
+  (`urn:oid:1.2.392.100495.20.3.51.1<医療機関コード>`); Korea keeps a marked placeholder because
+  KR Core defines no URI for a hospital patient number. Sources are linked in
+  `examples/README.md`. (Unverifiable values used earlier — a `vneid.gov.vn` URL and a Japanese
+  OID — are gone.)
 - Web UI no longer loads Google Fonts (privacy, offline hospital networks, no CJK glyphs); it
   uses a system font stack covering Latin, Vietnamese, Korean and Japanese.
 - Settings page: the credential field is clearly the FHIRBridge API key / token; the unused
