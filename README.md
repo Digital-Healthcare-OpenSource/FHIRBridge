@@ -1,8 +1,8 @@
 <p align="center">
   <h1 align="center">FHIRBridge</h1>
   <p align="center">
-    <strong>Open-source patient data portability for hospitals and clinics</strong><br/>
-    Self-host. Pull from your HIS. Export FHIR R4. Generate AI summaries. Zero PHI persisted.
+    <strong>Your hospital's patient data, portable. Self-hosted FHIR R4, zero PHI at rest.</strong><br/>
+    Open-source and self-hosted: pull from your HIS, export FHIR R4, generate optional de-identified AI summaries.
   </p>
   <p align="center">
     <b>English</b> &bull;
@@ -25,7 +25,7 @@
 
 ## What it is
 
-Patient medical records are locked inside hospital information systems (HIS). In Vietnam, 34M+ VneID records lack portability. In Japan, data is siloed per facility with limited interoperability. **FHIRBridge** is the bridge: connect to any HIS via FHIR API or CSV/Excel, transform into standardized FHIR R4 bundles, and (optionally) generate de-identified AI summaries — all running on your own infrastructure.
+Patient medical records are locked inside hospital information systems (HIS). In Vietnam, records tied to national identifiers (VneID) are hard to move between facilities. In Japan, data is siloed per facility with limited interoperability. **FHIRBridge** is the bridge: connect to any HIS via FHIR API or CSV/Excel, transform into standardized FHIR R4 bundles, and (optionally) generate de-identified AI summaries — all running on your own infrastructure.
 
 **No SaaS. No hosted tier. No billing. No quotas.** You pull the repo, you run it. The hospital, clinic, or research group is the operator and the data controller.
 
@@ -473,6 +473,19 @@ security issues privately as described in [SECURITY.md](.github/SECURITY.md).
 ```bash
 pnpm build && pnpm test && pnpm typecheck && pnpm lint
 ```
+
+## Marketing & community
+
+FHIRBridge is free, MIT-licensed open-source software. There is no hosted service and no paid tier.
+
+| Looking for                          | Where                                                                                                                 |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Questions, ideas, deployment stories | [GitHub Discussions](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/discussions)                         |
+| Releases and changelog               | [GitHub Releases](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases), [CHANGELOG.md](CHANGELOG.md) |
+
+Planned (not yet active): a GitHub Pages landing page, a post on chat.fhir.org, and the
+FHIR and HL7 community channels. Translation review for Korean and Japanese is especially
+welcome; see [Contributing](#contributing).
 
 ## License
 
