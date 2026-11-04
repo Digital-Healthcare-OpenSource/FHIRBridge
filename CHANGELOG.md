@@ -6,6 +6,35 @@ All notable changes to FHIRBridge are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-04
+
+Security patch release. The 0.3.0 container images were never published: the image scan gate
+blocked them because of the transitive dependency advisories below. Upgrade from 0.3.0 if you
+built it from source.
+
+### Security
+
+- **`fast-jwt` → 6.3.6** (via `@fastify/jwt`). Fixes a CRITICAL incomplete patch of an earlier
+  advisory and HIGH issues including `createVerifier` accepting unsigned JWTs for some key
+  configurations, a silent claim-validator bypass, and a public JWK being treated as an HMAC secret.
+  These affect API authentication.
+- **`zod` → 4.6.6** (runtime): memory exhaustion while validating oversized constrained collections.
+- **`@fastify/busboy` → 3.2.1** (multipart uploads): two denial-of-service issues.
+- **`fast-uri` → 3.1.7 / 4.1.4**: authority injection via an unvalidated port.
+- **`brace-expansion` → 1.1.20 / 2.1.6 / 5.0.11**: denial of service.
+- Build and test tooling: `vite` 6.4.4 / 7.3.7, `tinypool` 2.1.2, `nanoid` 3.3.18,
+  `browserslist` 4.28.7, `source-map-js` 1.2.2, `js-yaml` 4.3.2.
+
+All fixes are `pnpm.overrides` bumps; no application code changed. `pnpm audit --audit-level high`
+reports no high or critical advisories.
+
+### Fixed (since the 0.3.0 changelog cut, already on `main`)
+
+- SSRF hardening in `fhir-http-client`: connect to the already-validated IP; the hostname is used
+  only for TLS SNI and the Host header.
+- ReDoS in base-URL trailing-slash trimming; log injection (CR/LF) in export error logging;
+  predictable temp paths in file-writer tests.
+
 ## [0.3.0] - 2026-09-28
 
 "Runs out of the box" release: one-command setup and Docker run with a synthetic Demo HIS, a
@@ -184,6 +213,7 @@ documentation, schema-migration runner, revived security and Playwright suites, 
 and dependency hardening. See the
 [release notes](https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0).
 
-[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Digital-Healthcare-OpenSource/FHIRBridge/releases/tag/v0.2.0
